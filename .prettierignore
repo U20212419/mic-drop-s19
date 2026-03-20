@@ -1,0 +1,12 @@
+# Ignore frontend build artifacts
+.next/
+build/
+node_modules/
+
+# Ignore backend
+apps/md-backend/**/*.java
+apps/md-backend/target/
+
+# Lock
+pnpm-lock.yaml
+package-lock.json

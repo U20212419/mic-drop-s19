@@ -1,0 +1,24 @@
+{
+  "configurations": [
+    {
+      "type": "node-terminal",
+      "name": "Dev: Frontend",
+      "request": "launch",
+      "command": "pnpm --filter md-frontend dev",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "java",
+      "name": "Dev: Backend",
+      "request": "launch",
+      "mainClass": "com.twokb.micdrop.MicdropApplication",
+      "projectName": "md-backend"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Dev: Fullstack",
+      "configurations": ["Dev: Frontend", "Dev: Backend"]
+    }
+  ]
+}
