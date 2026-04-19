@@ -40,7 +40,7 @@ public class DiscordEventListener extends ListenerAdapter {
 			String discordId = event.getUserId();
 			String username = event.getUser().getName();
 
-			discordUserService.registerUser(discordId, username);
+			discordUserService.registerContestant(discordId, username);
 
 			// Add contestant role to user in Discord
 			systemSettingsRepository.findById("contestant_role_id").ifPresent(roleSettings -> {
@@ -76,7 +76,7 @@ public class DiscordEventListener extends ListenerAdapter {
 
 			String discordId = event.getUserId();
 
-			if (discordUserService.unregisterUser(discordId)) {
+			if (discordUserService.unregisterContestant(discordId)) {
 				systemSettingsRepository.findById("contestant_role_id").ifPresent(roleSettings -> {
 					String contestantRoleId = roleSettings.getValue();
 

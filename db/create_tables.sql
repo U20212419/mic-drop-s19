@@ -4,13 +4,16 @@ DROP TABLE IF EXISTS round CASCADE;
 DROP TABLE IF EXISTS discord_user CASCADE;
 DROP TABLE IF EXISTS system_setting CASCADE;
 
-DROP TYPE IF EXISTS contestant_status;
-DROP TYPE IF EXISTS user_role_type;
+DROP TYPE IF EXISTS contestant_status CASCADE;
+DROP TYPE IF EXISTS global_role_type CASCADE;
+DROP TYPE IF EXISTS user_role_type CASCADE;
 
-CREATE TYPE contestant_status AS ENUM ('active', 'inactive', 'eliminated');
+CREATE TYPE contestant_status AS ENUM ('active', 'inactive', 'eliminated', 'not_contestant');
+CREATE TYPE global_role_type AS ENUM ('admin', 'staff', 'user');
 CREATE TYPE user_role_type AS ENUM ('contestant', 'judge');
 
 CREATE CAST (varchar AS contestant_status) WITH INOUT AS IMPLICIT;
+CREATE CAST (varchar AS global_role_type) WITH INOUT AS IMPLICIT;
 CREATE CAST (varchar AS user_role_type) WITH INOUT AS IMPLICIT;
 
 -- -----------------------------------------------------
@@ -20,10 +23,12 @@ CREATE TABLE IF NOT EXISTS discord_user (
 	id_user SERIAL PRIMARY KEY,
 	discord_id VARCHAR(50) NOT NULL UNIQUE,
 	username VARCHAR(50) NOT NULL,
-	status contestant_status NULL
+	status contestant_status NULL,
+	global_role global_role_type NOT NULL
 );
 
 CREATE INDEX idx_discord_user_status ON discord_user (status);
+CREATE INDEX idx_discord_user_global_role ON discord_user (global_role);
 
 -- -----------------------------------------------------
 -- Table `round`

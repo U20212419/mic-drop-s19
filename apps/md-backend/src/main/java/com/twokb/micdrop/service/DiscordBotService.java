@@ -31,7 +31,7 @@ public class DiscordBotService {
 			});
 		}
 		else {
-			throw new IllegalArgumentException("Channel with ID " + channelId + " not found");
+			throw new IllegalArgumentException("Channel with ID " + channelId + " not found.");
 		}
 	}
 

@@ -29,4 +29,7 @@ public class DiscordUser {
 	@Column(name = "status", nullable = false)
 	private ContestantStatus status;
 
+	@Column(name = "global_role", nullable = false)
+	private GlobalRoleType globalRole;
+
 }
