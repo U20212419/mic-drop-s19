@@ -24,58 +24,93 @@ public class DiscordUserService {
 
 	// Register a new user from the management page
 	@Transactional
-	public void registerUser(String discordId, String username, GlobalRoleType globalRole) {
-		discordUserRepository.findByDiscordId(discordId).ifPresentOrElse(user -> {
+	public DiscordUser registerUser(String discordId, String username, GlobalRoleType globalRole) {
+		discordUserRepository.findByDiscordId(discordId).ifPresent(user -> {
 			// User already registered
 			throw new IllegalArgumentException("User with Discord ID " + discordId + " is already registered.");
-		}, () -> {
-			// New user: create user
-			var user = new DiscordUser();
-			user.setDiscordId(discordId);
-			user.setUsername(username);
-			// Manually registered users can't participate as contestants
-			user.setStatus(ContestantStatus.NOT_CONTESTANT);
-			user.setGlobalRole(globalRole);
-			discordUserRepository.save(user);
 		});
+
+		// New user: create user
+		var user = new DiscordUser();
+		user.setDiscordId(discordId);
+		user.setUsername(username);
+		// Manually registered users can't participate as contestants
+		user.setStatus(ContestantStatus.NOT_CONTESTANT);
+		user.setGlobalRole(globalRole);
+		return discordUserRepository.save(user);
 	}
 
 	// Register a new user that reacts to the signup message to participate as contestant
 	@Transactional
-	public void registerContestant(String discordId, String username) {
-		discordUserRepository.findByDiscordId(discordId).ifPresentOrElse(user -> {
+	public DiscordUser registerContestant(String discordId, String username) {
+		return discordUserRepository.findByDiscordId(discordId).map(user -> {
 			// Change contestant status to ACTIVE if they were INACTIVE
 			if (user.getStatus() == ContestantStatus.INACTIVE) {
 				user.setStatus(ContestantStatus.ACTIVE);
 			}
-		}, () -> {
+			return user;
+		}).orElseGet(() -> {
 			// New user: create user with ACTIVE contestant status
-			var user = new DiscordUser();
+			DiscordUser user = new DiscordUser();
 			user.setDiscordId(discordId);
 			user.setUsername(username);
 			user.setStatus(ContestantStatus.ACTIVE);
 			user.setGlobalRole(GlobalRoleType.USER);
-			discordUserRepository.save(user);
+			return discordUserRepository.save(user);
 		});
 	}
 
 	@Transactional
-	public boolean unregisterContestant(String discordId) {
+	public DiscordUser unregisterContestant(String discordId) {
 		// Only allow unregistering if the user has not submitted any entries
 		if (submissionRepository.existsByContestant_User_DiscordId(discordId)) {
-			return false; // User has submissions, cannot unregister
+			throw new IllegalArgumentException(
+					"User with Discord ID " + discordId + " has submissions and cannot be unregistered.");
 		}
 
 		// Mark contestant as INACTIVE instead of deleting
 		return discordUserRepository.findByDiscordId(discordId).map(user -> {
 			user.setStatus(ContestantStatus.INACTIVE);
-			return true; // Successfully marked as INACTIVE
-		}).orElse(false); // User not found
+			return user;
+		}).orElseThrow(() -> new IllegalArgumentException("User with Discord ID " + discordId + " not found.")); // User
+																													// not
+																													// found
 	}
 
 	@Transactional
-	public void eliminateUser(String discordId) {
-		discordUserRepository.findByDiscordId(discordId).ifPresent(user -> user.setStatus(ContestantStatus.ELIMINATED));
+	public DiscordUser updateUser(Integer idUser, String discordId, String username, ContestantStatus status,
+			GlobalRoleType globalRole) {
+		DiscordUser user = discordUserRepository.findById(idUser)
+			.orElseThrow(() -> new IllegalArgumentException("User with ID " + idUser + " not found."));
+
+		// Check if the new Discord ID is already taken by another user
+		if (!user.getDiscordId().equals(discordId) && discordUserRepository.existsByDiscordId(discordId)) {
+			throw new IllegalArgumentException("Another user with Discord ID " + discordId + " already exists.");
+		}
+
+		user.setDiscordId(discordId);
+		user.setUsername(username);
+		user.setStatus(status);
+		user.setGlobalRole(globalRole);
+		return user;
+	}
+
+	@Transactional
+	public DiscordUser eliminateUser(String discordId) {
+		return discordUserRepository.findByDiscordId(discordId).map(user -> {
+			user.setStatus(ContestantStatus.ELIMINATED);
+			return user;
+		}).orElseThrow(() -> new IllegalArgumentException("User with Discord ID " + discordId + " not found."));
+	}
+
+	@Transactional
+	public void deleteUser(Integer idUser) {
+		DiscordUser user = discordUserRepository.findById(idUser)
+			.orElseThrow(() -> new IllegalArgumentException("User with ID " + idUser + " not found."));
+
+		// If the user is associated with any other records in the database,
+		// the global exception handler will catch the DataIntegrityViolationException
+		discordUserRepository.delete(user);
 	}
 
 	@Transactional(readOnly = true)
@@ -101,7 +136,7 @@ public class DiscordUserService {
 
 	@Transactional(readOnly = true)
 	public Set<Integer> getActiveUserIds() {
-		return discordUserRepository.findUserIdsByStatus(ContestantStatus.ACTIVE);
+		return discordUserRepository.findUserIdsByStatus(ContestantStatus.ACTIVE.name().toLowerCase());
 	}
 
 	@Transactional(readOnly = true)

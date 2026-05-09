@@ -25,7 +25,10 @@ public interface DiscordUserRepository extends JpaRepository<DiscordUser, Intege
 
 	boolean existsByStatus(ContestantStatus status);
 
-	@Query("SELECT u.idUser FROM DiscordUser u WHERE u.status = :status")
-	Set<Integer> findUserIdsByStatus(@Param("status") ContestantStatus status);
+	@Query(value = """
+			SELECT id_user FROM discord_user
+			WHERE status = CAST(:statusStr AS contestant_status)
+			""", nativeQuery = true)
+	Set<Integer> findUserIdsByStatus(@Param("statusStr") String statusStr);
 
 }

@@ -76,7 +76,9 @@ public class DiscordEventListener extends ListenerAdapter {
 
 			String discordId = event.getUserId();
 
-			if (discordUserService.unregisterContestant(discordId)) {
+			try {
+				discordUserService.unregisterContestant(discordId);
+
 				systemSettingsRepository.findById("contestant_role_id").ifPresent(roleSettings -> {
 					String contestantRoleId = roleSettings.getValue();
 
@@ -87,6 +89,10 @@ public class DiscordEventListener extends ListenerAdapter {
 					}
 				});
 
+			}
+			catch (IllegalArgumentException ex) {
+				// User has submissions and cannot be unregistered, ignore the reaction
+				// removal
 			}
 		});
 	}

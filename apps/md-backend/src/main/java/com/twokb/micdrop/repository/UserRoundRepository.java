@@ -29,4 +29,11 @@ public interface UserRoundRepository extends JpaRepository<UserRound, UserRoundI
 
 	Optional<UserRound> findById_UserIdAndRound_RoundNumber(Integer idUser, Integer roundNumber);
 
+	@Query(value = """
+			SELECT discord_user_id_user FROM user_round
+			WHERE round_id_round = :idRound
+			AND user_role = CAST(:userRoleStr AS user_role_type)
+			""", nativeQuery = true)
+	Set<Integer> findUserIdsByRoundAndRole(@Param("idRound") Integer idRound, @Param("userRoleStr") String userRoleStr);
+
 }

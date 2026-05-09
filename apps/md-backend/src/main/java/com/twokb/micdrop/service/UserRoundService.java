@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.twokb.micdrop.dto.RoundAssignmentsResponse;
 import com.twokb.micdrop.model.DiscordUser;
 import com.twokb.micdrop.model.UserRoleType;
 import com.twokb.micdrop.model.UserRound;
@@ -115,6 +116,7 @@ public class UserRoundService {
 			userRound.setUserRole(userRole);
 			return userRound;
 		}).toList();
+
 		userRoundRepository.saveAll(userRounds);
 	}
 
@@ -128,6 +130,57 @@ public class UserRoundService {
 		}
 
 		userRoundRepository.deleteById(id);
+	}
+
+	@Transactional
+	public RoundAssignmentsResponse syncRoundAssignments(Integer idRound, List<Integer> targetContestantIds,
+			List<Integer> targetJudgeIds) {
+		var round = roundService.getRound(idRound);
+		Integer roundNumber = round.getRoundNumber();
+
+		if (round.getActive()) {
+			throw new IllegalStateException(
+					"Cannot modify assigned users for an active round. Please deactivate it first.");
+		}
+
+		// Process contestants
+		syncRole(idRound, roundNumber, targetContestantIds, UserRoleType.CONTESTANT);
+
+		// Process judges
+		syncRole(idRound, roundNumber, targetJudgeIds, UserRoleType.JUDGE);
+
+		// Return updated assignments
+		return roundService.getRoundAssignments(idRound);
+	}
+
+	@Transactional
+	private void syncRole(Integer idRound, Integer roundNumber, List<Integer> targetIdsList, UserRoleType userRole) {
+		Set<Integer> targetIds = targetIdsList != null ? Set.copyOf(targetIdsList) : Set.of();
+
+		String userRoleStr = userRole.name().toLowerCase();
+
+		Set<Integer> currentIds = userRoundRepository.findUserIdsByRoundAndRole(idRound, userRoleStr);
+
+		// Identify users to delete
+		Set<Integer> idsToDelete = currentIds.stream()
+			.filter(id -> !targetIds.contains(id))
+			.collect(Collectors.toSet());
+
+		// Identify users to add
+		Set<Integer> idsToAdd = targetIds.stream().filter(id -> !currentIds.contains(id)).collect(Collectors.toSet());
+
+		// Perform deletions
+		idsToDelete.forEach(id -> removeUserFromRound(id, roundNumber));
+
+		// Perform additions
+		if (!idsToAdd.isEmpty()) {
+			if (userRole == UserRoleType.CONTESTANT) {
+				assignContestantsToRound(List.copyOf(idsToAdd), roundNumber);
+			}
+			else if (userRole == UserRoleType.JUDGE) {
+				assignJudgesToRound(List.copyOf(idsToAdd), roundNumber);
+			}
+		}
 	}
 
 }

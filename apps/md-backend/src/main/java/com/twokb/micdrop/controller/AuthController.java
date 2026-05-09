@@ -37,9 +37,10 @@ public class AuthController {
 		try {
 			DiscordUser user = discordUserService.getUserByDiscordId(request.discordId());
 
-			// Only allow verification if the user is an active contestant or was manually
-			// registered (not a contestant)
-			if (user.getStatus() == ContestantStatus.ACTIVE || user.getStatus() == ContestantStatus.NOT_CONTESTANT) {
+			// Only allow verification if the user is not INACTIVE
+			// (i.e. they are either ACTIVE contestant, was ELIMINATED but can still
+			// access the platform, or manually registered with NOT_CONTESTANT status)
+			if (user.getStatus() != ContestantStatus.INACTIVE) {
 				// Create JWT token with user role as a claim
 				Instant now = Instant.now();
 
