@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.twokb.micdrop.dto.CreateRoundRequest;
 import com.twokb.micdrop.dto.RoundAssignmentsResponse;
 import com.twokb.micdrop.dto.UpdateRoundRequest;
+import com.twokb.micdrop.dto.UserAssignmentDTO;
 import com.twokb.micdrop.model.Round;
 import com.twokb.micdrop.service.RoundService;
 import com.twokb.micdrop.service.UserRoundService;
@@ -48,13 +49,13 @@ public class RoundController {
 	@GetMapping("/{idRound}/assignments")
 	@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
 	public ResponseEntity<RoundAssignmentsResponse> fetchRoundAssignments(@PathVariable Integer idRound) {
-		return ResponseEntity.ok(roundService.getRoundAssignments(idRound));
+		return ResponseEntity.ok(userRoundService.getRoundAssignments(idRound));
 	}
 
 	@PostMapping
 	@PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<Round> createRound(@RequestBody CreateRoundRequest request) {
-		Round savedRound = roundService.createRound(request.roundNumber());
+		Round savedRound = roundService.createRound(request.roundNumber(), request.groupCount());
 
 		return ResponseEntity.status(HttpStatus.CREATED).body(savedRound);
 	}
@@ -62,9 +63,17 @@ public class RoundController {
 	@PutMapping("/{idRound}/assignments")
 	@PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<RoundAssignmentsResponse> assignUsersToRound(@PathVariable Integer idRound,
-			@RequestBody Map<String, List<Integer>> assignmentRequest) {
+			@RequestBody Map<String, List<UserAssignmentDTO>> assignmentRequest) {
 		RoundAssignmentsResponse updatedAssignments = userRoundService.syncRoundAssignments(idRound,
 				assignmentRequest.get("contestants"), assignmentRequest.get("judges"));
+
+		return ResponseEntity.status(HttpStatus.OK).body(updatedAssignments);
+	}
+
+	@PostMapping("/{idRound}/auto-assign-contestants")
+	@PreAuthorize("hasRole('ADMIN')")
+	public ResponseEntity<RoundAssignmentsResponse> autoAssignContestants(@PathVariable Integer idRound) {
+		RoundAssignmentsResponse updatedAssignments = userRoundService.autoAssignContestants(idRound);
 
 		return ResponseEntity.status(HttpStatus.OK).body(updatedAssignments);
 	}
@@ -72,7 +81,7 @@ public class RoundController {
 	@PutMapping("/{idRound}")
 	@PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<Round> updateRound(@PathVariable Integer idRound, @RequestBody UpdateRoundRequest request) {
-		Round updatedRound = roundService.updateRound(idRound, request.roundNumber(), request.active());
+		Round updatedRound = roundService.updateRound(idRound, request.roundNumber(), request.active(), request.groupCount());
 
 		return ResponseEntity.status(HttpStatus.OK).body(updatedRound);
 	}

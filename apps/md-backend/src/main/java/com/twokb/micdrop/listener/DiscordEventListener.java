@@ -2,7 +2,7 @@ package com.twokb.micdrop.listener;
 
 import org.springframework.stereotype.Component;
 
-import com.twokb.micdrop.repository.SystemSettingsRepository;
+import com.twokb.micdrop.repository.SystemSettingRepository;
 import com.twokb.micdrop.service.DiscordUserService;
 
 import lombok.RequiredArgsConstructor;
@@ -16,7 +16,7 @@ public class DiscordEventListener extends ListenerAdapter {
 
 	private final DiscordUserService discordUserService;
 
-	private final SystemSettingsRepository systemSettingsRepository;
+	private final SystemSettingRepository systemSettingRepository;
 
 	@Override
 	public void onMessageReactionAdd(MessageReactionAddEvent event) {
@@ -31,9 +31,9 @@ public class DiscordEventListener extends ListenerAdapter {
 		}
 
 		// Verify message ID and exact emoji
-		systemSettingsRepository.findById("signup_message_id").ifPresent(settings -> {
+		systemSettingRepository.findById("signup_message_id").ifPresent(settings -> {
 			// Check if the reaction is on the correct message
-			if (!event.getMessageId().equals(settings.getValue())) {
+			if (!event.getMessageId().equals(settings.getSettingValue())) {
 				return;
 			}
 
@@ -43,8 +43,8 @@ public class DiscordEventListener extends ListenerAdapter {
 			discordUserService.registerContestant(discordId, username);
 
 			// Add contestant role to user in Discord
-			systemSettingsRepository.findById("contestant_role_id").ifPresent(roleSettings -> {
-				String contestantRoleId = roleSettings.getValue();
+			systemSettingRepository.findById("contestant_role_id").ifPresent(roleSettings -> {
+				String contestantRoleId = roleSettings.getSettingValue();
 
 				if (event.isFromGuild() && event.getMember() != null) {
 					event.getGuild()
@@ -68,9 +68,9 @@ public class DiscordEventListener extends ListenerAdapter {
 		}
 
 		// Verify message ID and exact emoji
-		systemSettingsRepository.findById("signup_message_id").ifPresent(settings -> {
+		systemSettingRepository.findById("signup_message_id").ifPresent(settings -> {
 			// Check if the reaction is on the correct message
-			if (!event.getMessageId().equals(settings.getValue())) {
+			if (!event.getMessageId().equals(settings.getSettingValue())) {
 				return;
 			}
 
@@ -79,8 +79,8 @@ public class DiscordEventListener extends ListenerAdapter {
 			try {
 				discordUserService.unregisterContestant(discordId);
 
-				systemSettingsRepository.findById("contestant_role_id").ifPresent(roleSettings -> {
-					String contestantRoleId = roleSettings.getValue();
+				systemSettingRepository.findById("contestant_role_id").ifPresent(roleSettings -> {
+					String contestantRoleId = roleSettings.getSettingValue();
 
 					if (event.isFromGuild() && event.getMember() != null) {
 						event.getGuild()

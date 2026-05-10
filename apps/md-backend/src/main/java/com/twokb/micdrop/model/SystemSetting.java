@@ -13,13 +13,13 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class SystemSettings {
+public class SystemSetting {
 
 	@Id
 	@Column(name = "setting_key", length = 50)
-	private String key;
+	private String settingKey;
 
 	@Column(name = "setting_value", length = 100, nullable = false)
-	private String value;
+	private String settingValue;
 
 }

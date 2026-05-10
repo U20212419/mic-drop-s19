@@ -26,4 +26,6 @@ public class Round {
 	@Column(name = "active", nullable = false)
 	private Boolean active;
 
+	@Column(name = "group_count", nullable = false)
+	private Integer groupCount;
 }

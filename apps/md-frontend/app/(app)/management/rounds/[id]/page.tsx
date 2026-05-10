@@ -15,6 +15,7 @@ import {
   CheckSquare,
   Loader2,
   UserPlus,
+  RefreshCw,
 } from "lucide-react";
 
 interface DiscordUser {
@@ -23,12 +24,14 @@ interface DiscordUser {
   username: string;
   globalRole: string;
   status: string;
+  groupNumber?: number; // Only relevant for contestants to track their group assignment
 }
 
 interface Round {
   idRound: number;
   roundNumber: number;
   active: boolean;
+  groupCount: number;
 }
 
 export default function RoundDetailPage() {
@@ -47,6 +50,9 @@ export default function RoundDetailPage() {
   // Selection states
   const [selectedContestants, setSelectedContestants] = useState<DiscordUser[]>([]);
   const [selectedJudges, setSelectedJudges] = useState<DiscordUser[]>([]);
+
+  // The group the admin is currently assigning users to
+  const [currentGroupSelection, setCurrentGroupSelection] = useState<number>(1);
 
   // Search filters
   const [contestantSearch, setContestantSearch] = useState("");
@@ -107,21 +113,69 @@ export default function RoundDetailPage() {
       (u) =>
         !selectedIds.includes(u.idUser) &&
         !contestantIds.includes(u.idUser) && // A contestant cannot be a judge
+        u.status !== "DID_NOT_SUBMIT" && // Users who did not submit cannot be judges
         u.username.toLowerCase().includes(judgeSearch.toLowerCase()),
     );
   }, [allUsers, selectedJudges, selectedContestants, judgeSearch]);
 
-  const handleToggleContestant = (user: DiscordUser) => {
-    setSelectedContestants((prev) => [...prev, user]);
+  // Selected users specifically for the current group selection
+  const currentGroupContestants = useMemo(() => {
+    return selectedContestants
+      .filter((c) => (c.groupNumber || 1) === currentGroupSelection)
+      .sort((a, b) => a.username.localeCompare(b.username));
+  }, [selectedContestants, currentGroupSelection]);
+
+  const currentGroupJudges = useMemo(() => {
+    return selectedJudges
+      .filter((j) => (j.groupNumber || 1) === currentGroupSelection)
+      .sort((a, b) => a.username.localeCompare(b.username));
+  }, [selectedJudges, currentGroupSelection]);
+
+  const handleToggleUser = (user: DiscordUser, isContestant: boolean) => {
+    const newUser = { ...user, groupNumber: currentGroupSelection };
+    if (isContestant) {
+      setSelectedContestants((prev) => [...prev, newUser]);
+    } else {
+      setSelectedJudges((prev) => [...prev, newUser]);
+    }
   };
 
-  const handleRemoveContestant = (idUser: number) => {
-    setSelectedContestants((prev) => prev.filter((p) => p.idUser !== idUser));
+  const handleRemoveUser = (idUser: number, isContestant: boolean) => {
+    if (isContestant) {
+      setSelectedContestants((prev) => prev.filter((c) => c.idUser !== idUser));
+    } else {
+      setSelectedJudges((prev) => prev.filter((j) => j.idUser !== idUser));
+    }
   };
 
-  const handleSelectAllContestants = () => {
-    // Add all currently filtered available contestants
-    setSelectedContestants((prev) => [...prev, ...availableContestants]);
+  const handleSelectAllFiltered = (isContestant: boolean) => {
+    const usersToAdd = isContestant ? availableContestants : availableJudges;
+    const usersWithGroups = usersToAdd.map((u) => ({ ...u, groupNumber: currentGroupSelection }));
+
+    if (isContestant) {
+      // Add all currently filtered available contestants
+      setSelectedContestants((prev) => [...prev, ...usersWithGroups]);
+    } else {
+      // Add all currently filtered available judges
+      setSelectedJudges((prev) => [...prev, ...usersWithGroups]);
+    }
+  };
+
+  const handleAutoAssign = async () => {
+    try {
+      setIsSaving(true);
+      const res = await api.post(`/rounds/${id}/auto-assign-contestants`);
+      setSelectedContestants(res.data.contestants);
+
+      toast.success("Auto-assignment completed successfully.", {
+        description: `Contestants have been automatically assigned for round ${round?.roundNumber} based on groups from the previous round.`,
+        closeButton: true,
+      });
+    } catch (error: any) {
+      // Error handled by interceptor
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSave = async () => {
@@ -132,8 +186,14 @@ export default function RoundDetailPage() {
       } else {
         // Sync assignments (Contestants or Judges)
         const payload = {
-          contestants: selectedContestants.map((p) => p.idUser),
-          judges: selectedJudges.map((j) => j.idUser),
+          contestants: selectedContestants.map((c) => ({
+            idUser: c.idUser,
+            groupNumber: c.groupNumber || 1, // Default to group 1 if not set, though it should always be set
+          })),
+          judges: selectedJudges.map((j) => ({
+            idUser: j.idUser,
+            groupNumber: j.groupNumber || 1, // Default to group 1 if not set, though it should always be set
+          })),
         };
 
         const res = await api.put(`/rounds/${id}/assignments`, payload);
@@ -213,17 +273,35 @@ export default function RoundDetailPage() {
         {/* DETAILS TAB */}
         {activeTab === "details" && round && (
           <div className="max-w-md space-y-6">
-            <div>
-              <label className="block text-xs font-bold text-[#80848E] uppercase mb-2">
-                Round Number
-              </label>
-              <input
-                type="number"
-                value={round.roundNumber}
-                onChange={(e) => setRound({ ...round, roundNumber: Number(e.target.value) })}
-                className="w-full bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none focus:border-[#5865F2] transition-all"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-[#80848E] uppercase mb-2">
+                  Round Number
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={round.roundNumber}
+                  onChange={(e) => setRound({ ...round, roundNumber: Number(e.target.value) })}
+                  className="w-full bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none focus:border-[#5865F2]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-[#80848E] uppercase mb-2">
+                  Total Groups
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={round.groupCount}
+                  onChange={(e) =>
+                    setRound({ ...round, groupCount: Math.max(1, Number(e.target.value)) })
+                  }
+                  className="w-full bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none focus:border-[#5865F2]"
+                />
+              </div>
             </div>
+
             <div className="flex items-center justify-between p-4 bg-[#1E1F22] rounded-lg">
               <div>
                 <p className="text-white font-medium">Active Round</p>
@@ -246,37 +324,91 @@ export default function RoundDetailPage() {
         {/* CONTESTANTS / JUDGES TAB (Dynamic Layout) */}
         {(activeTab === "contestants" || activeTab === "judges") && (
           <div className="space-y-6">
+            {/* Global Smart Action Banner (Only for Contestants) */}
+            {activeTab === "contestants" && (
+              <div className="bg-[#5865F2]/10 border border-[#5865F2]/30 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-[#DBDEE1] font-bold text-sm flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4 text-[#5865F2]" />
+                    Smart Auto-Assign
+                  </h3>
+                  <p className="text-[#80848E] text-xs mt-1">
+                    Automatically populate this round by inheriting the exact group assignments from
+                    the previous round for all active contestants.
+                  </p>
+                </div>
+                <button
+                  onClick={handleAutoAssign}
+                  disabled={isSaving}
+                  className="shrink-0 bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs font-bold px-4 py-2 rounded transition-colors uppercase tracking-wide"
+                >
+                  Execute Auto-Assign
+                </button>
+              </div>
+            )}
+
+            {/* Manual Assignment: Target Group */}
+            <div className="flex items-center gap-3 p-4 bg-[#1E1F22] rounded-lg border border-[#35373C]">
+              <label className="text-sm font-bold text-white">
+                Manual Assignment - Target Group:
+              </label>
+              <select
+                value={currentGroupSelection}
+                onChange={(e) => setCurrentGroupSelection(Number(e.target.value))}
+                className="bg-[#2B2D31] text-white text-sm rounded border border-[#35373C] px-3 py-1.5 outline-none focus:border-[#5865F2]"
+              >
+                {Array.from({ length: round?.groupCount || 1 }).map((_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    Group {i + 1}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-[#80848E] ml-2 hidden sm:inline">
+                Users selected below will be added to this specific group.
+              </span>
+            </div>
+
             {/* Tag Cloud (Selected Users) */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#80848E] uppercase">
-                Selected {activeTab === "contestants" ? "Contestants" : "Judges"} (
-                {activeTab === "contestants" ? selectedContestants.length : selectedJudges.length})
-              </label>
-              <div className="flex flex-wrap gap-2 p-3 min-h-12.5 bg-[#1E1F22] rounded-lg border border-[#1E1F22]">
-                {(activeTab === "contestants" ? sortedContestantTags : sortedJudgeTags).map(
+              <div className="flex items-center justify-between text-xs font-bold text-[#80848E] uppercase">
+                <label>
+                  Selected {activeTab === "contestants" ? "Contestants" : "Judges"} - Group{" "}
+                  {currentGroupSelection}
+                </label>
+                <span>
+                  {
+                    (activeTab === "contestants" ? currentGroupContestants : currentGroupJudges)
+                      .length
+                  }{" "}
+                  in group /{" "}
+                  {(activeTab === "contestants" ? selectedContestants : selectedJudges).length}{" "}
+                  total
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-2 p-3 min-h-12 bg-[#1E1F22] rounded-lg border border-[#1E1F22]">
+                {(activeTab === "contestants" ? currentGroupContestants : currentGroupJudges).map(
                   (user) => (
                     <span
                       key={user.idUser}
-                      className="inline-flex items-center bg-[#35373C] text-[#DBDEE1] px-2 py-1 rounded text-sm gap-1 animate-in fade-in zoom-in duration-200"
+                      className="inline-flex items-center bg-[#35373C] text-[#DBDEE1] pl-2 pr-1 py-1 rounded text-sm gap-2"
                     >
                       {user.username}
                       <button
-                        onClick={() =>
-                          activeTab === "contestants"
-                            ? handleRemoveContestant(user.idUser)
-                            : setSelectedJudges((prev) =>
-                                prev.filter((j) => j.idUser !== user.idUser),
-                              )
-                        }
-                        className="hover:text-red-400 transition-colors"
+                        onClick={() => handleRemoveUser(user.idUser, activeTab === "contestants")}
+                        className="hover:text-red-400 hover:bg-red-400/10 rounded p-0.5 transition-colors"
                       >
                         <X className="w-3 h-3" />
                       </button>
                     </span>
                   ),
                 )}
-                {(activeTab === "contestants" ? selectedContestants : selectedJudges).length ===
-                  0 && <p className="text-[#4E5058] text-sm italic">No users selected yet...</p>}
+                {(activeTab === "contestants" ? currentGroupContestants : currentGroupJudges)
+                  .length === 0 && (
+                  <p className="text-[#4E5058] text-sm italic">
+                    No users assigned to Group {currentGroupSelection} yet...
+                  </p>
+                )}
               </div>
             </div>
 
@@ -297,14 +429,13 @@ export default function RoundDetailPage() {
                     className="w-full bg-[#1E1F22] border-none text-white rounded-md pl-10 pr-4 py-2 outline-none focus:ring-1 focus:ring-[#5865F2]"
                   />
                 </div>
-                {activeTab === "contestants" && (
-                  <button
-                    onClick={handleSelectAllContestants}
-                    className="text-sm text-[#5865F2] hover:underline flex items-center gap-1 font-medium"
-                  >
-                    <CheckSquare className="w-4 h-4" /> Select All Filtered
-                  </button>
-                )}
+                <button
+                  onClick={() => handleSelectAllFiltered(activeTab === "contestants")}
+                  className="text-sm text-[#5865F2] hover:underline flex items-center gap-1 font-medium"
+                >
+                  <CheckSquare className="w-4 h-4" /> Select All Filtered (to G
+                  {currentGroupSelection})
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-100 overflow-y-auto pr-2 custom-scrollbar">
@@ -312,11 +443,7 @@ export default function RoundDetailPage() {
                   (user) => (
                     <div
                       key={user.idUser}
-                      onClick={() =>
-                        activeTab === "contestants"
-                          ? handleToggleContestant(user)
-                          : setSelectedJudges((prev) => [...prev, user])
-                      }
+                      onClick={() => handleToggleUser(user, activeTab === "contestants")}
                       className="flex items-center justify-between p-3 bg-[#232428] hover:bg-[#35373C] border border-[#1E1F22] rounded-lg cursor-pointer transition-colors group"
                     >
                       <div className="flex items-center gap-3">

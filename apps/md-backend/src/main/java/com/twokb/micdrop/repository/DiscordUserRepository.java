@@ -23,7 +23,7 @@ public interface DiscordUserRepository extends JpaRepository<DiscordUser, Intege
 
 	boolean existsByDiscordId(String discordId);
 
-	boolean existsByStatus(ContestantStatus status);
+	boolean existsByIdUserAndStatus(Integer id, ContestantStatus status);
 
 	@Query(value = """
 			SELECT id_user FROM discord_user

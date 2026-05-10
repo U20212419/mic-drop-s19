@@ -96,9 +96,9 @@ public class DiscordUserService {
 	}
 
 	@Transactional
-	public DiscordUser eliminateUser(String discordId) {
+	public DiscordUser eliminateUser(String discordId, boolean didNotSubmit) {
 		return discordUserRepository.findByDiscordId(discordId).map(user -> {
-			user.setStatus(ContestantStatus.ELIMINATED);
+			user.setStatus(didNotSubmit ? ContestantStatus.DID_NOT_SUBMIT : ContestantStatus.ELIMINATED);
 			return user;
 		}).orElseThrow(() -> new IllegalArgumentException("User with Discord ID " + discordId + " not found."));
 	}
@@ -131,12 +131,22 @@ public class DiscordUserService {
 
 	@Transactional(readOnly = true)
 	public boolean isUserActive(Integer id) {
-		return discordUserRepository.existsByStatus(ContestantStatus.ACTIVE);
+		return discordUserRepository.existsByIdUserAndStatus(id, ContestantStatus.ACTIVE);
+	}
+
+	@Transactional(readOnly = true)
+	public boolean didUserNotSubmit(Integer id) {
+		return discordUserRepository.existsByIdUserAndStatus(id, ContestantStatus.DID_NOT_SUBMIT);
 	}
 
 	@Transactional(readOnly = true)
 	public Set<Integer> getActiveUserIds() {
 		return discordUserRepository.findUserIdsByStatus(ContestantStatus.ACTIVE.name().toLowerCase());
+	}
+
+	@Transactional(readOnly = true)
+	public Set<Integer> getDidNotSubmitUserIds() {
+		return discordUserRepository.findUserIdsByStatus(ContestantStatus.DID_NOT_SUBMIT.name().toLowerCase());
 	}
 
 	@Transactional(readOnly = true)

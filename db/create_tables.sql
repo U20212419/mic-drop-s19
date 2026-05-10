@@ -8,7 +8,7 @@ DROP TYPE IF EXISTS contestant_status CASCADE;
 DROP TYPE IF EXISTS global_role_type CASCADE;
 DROP TYPE IF EXISTS user_role_type CASCADE;
 
-CREATE TYPE contestant_status AS ENUM ('active', 'inactive', 'eliminated', 'not_contestant');
+CREATE TYPE contestant_status AS ENUM ('active', 'inactive', 'eliminated', 'not_contestant', 'did_not_submit');
 CREATE TYPE global_role_type AS ENUM ('admin', 'staff', 'user');
 CREATE TYPE user_role_type AS ENUM ('contestant', 'judge');
 
@@ -36,7 +36,8 @@ CREATE INDEX idx_discord_user_global_role ON discord_user (global_role);
 CREATE TABLE IF NOT EXISTS round (
 	id_round SERIAL PRIMARY KEY,
 	round_number INTEGER NOT NULL UNIQUE,
-	active BOOLEAN NOT NULL
+	active BOOLEAN NOT NULL,
+	group_count INTEGER NOT NULL
 );
 
 CREATE INDEX idx_round_active ON round (active);
@@ -48,6 +49,7 @@ CREATE TABLE IF NOT EXISTS user_round (
 	discord_user_id_user INTEGER NOT NULL,
 	round_id_round INTEGER NOT NULL,
 	user_role user_role_type NOT NULL,
+	group_number INTEGER NOT NULL,
 	PRIMARY KEY (discord_user_id_user, round_id_round),
 	CONSTRAINT fk_user_round_discord_user
 		FOREIGN KEY (discord_user_id_user)
@@ -64,6 +66,7 @@ CREATE TABLE IF NOT EXISTS user_round (
 CREATE INDEX fk_user_round_discord_user_idx ON user_round (discord_user_id_user);
 CREATE INDEX fk_user_round_round_idx ON user_round (round_id_round);
 CREATE INDEX idx_user_role ON user_round (user_role);
+CREATE INDEX idx_group_count ON user_round (group_number);
 
 -- -----------------------------------------------------
 -- Table `submission`
@@ -99,3 +102,6 @@ CREATE TABLE IF NOT EXISTS system_setting (
 	setting_key VARCHAR(50) PRIMARY KEY,
 	setting_value VARCHAR(100) NOT NULL
 );
+
+INSERT INTO system_setting (setting_key, setting_value)
+VALUES ('signup_message_id', 'N/A'), ('contestant_role_id', 'N/A');

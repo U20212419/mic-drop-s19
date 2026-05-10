@@ -43,6 +43,7 @@ export default function RoundsPage() {
 
   // New round form
   const [newRoundNumber, setNewRoundNumber] = useState<number | "">("");
+  const [newGroupCount, setNewGroupCount] = useState<number>(1);
 
   useEffect(() => {
     if (authStatus === "authenticated") {
@@ -65,7 +66,7 @@ export default function RoundsPage() {
     }
   };
 
-  const handleCreateRound = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleCreateRound = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (newRoundNumber === "") return;
 
@@ -73,7 +74,11 @@ export default function RoundsPage() {
       setIsSubmitting(true);
 
       // By default new rounds are created as inactive
-      const payload = { roundNumber: Number(newRoundNumber), active: false };
+      const payload = {
+        roundNumber: Number(newRoundNumber),
+        active: false,
+        groupCount: newGroupCount,
+      };
 
       const res = await api.post("/rounds", payload);
 
@@ -87,6 +92,7 @@ export default function RoundsPage() {
 
       setIsCreateModalOpen(false);
       setNewRoundNumber("");
+      setNewGroupCount(1);
     } catch (error: any) {
       // Error handled by interceptor
     } finally {
@@ -258,6 +264,19 @@ export default function RoundsPage() {
                   onChange={(e) => setNewRoundNumber(Number(e.target.value))}
                   className="w-full bg-[#1E1F22] border border-[#1E1F22] text-[#DBDEE1] rounded-md px-3 py-2 focus:border-[#5865F2] focus:ring-1 focus:ring-[#5865F2] outline-none transition-all"
                   placeholder="e.g. 1"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#80848E] uppercase mb-1.5">
+                  Number of Groups
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={newGroupCount}
+                  onChange={(e) => setNewGroupCount(Math.max(1, Number(e.target.value)))}
+                  className="w-full bg-[#1E1F22] border border-[#1E1F22] text-[#DBDEE1] rounded-md px-3 py-2 focus:border-[#5865F2] outline-none"
                 />
               </div>
 

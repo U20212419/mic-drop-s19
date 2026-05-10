@@ -13,7 +13,7 @@ public class DiscordBotService {
 
 	private final JDA jda;
 
-	private final SystemSettingsService systemSettings;
+	private final SystemSettingService systemSetting;
 
 	public void sendSingUpMessage(String channelId) {
 		TextChannel channel = jda.getTextChannelById(channelId);
@@ -27,7 +27,7 @@ public class DiscordBotService {
 				message.addReaction(Emoji.fromUnicode("☠️")).queue();
 
 				// Store the message ID in database
-				systemSettings.setSetting("signup_message_id", message.getId());
+				systemSetting.setSetting("signup_message_id", message.getId());
 			});
 		}
 		else {

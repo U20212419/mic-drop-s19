@@ -21,7 +21,7 @@ export default function RootLayout({
       <body className={inter.className}>
         {/* The Providers wrapper gives session access to ALL pages and layouts */}
         <Providers>{children}</Providers>
-        <Toaster richColors position="top-center" theme="dark" />
+        <Toaster richColors position="bottom-right" theme="dark" />
       </body>
     </html>
   );

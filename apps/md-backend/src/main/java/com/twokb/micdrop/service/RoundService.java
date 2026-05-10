@@ -1,12 +1,11 @@
 package com.twokb.micdrop.service;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.twokb.micdrop.dto.RoundAssignmentsResponse;
-import com.twokb.micdrop.model.DiscordUser;
 import com.twokb.micdrop.model.Round;
 import com.twokb.micdrop.repository.RoundRepository;
 
@@ -29,28 +28,15 @@ public class RoundService {
 			.orElseThrow(() -> new IllegalArgumentException("Round with ID " + idRound + " not found."));
 	}
 
-	@Transactional(readOnly = true)
-	public RoundAssignmentsResponse getRoundAssignments(Integer idRound) {
-		if (!roundRepository.existsById(idRound)) {
-			throw new IllegalArgumentException("Round with ID " + idRound + " not found.");
-		}
-
-		List<DiscordUser> contestants = roundRepository.getContestantsByRoundId(idRound);
-		List<DiscordUser> judges = roundRepository.getJudgesByRoundId(idRound);
-
-		RoundAssignmentsResponse assignments = new RoundAssignmentsResponse(contestants, judges);
-
-		return assignments;
-	}
-
 	@Transactional
-	public Round createRound(Integer roundNumber) {
+	public Round createRound(Integer roundNumber, Integer groupCount) {
 		if (roundRepository.findByRoundNumber(roundNumber).isPresent()) {
 			throw new IllegalArgumentException("Round number " + roundNumber + " already exists.");
 		}
 
 		var round = new com.twokb.micdrop.model.Round();
 		round.setRoundNumber(roundNumber);
+		round.setGroupCount(groupCount);
 		round.setActive(false);
 		return roundRepository.save(round);
 	}
@@ -79,7 +65,7 @@ public class RoundService {
 	}
 
 	@Transactional
-	public Round updateRound(Integer idRound, Integer roundNumber, Boolean active) {
+	public Round updateRound(Integer idRound, Integer roundNumber, Boolean active, Integer groupCount) {
 		Round round = roundRepository.findById(idRound)
 			.orElseThrow(() -> new IllegalArgumentException("Round with ID " + idRound + " not found."));
 
@@ -95,6 +81,7 @@ public class RoundService {
 		}
 
 		round.setActive(active);
+		round.setGroupCount(groupCount);
 
 		return round;
 	}
@@ -113,4 +100,8 @@ public class RoundService {
 		roundRepository.delete(round);
 	}
 
+	@Transactional(readOnly = true)
+	public Optional<Round> getPreviousRound(Integer currentRoundNumber) {
+		return roundRepository.findFirstByRoundNumberLessThanOrderByRoundNumberDesc(currentRoundNumber);
+	}
 }
