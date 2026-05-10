@@ -2,19 +2,23 @@ DROP TABLE IF EXISTS submission CASCADE;
 DROP TABLE IF EXISTS user_round CASCADE;
 DROP TABLE IF EXISTS round CASCADE;
 DROP TABLE IF EXISTS discord_user CASCADE;
+DROP TABLE IF EXISTS judge_app CASCADE;
 DROP TABLE IF EXISTS system_setting CASCADE;
 
 DROP TYPE IF EXISTS contestant_status CASCADE;
 DROP TYPE IF EXISTS global_role_type CASCADE;
 DROP TYPE IF EXISTS user_role_type CASCADE;
+DROP TYPE IF EXISTS judging_amount_preference CASCADE;
 
 CREATE TYPE contestant_status AS ENUM ('active', 'inactive', 'eliminated', 'not_contestant', 'did_not_submit');
 CREATE TYPE global_role_type AS ENUM ('admin', 'staff', 'user');
 CREATE TYPE user_role_type AS ENUM ('contestant', 'judge');
+CREATE TYPE judging_amount_preference AS ENUM ('more', 'less', 'no_preference');
 
 CREATE CAST (varchar AS contestant_status) WITH INOUT AS IMPLICIT;
 CREATE CAST (varchar AS global_role_type) WITH INOUT AS IMPLICIT;
 CREATE CAST (varchar AS user_role_type) WITH INOUT AS IMPLICIT;
+CREATE CAST (varchar AS judging_amount_preference) WITH INOUT AS IMPLICIT;
 
 -- -----------------------------------------------------
 -- Table `discord_user`
@@ -24,9 +28,16 @@ CREATE TABLE IF NOT EXISTS discord_user (
 	discord_id VARCHAR(50) NOT NULL UNIQUE,
 	username VARCHAR(50) NOT NULL,
 	status contestant_status NULL,
-	global_role global_role_type NOT NULL
+	global_role global_role_type NOT NULL,
+	judge_app_id_app INTEGER,
+	CONSTRAINT fk_discord_user_judge_app
+		FOREIGN KEY (judge_app_id_app)
+		REFERENCES judge_app (id_app)
+		ON DELETE NO ACTION
+		ON UPDATE NO ACTION,
 );
 
+CREATE INDEX fk_discord_user_judge_app_idx ON discord_user (judge_app_id_app);
 CREATE INDEX idx_discord_user_status ON discord_user (status);
 CREATE INDEX idx_discord_user_global_role ON discord_user (global_role);
 
@@ -105,3 +116,19 @@ CREATE TABLE IF NOT EXISTS system_setting (
 
 INSERT INTO system_setting (setting_key, setting_value)
 VALUES ('signup_message_id', 'N/A'), ('contestant_role_id', 'N/A');
+
+-- -----------------------------------------------------
+-- Table `judge_app`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS judge_app (
+	id_app SERIAL PRIMARY KEY,
+	fav_artists VARCHAR(5000) NOT NULL,
+	least_fav_artists VARCHAR(5000) NOT NULL,
+	fav_genres VARCHAR(5000) NOT NULL,
+	least_fav_genres VARCHAR(5000) NOT NULL,
+	judging_style VARCHAR(5000) NOT NULL,
+	safe_pick_criteria VARCHAR(5000) NOT NULL,
+	giving_bonus BOOLEAN NOT NULL,
+	banned_artists VARCHAR(5000) NOT NULL,
+	amount_preference judging_amount_preference NOT NULL
+)

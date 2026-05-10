@@ -51,8 +51,10 @@ public class SecurityConfig {
 			// Access rules
 			.authorizeHttpRequests(auth -> auth.requestMatchers("/api/public/**")
 				.permitAll() // Allow public endpoints without authentication
-				.requestMatchers("/api/auth/verify")
-				.permitAll() // Allow auth verify endpoint without authentication
+				.requestMatchers("/api/auth/**")
+				.permitAll() // Allow auth endpoints without authentication
+				.requestMatchers("/api/judge-apps/**")
+				.authenticated() // Allow judge app endpoints for authenticated users
 				.anyRequest()
 				.authenticated())
 			// Configure as Resource Server to validate JWT tokens

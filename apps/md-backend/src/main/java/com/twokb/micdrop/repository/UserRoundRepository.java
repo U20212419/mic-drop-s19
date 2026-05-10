@@ -34,7 +34,8 @@ public interface UserRoundRepository extends JpaRepository<UserRound, UserRoundI
 			AND ur.user_role = CAST(:userRoleStr AS user_role_type)
 			AND du.status = CAST(:statusStr AS contestant_status)
 			""", nativeQuery = true)
-	Set<Integer> findUserIdsByRound_RoundNumberAndUserRoleAndUserStatus(@Param("roundNumber") Integer roundNumber, @Param("userRoleStr") String userRoleStr, @Param("statusStr") String statusStr);
+	Set<Integer> findUserIdsByRound_RoundNumberAndUserRoleAndUserStatus(@Param("roundNumber") Integer roundNumber,
+			@Param("userRoleStr") String userRoleStr, @Param("statusStr") String statusStr);
 
 	List<UserRound> findByRound_RoundNumberAndUserRole(Integer roundNumber, UserRoleType userRole);
 
@@ -50,15 +51,12 @@ public interface UserRoundRepository extends JpaRepository<UserRound, UserRoundI
 	List<UserRound> findById_RoundIdAndId_UserIdIn(Integer idRound, Set<Integer> userIds);
 
 	// Fetch the full UserRound entities to compare group numbers
-    @Query(value = """
-            SELECT ur.* FROM user_round ur 
-            WHERE ur.round_id_round = :idRound 
-            AND ur.user_role = CAST(:userRoleStr AS user_role_type)
-            """, nativeQuery = true)
-    List<UserRound> findByRoundIdAndRole(
-            @Param("idRound") Integer idRound, 
-            @Param("userRoleStr") String userRoleStr
-    );
+	@Query(value = """
+			SELECT ur.* FROM user_round ur
+			WHERE ur.round_id_round = :idRound
+			AND ur.user_role = CAST(:userRoleStr AS user_role_type)
+			""", nativeQuery = true)
+	List<UserRound> findByRoundIdAndRole(@Param("idRound") Integer idRound, @Param("userRoleStr") String userRoleStr);
 
 	@Query(value = """
 			SELECT du.* FROM discord_user du
@@ -66,5 +64,7 @@ public interface UserRoundRepository extends JpaRepository<UserRound, UserRoundI
 			WHERE ur.round_id_round = :idRound
 			AND ur.user_role = CAST(:userRoleStr AS user_role_type)
 			""", nativeQuery = true)
-	List<DiscordUser> findUsersByRoundAndRole(@Param("idRound") Integer idRound, @Param("userRoleStr") String userRoleStr);
+	List<DiscordUser> findUsersByRoundAndRole(@Param("idRound") Integer idRound,
+			@Param("userRoleStr") String userRoleStr);
+
 }

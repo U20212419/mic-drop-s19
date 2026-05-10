@@ -81,7 +81,8 @@ public class RoundController {
 	@PutMapping("/{idRound}")
 	@PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<Round> updateRound(@PathVariable Integer idRound, @RequestBody UpdateRoundRequest request) {
-		Round updatedRound = roundService.updateRound(idRound, request.roundNumber(), request.active(), request.groupCount());
+		Round updatedRound = roundService.updateRound(idRound, request.roundNumber(), request.active(),
+				request.groupCount());
 
 		return ResponseEntity.status(HttpStatus.OK).body(updatedRound);
 	}

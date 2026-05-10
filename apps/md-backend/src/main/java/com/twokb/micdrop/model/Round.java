@@ -28,4 +28,5 @@ public class Round {
 
 	@Column(name = "group_count", nullable = false)
 	private Integer groupCount;
+
 }

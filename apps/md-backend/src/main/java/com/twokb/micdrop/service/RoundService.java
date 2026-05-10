@@ -104,4 +104,5 @@ public class RoundService {
 	public Optional<Round> getPreviousRound(Integer currentRoundNumber) {
 		return roundRepository.findFirstByRoundNumberLessThanOrderByRoundNumberDesc(currentRoundNumber);
 	}
+
 }

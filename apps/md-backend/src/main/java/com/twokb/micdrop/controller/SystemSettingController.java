@@ -20,19 +20,20 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/system-settings")
 @RequiredArgsConstructor
 public class SystemSettingController {
-    private final SystemSettingService systemSettingService;
 
-    @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<SystemSetting>> getAllSettings() {
-        return ResponseEntity.ok(systemSettingService.getAllSettings());
-    }
+	private final SystemSettingService systemSettingService;
 
-    @PutMapping("/{key}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<SystemSetting> updateSetting(@PathVariable String key,
-            @RequestBody String value) {
-        SystemSetting updatedSetting = systemSettingService.setSetting(key, value);
-        return ResponseEntity.ok(updatedSetting);
-    }
+	@GetMapping
+	@PreAuthorize("hasRole('ADMIN')")
+	public ResponseEntity<List<SystemSetting>> getAllSettings() {
+		return ResponseEntity.ok(systemSettingService.getAllSettings());
+	}
+
+	@PutMapping("/{key}")
+	@PreAuthorize("hasRole('ADMIN')")
+	public ResponseEntity<SystemSetting> updateSetting(@PathVariable String key, @RequestBody String value) {
+		SystemSetting updatedSetting = systemSettingService.setSetting(key, value);
+		return ResponseEntity.ok(updatedSetting);
+	}
+
 }

@@ -41,23 +41,10 @@ public class AuthController {
 			// (i.e. they are either ACTIVE contestant, was ELIMINATED but can still
 			// access the platform, or manually registered with NOT_CONTESTANT status)
 			if (user.getStatus() != ContestantStatus.INACTIVE) {
-				// Create JWT token with user role as a claim
-				Instant now = Instant.now();
+				String token = generateJwtToken(user);
 
-				JwtClaimsSet claims = JwtClaimsSet.builder()
-					.issuer("md-backend")
-					.issuedAt(now)
-					.expiresAt(now.plus(24, ChronoUnit.HOURS)) // Token valid for 1 day
-					.subject(user.getDiscordId())
-					.claim("role", user.getGlobalRole().name())
-					.build();
-
-				// Sign the JWT token using the configured JwtEncoder
-				String token = jwtEncoder
-					.encode(JwtEncoderParameters.from(JwsHeader.with(() -> "HS256").build(), claims))
-					.getTokenValue();
-
-				return ResponseEntity.ok(Map.of("role", user.getGlobalRole().name(), "token", token));
+				return ResponseEntity
+					.ok(Map.of("role", user.getGlobalRole().name(), "status", user.getStatus().name(), "token", token));
 			}
 			else {
 				return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -70,6 +57,32 @@ public class AuthController {
 			return ResponseEntity.status(HttpStatus.FORBIDDEN)
 				.body(Map.of("error", "User with Discord ID " + request.discordId() + " not found."));
 		}
+	}
+
+	@PostMapping("/judge-app-login")
+	public ResponseEntity<Map<String, String>> judgeAppLogin(@RequestBody UserVerifyRequest request) {
+		DiscordUser user = discordUserService.loginOrRegisterUser(request.discordId(), request.username());
+
+		String token = generateJwtToken(user);
+
+		return ResponseEntity
+			.ok(Map.of("role", user.getGlobalRole().name(), "status", user.getStatus().name(), "token", token));
+	}
+
+	private String generateJwtToken(DiscordUser user) {
+		Instant now = Instant.now();
+
+		JwtClaimsSet claims = JwtClaimsSet.builder()
+			.issuer("md-backend")
+			.issuedAt(now)
+			.expiresAt(now.plus(24, ChronoUnit.HOURS)) // Token valid for 1 day
+			.subject(user.getDiscordId())
+			.claim("role", user.getGlobalRole().name())
+			.build();
+
+		// Sign the JWT token using the configured JwtEncoder
+		return jwtEncoder.encode(JwtEncoderParameters.from(JwsHeader.with(() -> "HS256").build(), claims))
+			.getTokenValue();
 	}
 
 }

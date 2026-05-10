@@ -34,4 +34,5 @@ public class UserRound {
 
 	@Column(name = "group_number", nullable = false)
 	private Integer groupNumber;
+
 }

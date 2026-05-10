@@ -29,4 +29,5 @@ public interface RoundRepository extends JpaRepository<Round, Integer> {
 
 	// Find the most recent round with a round number less than the specified number
 	Optional<Round> findFirstByRoundNumberLessThanOrderByRoundNumberDesc(Integer roundNumber);
+
 }

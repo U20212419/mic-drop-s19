@@ -77,6 +77,21 @@ public class DiscordUserService {
 																													// found
 	}
 
+	// Login or register user from Judge App page
+	@Transactional
+	public DiscordUser loginOrRegisterUser(String discordId, String username) {
+		// If user exists, return it. If not, create a new one with default role and
+		// status
+		return discordUserRepository.findByDiscordId(discordId).orElseGet(() -> {
+			DiscordUser newUser = new DiscordUser();
+			newUser.setDiscordId(discordId);
+			newUser.setUsername(username);
+			newUser.setStatus(ContestantStatus.INACTIVE);
+			newUser.setGlobalRole(GlobalRoleType.USER);
+			return discordUserRepository.save(newUser);
+		});
+	}
+
 	@Transactional
 	public DiscordUser updateUser(Integer idUser, String discordId, String username, ContestantStatus status,
 			GlobalRoleType globalRole) {

@@ -83,7 +83,8 @@ public class UserRoundService {
 		Set<Integer> activeUserIds = discordUserService.getActiveUserIds();
 		Set<Integer> didNotSubmitUserIds = discordUserService.getDidNotSubmitUserIds();
 		List<UserAssignmentDTO> validAssignments = assignments.stream()
-			.filter(assignment -> !activeUserIds.contains(assignment.idUser()) && !didNotSubmitUserIds.contains(assignment.idUser()))
+			.filter(assignment -> !activeUserIds.contains(assignment.idUser())
+					&& !didNotSubmitUserIds.contains(assignment.idUser()))
 			.toList();
 
 		if (validAssignments.isEmpty()) {
@@ -168,8 +169,8 @@ public class UserRoundService {
 					"Cannot modify assigned users for an active round. Please deactivate it first.");
 		}
 
-		log.info("Syncing round {} assignments. Target contestants: {}, Target judges: {}", roundNumber, targetContestants,
-				targetJudges);
+		log.info("Syncing round {} assignments. Target contestants: {}, Target judges: {}", roundNumber,
+				targetContestants, targetJudges);
 		// Process contestants
 		syncRole(idRound, roundNumber, targetContestants, UserRoleType.CONTESTANT);
 
@@ -181,7 +182,8 @@ public class UserRoundService {
 	}
 
 	@Transactional
-	private void syncRole(Integer idRound, Integer roundNumber, List<UserAssignmentDTO> targetAssignmentsList, UserRoleType userRole) {
+	private void syncRole(Integer idRound, Integer roundNumber, List<UserAssignmentDTO> targetAssignmentsList,
+			UserRoleType userRole) {
 		List<UserAssignmentDTO> targetAssignments = targetAssignmentsList != null ? targetAssignmentsList : List.of();
 
 		Map<Integer, Integer> targetMap = targetAssignments.stream()
@@ -199,11 +201,14 @@ public class UserRoundService {
 
 		// Identify users to update in both database and target list
 		List<UserRound> toUpdate = currentAssignments.stream()
-			.filter(ur -> targetMap.containsKey(ur.getUser().getIdUser()) && !ur.getGroupNumber().equals(targetMap.get(ur.getUser().getIdUser())))
+			.filter(ur -> targetMap.containsKey(ur.getUser().getIdUser())
+					&& !ur.getGroupNumber().equals(targetMap.get(ur.getUser().getIdUser())))
 			.toList();
 
 		// Identify users to add in target list
-		Set<Integer> currentIds = currentAssignments.stream().map(ur -> ur.getUser().getIdUser()).collect(Collectors.toSet());
+		Set<Integer> currentIds = currentAssignments.stream()
+			.map(ur -> ur.getUser().getIdUser())
+			.collect(Collectors.toSet());
 		List<UserAssignmentDTO> toAdd = targetAssignments.stream()
 			.filter(ta -> !currentIds.contains(ta.idUser()))
 			.toList();
@@ -240,34 +245,35 @@ public class UserRoundService {
 
 		// Find the previous round based on roundNumber
 		Round previousRound = roundService.getPreviousRound(currentRound.getRoundNumber())
-                .orElseThrow(() -> new IllegalStateException("No previous round found to auto-assign from."));
+			.orElseThrow(() -> new IllegalStateException("No previous round found to auto-assign from."));
 
 		if (currentRound.getGroupCount() != previousRound.getGroupCount()) {
-			throw new IllegalStateException("Current round and previous round must have the same number of groups for auto-assignment.");
+			throw new IllegalStateException(
+					"Current round and previous round must have the same number of groups for auto-assignment.");
 		}
 
 		String userRoleStr = UserRoleType.CONTESTANT.name().toLowerCase();
 		String statusStr = ContestantStatus.ACTIVE.name().toLowerCase();
 		// Get all ACTIVE contestants from the previous round
-		Set<Integer> previousRoundActiveContestantIds = userRoundRepository.findUserIdsByRound_RoundNumberAndUserRoleAndUserStatus(
-				previousRound.getRoundNumber(), userRoleStr, statusStr);
+		Set<Integer> previousRoundActiveContestantIds = userRoundRepository
+			.findUserIdsByRound_RoundNumberAndUserRoleAndUserStatus(previousRound.getRoundNumber(), userRoleStr,
+					statusStr);
 
 		// Get previous assignments for those contestants in the previous round
-		List<UserRound> previousAssignments = userRoundRepository.findById_RoundIdAndId_UserIdIn(
-				previousRound.getIdRound(), previousRoundActiveContestantIds);
-	
+		List<UserRound> previousAssignments = userRoundRepository
+			.findById_RoundIdAndId_UserIdIn(previousRound.getIdRound(), previousRoundActiveContestantIds);
+
 		// Map them to the current round
-		List<UserRound> newAssignments = previousAssignments.stream()
-			.map(prev -> {
-				var ur = new UserRound();
-				ur.setId(new UserRoundId(prev.getId().getUserId(), idRound));
-				ur.setUser(prev.getUser());
-				ur.setRound(currentRound);
-				ur.setUserRole(UserRoleType.CONTESTANT);
-				// Keep the same group number as the previous round
-				ur.setGroupNumber(prev.getGroupNumber());
-				return ur;
-			}).toList();
+		List<UserRound> newAssignments = previousAssignments.stream().map(prev -> {
+			var ur = new UserRound();
+			ur.setId(new UserRoundId(prev.getId().getUserId(), idRound));
+			ur.setUser(prev.getUser());
+			ur.setRound(currentRound);
+			ur.setUserRole(UserRoleType.CONTESTANT);
+			// Keep the same group number as the previous round
+			ur.setGroupNumber(prev.getGroupNumber());
+			return ur;
+		}).toList();
 
 		userRoundRepository.saveAll(newAssignments);
 		return getRoundAssignments(idRound);
@@ -277,19 +283,24 @@ public class UserRoundService {
 	public RoundAssignmentsResponse getRoundAssignments(Integer idRound) {
 		var round = roundService.getRound(idRound);
 
-		List<DiscordUser> contestants = userRoundRepository.findUsersByRoundAndRole(idRound, UserRoleType.CONTESTANT.name().toLowerCase());
-		List<DiscordUser> judges = userRoundRepository.findUsersByRoundAndRole(idRound, UserRoleType.JUDGE.name().toLowerCase());
+		List<DiscordUser> contestants = userRoundRepository.findUsersByRoundAndRole(idRound,
+				UserRoleType.CONTESTANT.name().toLowerCase());
+		List<DiscordUser> judges = userRoundRepository.findUsersByRoundAndRole(idRound,
+				UserRoleType.JUDGE.name().toLowerCase());
 
 		List<RoundAssignmentDTO> contestantDTOs = contestants.stream()
-			.map(user -> new RoundAssignmentDTO(user.getIdUser(), user.getUsername(), getGroupNumberForUserInRound(user.getIdUser(), round.getRoundNumber())))
+			.map(user -> new RoundAssignmentDTO(user.getIdUser(), user.getUsername(),
+					getGroupNumberForUserInRound(user.getIdUser(), round.getRoundNumber())))
 			.toList();
 
 		List<RoundAssignmentDTO> judgeDTOs = judges.stream()
-			.map(user -> new RoundAssignmentDTO(user.getIdUser(), user.getUsername(), getGroupNumberForUserInRound(user.getIdUser(), round.getRoundNumber())))
+			.map(user -> new RoundAssignmentDTO(user.getIdUser(), user.getUsername(),
+					getGroupNumberForUserInRound(user.getIdUser(), round.getRoundNumber())))
 			.toList();
 
 		RoundAssignmentsResponse assignments = new RoundAssignmentsResponse(contestantDTOs, judgeDTOs);
 
 		return assignments;
 	}
+
 }
