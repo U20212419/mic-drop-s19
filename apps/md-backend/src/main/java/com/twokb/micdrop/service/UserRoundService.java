@@ -330,4 +330,5 @@ public class UserRoundService {
 	public List<UserRound> getUsersByRoundIdAndGroupNumber(Integer idRound, Integer groupNumber) {
 		return userRoundRepository.findById_RoundIdAndGroupNumber(idRound, groupNumber);
 	}
+
 }

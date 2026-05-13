@@ -36,16 +36,43 @@ api.interceptors.response.use(
   (response) => {
     return response;
   },
-  (error: AxiosError<ServerErrorResponse>) => {
-    if (error.response?.status === 401) {
-      toast.error("Expired session.", {
-        description: "Your session has expired. Please log in again.",
-        duration: 6000,
-        closeButton: true,
-      });
+  async (error: AxiosError<ServerErrorResponse>) => {
+    const originalRequest = error.config as any;
 
-      signOut({ callbackUrl: "/" });
-      return Promise.reject(error);
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        // Calling getSession triggers the NextAuth JWT callback, which will attempt to refresh the token if it's expired
+        const session = await getSession();
+
+        // Check if session was successfully retrieved and doesn't contain an error
+        if (
+          session?.accessToken &&
+          session.error !== "RefreshAccessTokenError" &&
+          session.error !== "NoRefreshTokenError" &&
+          session.error !== "InitialLoginError"
+        ) {
+          // Update the default headers for future requests
+          api.defaults.headers.Authorization = `Bearer ${session.accessToken}`;
+
+          // Update the original request's header and retry it
+          originalRequest.headers.Authorization = `Bearer ${session.accessToken}`;
+          return api(originalRequest);
+        } else {
+          // Refresh failed
+          throw new Error("Refresh token expired or invalid.");
+        }
+      } catch (refreshError) {
+        toast.error("Session expired.", {
+          description: "Your session has expired. Please log in again.",
+          duration: 6000,
+          closeButton: true,
+        });
+
+        signOut({ callbackUrl: "/" });
+        return Promise.reject(error);
+      }
     }
 
     if (error.response?.data) {
@@ -67,11 +94,14 @@ api.interceptors.response.use(
 
       console.error("Network error:", error.message);
     } else {
-      toast.error("An unexpected error occurred.", {
-        description: "An unexpected error occurred. Please try again later.",
-        duration: 6000,
-        closeButton: true,
-      });
+      // Only show unexpected errors that don't have a proper server response and aren't network errors
+      if (error.response?.status !== 401) {
+        toast.error("An unexpected error occurred.", {
+          description: "An unexpected error occurred. Please try again later.",
+          duration: 6000,
+          closeButton: true,
+        });
+      }
 
       console.error("Unexpected error:", error);
     }

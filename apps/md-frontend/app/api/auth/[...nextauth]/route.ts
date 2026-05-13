@@ -62,7 +62,6 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, account, profile }) {
       if (account && profile) {
         const discordProfile = profile as any;
-        token.sub = discordProfile.id;
 
         const endpoint =
           account.provider === "discord-judge-app" ? "/auth/judge-app-login" : "/auth/verify";
@@ -77,18 +76,59 @@ export const authOptions: NextAuthOptions = {
           console.log("Server status:", res.status);
           console.log("Server response:", res.data);
 
-          token.role = res.data.role || "USER"; // Default to USER role if not provided
-          token.status = res.data.status || "INACTIVE"; // Default to INACTIVE if not provided
-          token.accessToken = res.data.token;
-          token.host = res.data.host || false; // Default to false if not provided
+          return {
+            ...token,
+            sub: discordProfile.id,
+            role: res.data.role || "USER",
+            status: res.data.status || "INACTIVE",
+            host: res.data.host || false,
+            accessToken: res.data.token,
+            refreshToken: res.data.refreshToken,
+            accessTokenExpires: Date.now() + 25 * 60 * 1000, // 30 minutes minus 5 minutes of margin to counter network delays
+          };
         } catch (error: any) {
-          console.error(`Error fetching user role: ${error.message}. Defaulting to USER role.`);
-          token.role = "USER"; // Default to USER role on error
-          token.status = "INACTIVE"; // Default to INACTIVE on error
-          token.host = false; // Default to false on error
+          console.error("Error on initial login:", error);
+          return {
+            ...token,
+            role: "USER",
+            status: "INACTIVE",
+            host: false,
+            error: "InitialLoginError",
+          };
         }
       }
-      return token;
+
+      if (token.accessTokenExpires && Date.now() < (token.accessTokenExpires as number)) {
+        return token; // Return existing token if it's still valid
+      }
+
+      if (!token.refreshToken) {
+        return { ...token, error: "NoRefreshTokenError" };
+      }
+
+      // Token has expired, attempt to refresh it
+      try {
+        const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/refresh`, {
+          refreshToken: token.refreshToken,
+        });
+
+        console.log("Token refreshed successfully:", res.data);
+
+        return {
+          ...token,
+          accessToken: res.data.token,
+          accessTokenExpires: Date.now() + 25 * 60 * 1000, // Extend access token expiry
+        };
+      } catch (error: any) {
+        console.error("Error refreshing access token:", error.message);
+        return {
+          ...token,
+          role: "USER",
+          status: "INACTIVE",
+          host: false,
+          error: "RefreshAccessTokenError",
+        }; // Invalidate token on refresh failure
+      }
     },
     // Pass token data to the frontend session
     async session({ session, token }) {
@@ -98,6 +138,7 @@ export const authOptions: NextAuthOptions = {
         session.user.status = (token as any).status || "INACTIVE";
         session.accessToken = (token as any).accessToken;
         session.user.host = (token as any).host || false;
+        session.error = (token as any).error;
       }
       return session;
     },

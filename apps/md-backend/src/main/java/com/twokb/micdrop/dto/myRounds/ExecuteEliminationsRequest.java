@@ -1,6 +1,4 @@
 package com.twokb.micdrop.dto.myRounds;
 
-public record ExecuteEliminationsRequest(
-    Integer groupNumber
-) {
+public record ExecuteEliminationsRequest(Integer groupNumber) {
 }

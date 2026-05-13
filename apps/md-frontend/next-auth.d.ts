@@ -10,6 +10,7 @@ declare module "next-auth" {
       host?: boolean;
     } & DefaultSession["user"];
     accessToken?: string; // Optional access token for API requests
+    error?: string; // Optional error field to indicate authentication issues
   }
 
   // Extending the built-in JWT interface
@@ -17,5 +18,6 @@ declare module "next-auth" {
     role?: "ADMIN" | "STAFF" | "USER";
     status?: "ACTIVE" | "INACTIVE" | "ELIMINATED" | "NOT_CONTESTANT" | "DID_NOT_SUBMIT";
     accessToken?: string; // Optional access token for API requests
+    error?: string; // Optional error field to indicate authentication issues
   }
 }

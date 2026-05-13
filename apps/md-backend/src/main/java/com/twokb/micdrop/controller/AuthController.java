@@ -6,9 +6,12 @@ import org.springframework.web.bind.annotation.RestController;
 import com.twokb.micdrop.dto.UserVerifyRequest;
 import com.twokb.micdrop.model.ContestantStatus;
 import com.twokb.micdrop.model.DiscordUser;
+import com.twokb.micdrop.model.RefreshToken;
 import com.twokb.micdrop.service.DiscordUserService;
+import com.twokb.micdrop.service.RefreshTokenService;
 import com.twokb.micdrop.service.SystemSettingService;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 import java.time.Instant;
@@ -35,8 +38,11 @@ public class AuthController {
 
 	private final SystemSettingService systemSettingService;
 
+	private final RefreshTokenService refreshTokenService;
+
 	@PostMapping("/verify")
-	public ResponseEntity<Map<String, Object>> verifyUser(@RequestBody UserVerifyRequest request) {
+	public ResponseEntity<Map<String, Object>> verifyUser(@RequestBody UserVerifyRequest request,
+			HttpServletResponse response) {
 		try {
 			DiscordUser user = discordUserService.getUserByDiscordId(request.discordId());
 
@@ -49,8 +55,11 @@ public class AuthController {
 			if (user.getStatus() != ContestantStatus.INACTIVE) {
 				String token = generateJwtToken(user);
 
-				return ResponseEntity
-					.ok(Map.of("role", user.getGlobalRole().name(), "status", user.getStatus().name(), "token", token, "host", user.isHost()));
+				// Generate raw refresh token and attach it to a secure HttpOnly cookie
+				String rawRefreshToken = refreshTokenService.createRefreshToken(user.getDiscordId());
+
+				return ResponseEntity.ok(Map.of("role", user.getGlobalRole().name(), "status", user.getStatus().name(),
+						"token", token, "refreshToken", rawRefreshToken, "host", user.isHost()));
 			}
 			else {
 				return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -66,7 +75,8 @@ public class AuthController {
 	}
 
 	@PostMapping("/judge-app-login")
-	public ResponseEntity<Map<String, Object>> judgeAppLogin(@RequestBody UserVerifyRequest request) {
+	public ResponseEntity<Map<String, Object>> judgeAppLogin(@RequestBody UserVerifyRequest request,
+			HttpServletResponse response) {
 		DiscordUser user = discordUserService.loginOrRegisterUser(request.discordId(), request.username());
 
 		String hostId = systemSettingService.getHostDiscordId();
@@ -74,8 +84,44 @@ public class AuthController {
 
 		String token = generateJwtToken(user);
 
-		return ResponseEntity
-			.ok(Map.of("role", user.getGlobalRole().name(), "status", user.getStatus().name(), "token", token, "host", user.isHost()));
+		// Generate raw refresh token and attach it to a secure HttpOnly cookie
+		String rawRefreshToken = refreshTokenService.createRefreshToken(user.getDiscordId());
+
+		return ResponseEntity.ok(Map.of("role", user.getGlobalRole().name(), "status", user.getStatus().name(), "token",
+				token, "refreshToken", rawRefreshToken, "host", user.isHost()));
+	}
+
+	@PostMapping("/refresh")
+	public ResponseEntity<Map<String, String>> refreshToken(@RequestBody Map<String, String> body) {
+		String rawToken = body.get("refreshToken");
+
+		if (rawToken == null || rawToken.isBlank()) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "No refresh token provided."));
+		}
+
+		return refreshTokenService.verifyByRawToken(rawToken).map(RefreshToken::getDiscordId).map(discordId -> {
+			DiscordUser user = discordUserService.getUserByDiscordId(discordId);
+
+			// Re-evaluate host status for the new access token
+			String hostId = systemSettingService.getHostDiscordId();
+			user.setHost(user.getDiscordId().equals(hostId));
+
+			// Issue a new short-lived access token
+			String newAccessToken = generateJwtToken(user);
+
+			return ResponseEntity.ok(Map.of("token", newAccessToken));
+		}).orElseThrow(() -> new RuntimeException("Invalid refresh token. Please log in again."));
+	}
+
+	@PostMapping("/signout")
+	public ResponseEntity<Map<String, String>> signout(@RequestBody Map<String, String> requestBody,
+			HttpServletResponse response) {
+		String discordId = requestBody.get("discordId");
+		if (discordId != null) {
+			refreshTokenService.deleteByDiscordId(discordId);
+		}
+
+		return ResponseEntity.ok(Map.of("message", "Successfully signed out."));
 	}
 
 	private String generateJwtToken(DiscordUser user) {
@@ -84,7 +130,7 @@ public class AuthController {
 		JwtClaimsSet claims = JwtClaimsSet.builder()
 			.issuer("md-backend")
 			.issuedAt(now)
-			.expiresAt(now.plus(24, ChronoUnit.HOURS)) // Token valid for 1 day
+			.expiresAt(now.plus(30, ChronoUnit.MINUTES)) // Token valid for 30 minutes
 			.subject(user.getDiscordId())
 			.claim("role", user.getGlobalRole().name())
 			.claim("host", user.isHost())

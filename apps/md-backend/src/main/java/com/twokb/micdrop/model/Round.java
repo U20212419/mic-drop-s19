@@ -34,4 +34,5 @@ public class Round {
 
 	@Column(name = "elimination_amount", nullable = true)
 	private Integer eliminationAmount;
+
 }

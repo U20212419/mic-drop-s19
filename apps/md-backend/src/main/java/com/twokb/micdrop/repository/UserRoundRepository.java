@@ -78,4 +78,5 @@ public interface UserRoundRepository extends JpaRepository<UserRound, UserRoundI
 			@Param("groupNumber") Integer groupNumber, @Param("userRoleStr") String userRoleStr);
 
 	List<UserRound> findById_RoundIdAndGroupNumber(Integer idRound, Integer groupNumber);
+
 }

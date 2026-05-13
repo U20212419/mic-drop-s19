@@ -32,7 +32,8 @@ public class SystemSettingController {
 
 	@PutMapping("/{key}")
 	@PreAuthorize("hasRole('ADMIN')")
-	public ResponseEntity<SystemSetting> updateSetting(@PathVariable String key, @RequestBody String value, Principal principal) {
+	public ResponseEntity<SystemSetting> updateSetting(@PathVariable String key, @RequestBody String value,
+			Principal principal) {
 		SystemSetting updatedSetting = systemSettingService.setSetting(key, value, principal.getName());
 		return ResponseEntity.ok(updatedSetting);
 	}

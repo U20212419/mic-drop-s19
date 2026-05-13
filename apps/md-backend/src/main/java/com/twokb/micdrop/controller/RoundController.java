@@ -61,7 +61,8 @@ public class RoundController {
 	@PostMapping
 	@PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<Round> createRound(@RequestBody CreateRoundRequest request) {
-		Round savedRound = roundService.createRound(request.roundNumber(), request.groupCount(), request.eliminationAmount());
+		Round savedRound = roundService.createRound(request.roundNumber(), request.groupCount(),
+				request.eliminationAmount());
 
 		return ResponseEntity.status(HttpStatus.CREATED).body(savedRound);
 	}
@@ -110,15 +111,18 @@ public class RoundController {
 
 	@PutMapping("/{idRound}/detail-submissions")
 	@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
-	public ResponseEntity<List<AdminSubmissionDTO>> updateRoundDetailSubmissions(@PathVariable Integer idRound, @RequestBody AdminBatchUpdateRequest updates) {
+	public ResponseEntity<List<AdminSubmissionDTO>> updateRoundDetailSubmissions(@PathVariable Integer idRound,
+			@RequestBody AdminBatchUpdateRequest updates) {
 		List<AdminSubmissionDTO> updatedSubmissions = roundDetailService.updateSubmissions(idRound, updates);
 		return ResponseEntity.status(HttpStatus.OK).body(updatedSubmissions);
 	}
 
 	@PostMapping("/{idRound}/execute-eliminations")
 	@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
-	public ResponseEntity<Void> executeEliminations(@PathVariable Integer idRound, @RequestBody ExecuteEliminationsRequest request) {
+	public ResponseEntity<Void> executeEliminations(@PathVariable Integer idRound,
+			@RequestBody ExecuteEliminationsRequest request) {
 		roundDetailService.executeEliminations(idRound, request.groupNumber());
 		return ResponseEntity.status(HttpStatus.OK).build();
 	}
+
 }

@@ -42,4 +42,5 @@ public class DiscordUser {
 
 	@Transient
 	private boolean isHost;
+
 }

@@ -39,7 +39,7 @@ public class MyRoundsService {
 
 	private final RoundService roundService;
 
-    @Transactional(readOnly = true)
+	@Transactional(readOnly = true)
 	public List<MyRoundDTO> getMyRounds(String discordId) {
 		return userRoundService.getUserRoundsByDiscordId(discordId)
 			.stream()
@@ -49,7 +49,7 @@ public class MyRoundsService {
 			.collect(Collectors.toList());
 	}
 
-    @Transactional(readOnly = true)
+	@Transactional(readOnly = true)
 	public ContestantRoundDetailDTO getContestantDetail(Integer idRound, String discordId) {
 		UserRound myUr = userRoundService.getUserRoundByRoundIdAndDiscordId(idRound, discordId);
 
@@ -66,7 +66,7 @@ public class MyRoundsService {
 							app.getGivingBonus(), app.getBannedArtists(), app.getAmountPreference());
 
 			Submission sub = submissionService
-                .getByRoundIdAndContestantIdAndJudgeId(idRound, myUr.getUser().getIdUser(), judgeUser.getIdUser())
+				.getByRoundIdAndContestantIdAndJudgeId(idRound, myUr.getUser().getIdUser(), judgeUser.getIdUser())
 				.orElse(null);
 
 			return new JudgeDetailDTO(judgeUser.getDiscordId(), judgeUser.getUsername(), appDto,
@@ -77,14 +77,13 @@ public class MyRoundsService {
 				myUr.getRound().getSubmissionsOpen(), judges);
 	}
 
-    @Transactional(readOnly = true)
+	@Transactional(readOnly = true)
 	public JudgeRoundDetailDTO getJudgeDetail(Integer idRound, String discordId) {
 		DiscordUser judgeUser = discordUserService.getUserByDiscordId(discordId);
 
 		UserRound myUr = userRoundService.getUserRoundByRoundIdAndDiscordId(idRound, discordId);
 
-		List<Submission> subs = submissionService.getJudgeSubmissionsOrderedAsc(idRound,
-				judgeUser.getIdUser());
+		List<Submission> subs = submissionService.getJudgeSubmissionsOrderedAsc(idRound, judgeUser.getIdUser());
 
 		List<SubmissionJudgeDTO> subDtos = subs.stream()
 			.map(s -> new SubmissionJudgeDTO(s.getIdSubmission(), s.getSubLink(), s.getScore(), s.getReview()))
@@ -114,7 +113,7 @@ public class MyRoundsService {
 					newSub.setIdRound(request.idRound());
 					newSub.setIdContestant(contestant.getIdUser());
 					newSub.setIdJudge(judge.getIdUser());
-                    newSub.setSubmittedAt(Instant.now());
+					newSub.setSubmittedAt(Instant.now());
 					return newSub;
 				});
 

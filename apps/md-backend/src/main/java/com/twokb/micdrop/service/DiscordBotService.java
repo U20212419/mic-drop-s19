@@ -20,7 +20,7 @@ public class DiscordBotService {
 		if (!requesterDiscordId.equals(hostId)) {
 			throw new IllegalStateException("Only the host can send the signup message.");
 		}
-		
+
 		TextChannel channel = jda.getTextChannelById(channelId);
 
 		if (channel != null) {

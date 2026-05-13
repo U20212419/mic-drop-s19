@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 public class JudgeAppService {
 
 	private final DiscordUserService discordUserService;
+
 	private final JudgeAppRepository judgeAppRepository;
 
 	@Transactional(readOnly = true)

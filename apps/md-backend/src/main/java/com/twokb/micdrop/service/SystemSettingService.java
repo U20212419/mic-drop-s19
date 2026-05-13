@@ -40,7 +40,7 @@ public class SystemSettingService {
 			// Prevent non-host users from changing any settings
 			throw new IllegalStateException("Only the host can change system settings.");
 		}
-		
+
 		SystemSetting systemSetting = systemSettingRepository.findById(key)
 			.orElseThrow(() -> new IllegalArgumentException("Setting with key " + key + " not found."));
 

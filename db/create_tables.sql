@@ -3,6 +3,7 @@ DROP TABLE IF EXISTS user_round CASCADE;
 DROP TABLE IF EXISTS round CASCADE;
 DROP TABLE IF EXISTS discord_user CASCADE;
 DROP TABLE IF EXISTS judge_app CASCADE;
+DROP TABLE IF EXISTS refresh_token CASCADE;
 DROP TABLE IF EXISTS system_setting CASCADE;
 
 DROP TYPE IF EXISTS contestant_status CASCADE;
@@ -81,8 +82,8 @@ CREATE TABLE IF NOT EXISTS user_round (
 
 CREATE INDEX fk_user_round_discord_user_idx ON user_round (discord_user_id_user);
 CREATE INDEX fk_user_round_round_idx ON user_round (round_id_round);
-CREATE INDEX idx_user_role ON user_round (user_role);
-CREATE INDEX idx_group_count ON user_round (group_number);
+CREATE INDEX idx_user_round_user_role ON user_round (user_role);
+CREATE INDEX idx_user_round_group_number ON user_round (group_number);
 
 -- -----------------------------------------------------
 -- Table `submission`
@@ -142,4 +143,21 @@ CREATE TABLE IF NOT EXISTS judge_app (
 	giving_bonus BOOLEAN NOT NULL,
 	banned_artists VARCHAR(5000) NOT NULL,
 	amount_preference judging_amount_preference NOT NULL
-)
+);
+
+-- -----------------------------------------------------
+-- Table `refresh_tokens`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS refresh_token (
+	id_token SERIAL PRIMARY KEY,
+	discord_user_discord_id VARCHAR(50) NOT NULL UNIQUE,
+	token_hash VARCHAR(255) NOT NULL,
+	expiry_date TIMESTAMP NOT NULL,
+	CONSTRAINT fk_refresh_token_discord_user
+		FOREIGN KEY (discord_user_discord_id)
+		REFERENCES discord_user (discord_id)
+		ON DELETE NO ACTION
+		ON UPDATE NO ACTION
+);
+
+CREATE INDEX idx_refresh_token_token_hash ON refresh_token USING HASH (token_hash);

@@ -24,7 +24,8 @@ public class DiscordBotController {
 
 	@PostMapping("/send-signup-message")
 	@PreAuthorize("hasRole('ADMIN')")
-	public ResponseEntity<String> sendSignupMessage(@Valid @RequestBody DiscordBotMessageRequest request, Principal principal) {
+	public ResponseEntity<String> sendSignupMessage(@Valid @RequestBody DiscordBotMessageRequest request,
+			Principal principal) {
 		discordBotService.sendSignUpMessage(request.channelId(), principal.getName());
 		return ResponseEntity.ok("Signup message sent successfully to channel ID: " + request.channelId());
 	}

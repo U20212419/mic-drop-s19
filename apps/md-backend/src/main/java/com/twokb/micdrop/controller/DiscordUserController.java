@@ -47,8 +47,8 @@ public class DiscordUserController {
 
 	@PutMapping("/{idUser}")
 	@PreAuthorize("hasRole('ADMIN')")
-	public ResponseEntity<DiscordUser> updateUser(@PathVariable Integer idUser,
-			@RequestBody UpdateUserRequest request, Principal principal) {
+	public ResponseEntity<DiscordUser> updateUser(@PathVariable Integer idUser, @RequestBody UpdateUserRequest request,
+			Principal principal) {
 		DiscordUser updatedUser = discordUserService.updateUser(idUser, request.discordId(), request.username(),
 				request.status(), request.globalRole(), principal.getName());
 

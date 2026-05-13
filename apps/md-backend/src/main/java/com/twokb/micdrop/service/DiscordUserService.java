@@ -75,7 +75,9 @@ public class DiscordUserService {
 		return discordUserRepository.findByDiscordId(discordId).map(user -> {
 			user.setStatus(ContestantStatus.INACTIVE);
 			return user;
-		}).orElseThrow(() -> new IllegalArgumentException("User with Discord ID " + discordId + " not found.")); // User not found
+		}).orElseThrow(() -> new IllegalArgumentException("User with Discord ID " + discordId + " not found.")); // User
+																													// not
+																													// found
 	}
 
 	// Login or register user from Judge App page
@@ -102,7 +104,8 @@ public class DiscordUserService {
 
 		String hostId = systemSettingService.getHostDiscordId();
 
-		// Prevent changing the host's Discord ID or role unless the requester is the host themselves
+		// Prevent changing the host's Discord ID or role unless the requester is the host
+		// themselves
 		if (user.getDiscordId().equals(hostId) && !requesterDiscordId.equals(hostId)) {
 			throw new IllegalStateException("The host's info cannot be changed by other users.");
 		}
@@ -133,7 +136,7 @@ public class DiscordUserService {
 			.orElseThrow(() -> new IllegalArgumentException("User with ID " + idUser + " not found."));
 
 		String hostId = systemSettingService.getHostDiscordId();
-		
+
 		// Prevent deleting the host
 		if (user.getDiscordId().equals(hostId)) {
 			throw new IllegalStateException("The host cannot be deleted.");
@@ -150,10 +153,7 @@ public class DiscordUserService {
 
 		String hostId = systemSettingService.getHostDiscordId();
 
-		users.stream()
-             .filter(u -> u.getDiscordId().equals(hostId))
-             .findFirst()
-             .ifPresent(host -> host.setHost(true));
+		users.stream().filter(u -> u.getDiscordId().equals(hostId)).findFirst().ifPresent(host -> host.setHost(true));
 
 		return users;
 	}
@@ -164,11 +164,8 @@ public class DiscordUserService {
 
 		String hostId = systemSettingService.getHostDiscordId();
 
-		users.stream()
-             .filter(u -> u.getDiscordId().equals(hostId))
-             .findFirst()
-             .ifPresent(host -> host.setHost(true));
-		
+		users.stream().filter(u -> u.getDiscordId().equals(hostId)).findFirst().ifPresent(host -> host.setHost(true));
+
 		return users;
 	}
 
@@ -176,7 +173,7 @@ public class DiscordUserService {
 	public DiscordUser getUserById(Integer id) {
 		DiscordUser user = discordUserRepository.findById(id)
 			.orElseThrow(() -> new IllegalArgumentException("User with ID " + id + " not found."));
-	
+
 		String hostId = systemSettingService.getHostDiscordId();
 
 		if (user.getDiscordId().equals(hostId)) {
@@ -210,7 +207,7 @@ public class DiscordUserService {
 	public DiscordUser getUserByDiscordId(String discordId) {
 		DiscordUser user = discordUserRepository.findByDiscordId(discordId)
 			.orElseThrow(() -> new IllegalArgumentException("User with Discord ID " + discordId + " not found."));
-		
+
 		String hostId = systemSettingService.getHostDiscordId();
 
 		if (user.getDiscordId().equals(hostId)) {
@@ -219,4 +216,5 @@ public class DiscordUserService {
 
 		return user;
 	}
+
 }
