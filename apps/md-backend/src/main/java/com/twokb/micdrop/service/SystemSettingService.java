@@ -23,12 +23,24 @@ public class SystemSettingService {
 	}
 
 	@Transactional(readOnly = true)
+	public String getHostDiscordId() {
+		return getSetting("season_host_id").orElse("");
+	}
+
+	@Transactional(readOnly = true)
 	public List<SystemSetting> getAllSettings() {
 		return systemSettingRepository.findAll();
 	}
 
 	@Transactional
-	public SystemSetting setSetting(String key, String value) {
+	public SystemSetting setSetting(String key, String value, String requesterDiscordId) {
+		String hostId = getHostDiscordId();
+
+		if (!requesterDiscordId.equals(hostId)) {
+			// Prevent non-host users from changing any settings
+			throw new IllegalStateException("Only the host can change system settings.");
+		}
+		
 		SystemSetting systemSetting = systemSettingRepository.findById(key)
 			.orElseThrow(() -> new IllegalArgumentException("Setting with key " + key + " not found."));
 

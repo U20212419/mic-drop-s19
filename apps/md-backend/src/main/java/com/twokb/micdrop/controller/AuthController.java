@@ -7,6 +7,7 @@ import com.twokb.micdrop.dto.UserVerifyRequest;
 import com.twokb.micdrop.model.ContestantStatus;
 import com.twokb.micdrop.model.DiscordUser;
 import com.twokb.micdrop.service.DiscordUserService;
+import com.twokb.micdrop.service.SystemSettingService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,10 +33,15 @@ public class AuthController {
 
 	private final JwtEncoder jwtEncoder;
 
+	private final SystemSettingService systemSettingService;
+
 	@PostMapping("/verify")
-	public ResponseEntity<Map<String, String>> verifyUser(@RequestBody UserVerifyRequest request) {
+	public ResponseEntity<Map<String, Object>> verifyUser(@RequestBody UserVerifyRequest request) {
 		try {
 			DiscordUser user = discordUserService.getUserByDiscordId(request.discordId());
+
+			String hostId = systemSettingService.getHostDiscordId();
+			user.setHost(user.getDiscordId().equals(hostId));
 
 			// Only allow verification if the user is not INACTIVE
 			// (i.e. they are either ACTIVE contestant, was ELIMINATED but can still
@@ -44,7 +50,7 @@ public class AuthController {
 				String token = generateJwtToken(user);
 
 				return ResponseEntity
-					.ok(Map.of("role", user.getGlobalRole().name(), "status", user.getStatus().name(), "token", token));
+					.ok(Map.of("role", user.getGlobalRole().name(), "status", user.getStatus().name(), "token", token, "host", user.isHost()));
 			}
 			else {
 				return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -60,13 +66,16 @@ public class AuthController {
 	}
 
 	@PostMapping("/judge-app-login")
-	public ResponseEntity<Map<String, String>> judgeAppLogin(@RequestBody UserVerifyRequest request) {
+	public ResponseEntity<Map<String, Object>> judgeAppLogin(@RequestBody UserVerifyRequest request) {
 		DiscordUser user = discordUserService.loginOrRegisterUser(request.discordId(), request.username());
+
+		String hostId = systemSettingService.getHostDiscordId();
+		user.setHost(user.getDiscordId().equals(hostId));
 
 		String token = generateJwtToken(user);
 
 		return ResponseEntity
-			.ok(Map.of("role", user.getGlobalRole().name(), "status", user.getStatus().name(), "token", token));
+			.ok(Map.of("role", user.getGlobalRole().name(), "status", user.getStatus().name(), "token", token, "host", user.isHost()));
 	}
 
 	private String generateJwtToken(DiscordUser user) {
@@ -78,6 +87,7 @@ public class AuthController {
 			.expiresAt(now.plus(24, ChronoUnit.HOURS)) // Token valid for 1 day
 			.subject(user.getDiscordId())
 			.claim("role", user.getGlobalRole().name())
+			.claim("host", user.isHost())
 			.build();
 
 		// Sign the JWT token using the configured JwtEncoder

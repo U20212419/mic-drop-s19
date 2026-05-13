@@ -303,4 +303,31 @@ public class UserRoundService {
 		return assignments;
 	}
 
+	@Transactional(readOnly = true)
+	public List<UserRound> getUserRoundsByRoundId(Integer idRound) {
+		return userRoundRepository.findById_RoundId(idRound);
+	}
+
+	@Transactional(readOnly = true)
+	public List<UserRound> getUserRoundsByDiscordId(String discordId) {
+		return userRoundRepository.findByUser_DiscordId(discordId);
+	}
+
+	@Transactional(readOnly = true)
+	public UserRound getUserRoundByRoundIdAndDiscordId(Integer idRound, String discordId) {
+		return userRoundRepository.findById_RoundIdAndUser_DiscordId(idRound, discordId)
+			.orElseThrow(() -> new IllegalArgumentException(
+					"User with Discord ID " + discordId + " is not part of round with ID " + idRound + "."));
+	}
+
+	@Transactional(readOnly = true)
+	public List<UserRound> getUsersByRoundIdAndRoleAndGroupNumber(Integer idRound, Integer groupNumber,
+			String userRole) {
+		return userRoundRepository.findById_RoundIdAndGroupNumberAndUserRole(idRound, groupNumber, userRole);
+	}
+
+	@Transactional(readOnly = true)
+	public List<UserRound> getUsersByRoundIdAndGroupNumber(Integer idRound, Integer groupNumber) {
+		return userRoundRepository.findById_RoundIdAndGroupNumber(idRound, groupNumber);
+	}
 }

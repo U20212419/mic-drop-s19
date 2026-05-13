@@ -10,7 +10,6 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.twokb.micdrop.model.DiscordUser;
-import com.twokb.micdrop.model.UserRoleType;
 import com.twokb.micdrop.model.UserRound;
 import com.twokb.micdrop.model.UserRoundId;
 
@@ -36,8 +35,6 @@ public interface UserRoundRepository extends JpaRepository<UserRound, UserRoundI
 			""", nativeQuery = true)
 	Set<Integer> findUserIdsByRound_RoundNumberAndUserRoleAndUserStatus(@Param("roundNumber") Integer roundNumber,
 			@Param("userRoleStr") String userRoleStr, @Param("statusStr") String statusStr);
-
-	List<UserRound> findByRound_RoundNumberAndUserRole(Integer roundNumber, UserRoleType userRole);
 
 	Optional<UserRound> findById_UserIdAndRound_RoundNumber(Integer idUser, Integer roundNumber);
 
@@ -67,4 +64,18 @@ public interface UserRoundRepository extends JpaRepository<UserRound, UserRoundI
 	List<DiscordUser> findUsersByRoundAndRole(@Param("idRound") Integer idRound,
 			@Param("userRoleStr") String userRoleStr);
 
+	List<UserRound> findByUser_DiscordId(String discordId);
+
+	Optional<UserRound> findById_RoundIdAndUser_DiscordId(Integer idRound, String discordId);
+
+	@Query(value = """
+			SELECT ur.* FROM user_round ur
+			WHERE ur.round_id_round = :idRound
+			AND ur.group_number = :groupNumber
+			AND ur.user_role = CAST(:userRoleStr AS user_role_type)
+			""", nativeQuery = true)
+	List<UserRound> findById_RoundIdAndGroupNumberAndUserRole(@Param("idRound") Integer idRound,
+			@Param("groupNumber") Integer groupNumber, @Param("userRoleStr") String userRoleStr);
+
+	List<UserRound> findById_RoundIdAndGroupNumber(Integer idRound, Integer groupNumber);
 }

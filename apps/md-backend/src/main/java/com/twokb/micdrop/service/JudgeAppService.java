@@ -8,7 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.twokb.micdrop.dto.JudgeAppDTO;
 import com.twokb.micdrop.model.DiscordUser;
 import com.twokb.micdrop.model.JudgeApp;
-import com.twokb.micdrop.repository.DiscordUserRepository;
+import com.twokb.micdrop.repository.JudgeAppRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -16,12 +16,14 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class JudgeAppService {
 
-	private final DiscordUserRepository discordUserRepository;
+	private final DiscordUserService discordUserService;
+	private final JudgeAppRepository judgeAppRepository;
 
 	@Transactional(readOnly = true)
 	public Optional<JudgeAppDTO> getJudgeAppByDiscordId(String discordId) {
-		return discordUserRepository.findByDiscordId(discordId)
-			.map(DiscordUser::getJudgeApp)
+		DiscordUser user = discordUserService.getUserByDiscordId(discordId);
+
+		return Optional.ofNullable(user.getJudgeApp())
 			.map(app -> new JudgeAppDTO(app.getFavArtists(), app.getLeastFavArtists(), app.getFavGenres(),
 					app.getLeastFavGenres(), app.getJudgingStyle(), app.getSafePickCriteria(), app.getGivingBonus(),
 					app.getBannedArtists(), app.getAmountPreference()));
@@ -29,8 +31,7 @@ public class JudgeAppService {
 
 	@Transactional
 	public void submitOrUpdateJudgeApp(String discordId, JudgeAppDTO dto) {
-		DiscordUser user = discordUserRepository.findByDiscordId(discordId)
-			.orElseThrow(() -> new IllegalArgumentException("User with Discord ID " + discordId + " not found."));
+		DiscordUser user = discordUserService.getUserByDiscordId(discordId);
 
 		JudgeApp app = user.getJudgeApp();
 		if (app == null) {
@@ -47,8 +48,7 @@ public class JudgeAppService {
 		app.setBannedArtists(dto.bannedArtists());
 		app.setAmountPreference(dto.amountPreference());
 
-		user.setJudgeApp(app);
-		discordUserRepository.save(user);
+		user.setJudgeApp(judgeAppRepository.save(app));
 	}
 
 }

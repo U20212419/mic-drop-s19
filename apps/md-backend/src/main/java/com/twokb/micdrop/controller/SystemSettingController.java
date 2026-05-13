@@ -1,5 +1,6 @@
 package com.twokb.micdrop.controller;
 
+import java.security.Principal;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
@@ -31,8 +32,8 @@ public class SystemSettingController {
 
 	@PutMapping("/{key}")
 	@PreAuthorize("hasRole('ADMIN')")
-	public ResponseEntity<SystemSetting> updateSetting(@PathVariable String key, @RequestBody String value) {
-		SystemSetting updatedSetting = systemSettingService.setSetting(key, value);
+	public ResponseEntity<SystemSetting> updateSetting(@PathVariable String key, @RequestBody String value, Principal principal) {
+		SystemSetting updatedSetting = systemSettingService.setSetting(key, value, principal.getName());
 		return ResponseEntity.ok(updatedSetting);
 	}
 

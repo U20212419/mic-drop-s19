@@ -1,6 +1,7 @@
 package com.twokb.micdrop.model;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -29,8 +30,20 @@ public class Submission {
 	@Column(name = "sub_link", nullable = false)
 	private String subLink;
 
-	@Column(name = "score", nullable = false, precision = 4, scale = 2)
+	@Column(name = "score", nullable = true, precision = 4, scale = 2)
 	private BigDecimal score;
+
+	@Column(name = "review", nullable = true, length = 5000)
+	private String review;
+
+	@Column(name = "title", nullable = true)
+	private String title;
+
+	@Column(name = "artist", nullable = true)
+	private String artist;
+
+	@Column(name = "submitted_at", nullable = false)
+	private Instant submittedAt;
 
 	@Column(name = "id_contestant", nullable = false)
 	private Integer idContestant;

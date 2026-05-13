@@ -31,7 +31,9 @@ interface Round {
   idRound: number;
   roundNumber: number;
   active: boolean;
+  submissionsOpen: boolean;
   groupCount: number;
+  eliminationAmount?: number;
 }
 
 export default function RoundDetailPage() {
@@ -178,6 +180,34 @@ export default function RoundDetailPage() {
     }
   };
 
+  const handleActiveToggle = () => {
+    if (!round) return;
+    const willBeActive = !round.active;
+
+    setRound({
+      ...round,
+      active: willBeActive,
+      submissionsOpen: willBeActive ? round.submissionsOpen : false, // If deactivating, also close submissions
+    });
+  };
+
+  const handleSubmissionsToggle = () => {
+    if (!round) return;
+
+    if (!round.active && !round.submissionsOpen) {
+      toast.error("Cannot open submissions for an inactive round.", {
+        description: "Please activate the round before opening submissions.",
+        closeButton: true,
+      });
+      return;
+    }
+
+    setRound({
+      ...round,
+      submissionsOpen: !round.submissionsOpen,
+    });
+  };
+
   const handleSave = async () => {
     try {
       setIsSaving(true);
@@ -239,7 +269,7 @@ export default function RoundDetailPage() {
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="bg-[#5865F2] hover:bg-[#4752C4] text-white px-6 py-2 rounded-md font-medium flex items-center gap-2 transition-all disabled:opacity-50"
+          className="bg-[#5865F2] hover:bg-[#4752C4] text-white px-6 py-2 rounded-md font-medium flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           Save Changes
@@ -270,7 +300,7 @@ export default function RoundDetailPage() {
 
       {/* Tab Content */}
       <div className="bg-[#2B2D31] rounded-xl border border-[#1E1F22] p-6">
-        {/* DETAILS TAB */}
+        {/* Details Tab */}
         {activeTab === "details" && round && (
           <div className="max-w-md space-y-6">
             <div className="grid grid-cols-2 gap-4">
@@ -282,8 +312,15 @@ export default function RoundDetailPage() {
                   type="number"
                   min="1"
                   value={round.roundNumber}
-                  onChange={(e) => setRound({ ...round, roundNumber: Number(e.target.value) })}
-                  className="w-full bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none focus:border-[#5865F2]"
+                  disabled={round.active} // Prevent changing round number if the round is active
+                  onChange={(e) =>
+                    setRound({ ...round, roundNumber: Math.max(1, Number(e.target.value)) })
+                  }
+                  className={
+                    round.active
+                      ? "w-full bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none focus:border-[#5865F2] opacity-50 cursor-not-allowed"
+                      : "w-full bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none focus:border-[#5865F2]"
+                  }
                 />
               </div>
               <div>
@@ -294,29 +331,81 @@ export default function RoundDetailPage() {
                   type="number"
                   min="1"
                   value={round.groupCount}
+                  disabled={round.active} // Prevent changing group count if the round is active
                   onChange={(e) =>
                     setRound({ ...round, groupCount: Math.max(1, Number(e.target.value)) })
+                  }
+                  className={
+                    round.active
+                      ? "w-full bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none focus:border-[#5865F2] opacity-50 cursor-not-allowed"
+                      : "w-full bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none focus:border-[#5865F2]"
+                  }
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-[#80848E] uppercase mb-2">
+                  Elimination Amount
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={
+                    round.eliminationAmount || round.eliminationAmount === 0
+                      ? round.eliminationAmount.toString()
+                      : ""
+                  }
+                  onChange={(e) =>
+                    setRound({
+                      ...round,
+                      eliminationAmount:
+                        e.target.value || e.target.value === "0"
+                          ? Math.max(0, Number(e.target.value))
+                          : undefined,
+                    })
                   }
                   className="w-full bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none focus:border-[#5865F2]"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-[#1E1F22] rounded-lg">
-              <div>
-                <p className="text-white font-medium">Active Round</p>
-                <p className="text-[#80848E] text-sm">
-                  Setting this to true will deactivate any other active round.
-                </p>
+            <div className="space-y-3">
+              {/* Active Toggle */}
+              <div className="flex items-center justify-between p-4 bg-[#1E1F22] rounded-lg border border-[#35373C]">
+                <div>
+                  <p className="text-white font-medium">Active Round</p>
+                  <p className="text-[#80848E] text-sm">
+                    Setting this to true will deactivate any other active round.
+                  </p>
+                </div>
+                <button
+                  onClick={handleActiveToggle}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${round.active ? "bg-[#5865F2]" : "bg-[#4E5058]"}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${round.active ? "translate-x-6" : "translate-x-1"}`}
+                  />
+                </button>
               </div>
-              <button
-                onClick={() => setRound({ ...round, active: !round.active })}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${round.active ? "bg-[#5865F2]" : "bg-[#4E5058]"}`}
+
+              {/* Submissions Open Toggle */}
+              <div
+                className={`flex items-center justify-between p-4 bg-[#1E1F22] rounded-lg border border-[#35373C] transition-opacity ${!round.active ? "opacity-50" : ""}`}
               >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${round.active ? "translate-x-6" : "translate-x-1"}`}
-                />
-              </button>
+                <div>
+                  <p className="text-white font-medium">Submissions Open</p>
+                  <p className="text-[#80848E] text-sm">
+                    Allows contestants to submit their tracks.
+                  </p>
+                </div>
+                <button
+                  onClick={handleSubmissionsToggle}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${round.submissionsOpen ? "bg-[#5865F2]" : "bg-[#4E5058]"} ${!round.active && !round.submissionsOpen ? "cursor-not-allowed" : ""}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${round.submissionsOpen ? "translate-x-6" : "translate-x-1"}`}
+                  />
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -380,7 +469,7 @@ export default function RoundDetailPage() {
                     (activeTab === "contestants" ? currentGroupContestants : currentGroupJudges)
                       .length
                   }{" "}
-                  in group /{" "}
+                  in Group /{" "}
                   {(activeTab === "contestants" ? selectedContestants : selectedJudges).length}{" "}
                   total
                 </span>

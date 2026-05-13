@@ -29,10 +29,10 @@ public class DiscordBotConfig {
 		}
 		catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
-			throw new RuntimeException("Discord bot initialization was interrupted", e);
+			throw new RuntimeException("Discord bot initialization was interrupted.", e);
 		}
 		catch (Exception e) {
-			throw new RuntimeException("Failed to initialize Discord bot", e);
+			throw new RuntimeException("Failed to initialize Discord bot.", e);
 		}
 	}
 

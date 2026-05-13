@@ -15,7 +15,7 @@ export const handleApiError = (error: unknown, action: string) => {
     if (axiosError.response?.data) {
       const { message, traceId } = axiosError.response.data;
 
-      toast.error(`Server error while ${action}`, {
+      toast.error(`Server error while ${action}.`, {
         description: `${message} (Trace ID: ${traceId})`,
         duration: 6000,
         closeButton: true,
@@ -25,7 +25,7 @@ export const handleApiError = (error: unknown, action: string) => {
       return;
     }
 
-    toast.error(`Network error while ${action}`, {
+    toast.error(`Network error while ${action}.`, {
       description: "Unable to connect to the server. Please check your internet connection.",
       duration: 6000,
       closeButton: true,

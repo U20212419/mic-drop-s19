@@ -13,7 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   // If the user is INACTIVE, redirect to the judge application page with an error message
-  if (session.user.status === "INACTIVE") {
+  if (session?.user?.status === "INACTIVE") {
     redirect("/judge-app?error=AccessDenied");
   }
 

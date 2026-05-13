@@ -23,6 +23,10 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
   },
+  pages: {
+    signIn: "/",
+    error: "/auth-error",
+  },
   callbacks: {
     async signIn({ account, profile }) {
       if (account && profile) {
@@ -76,10 +80,12 @@ export const authOptions: NextAuthOptions = {
           token.role = res.data.role || "USER"; // Default to USER role if not provided
           token.status = res.data.status || "INACTIVE"; // Default to INACTIVE if not provided
           token.accessToken = res.data.token;
+          token.host = res.data.host || false; // Default to false if not provided
         } catch (error: any) {
           console.error(`Error fetching user role: ${error.message}. Defaulting to USER role.`);
           token.role = "USER"; // Default to USER role on error
           token.status = "INACTIVE"; // Default to INACTIVE on error
+          token.host = false; // Default to false on error
         }
       }
       return token;
@@ -91,6 +97,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = (token as any).role || "USER";
         session.user.status = (token as any).status || "INACTIVE";
         session.accessToken = (token as any).accessToken;
+        session.user.host = (token as any).host || false;
       }
       return session;
     },

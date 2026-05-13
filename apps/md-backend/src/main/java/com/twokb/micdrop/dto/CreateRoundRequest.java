@@ -1,4 +1,4 @@
 package com.twokb.micdrop.dto;
 
-public record CreateRoundRequest(Integer roundNumber, Integer groupCount) {
+public record CreateRoundRequest(Integer roundNumber, Integer groupCount, Integer eliminationAmount) {
 }

@@ -7,6 +7,7 @@ declare module "next-auth" {
       discordId: string;
       role: "ADMIN" | "STAFF" | "USER";
       status: "ACTIVE" | "INACTIVE" | "ELIMINATED" | "NOT_CONTESTANT" | "DID_NOT_SUBMIT";
+      host?: boolean;
     } & DefaultSession["user"];
     accessToken?: string; // Optional access token for API requests
   }

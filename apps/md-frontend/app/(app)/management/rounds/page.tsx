@@ -16,12 +16,19 @@ import {
   AlertTriangle,
   Edit,
   Trash2,
+  Unlock,
+  Lock,
+  Save,
+  List,
 } from "lucide-react";
 
 export interface Round {
   idRound: number;
   roundNumber: number;
   active: boolean;
+  submissionsOpen: boolean;
+  groupCount: number;
+  eliminationAmount?: number;
 }
 
 export default function RoundsPage() {
@@ -44,6 +51,7 @@ export default function RoundsPage() {
   // New round form
   const [newRoundNumber, setNewRoundNumber] = useState<number | "">("");
   const [newGroupCount, setNewGroupCount] = useState<number>(1);
+  const [newEliminationAmount, setNewEliminationAmount] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     if (authStatus === "authenticated") {
@@ -56,7 +64,7 @@ export default function RoundsPage() {
       setIsLoading(true);
       const res = await api.get("/rounds");
 
-      // Sort by round number
+      // Sort by round number ascending
       const sortedRounds = res.data.sort((a: Round, b: Round) => a.roundNumber - b.roundNumber);
       setRounds(sortedRounds);
     } catch (error: any) {
@@ -77,7 +85,9 @@ export default function RoundsPage() {
       const payload = {
         roundNumber: Number(newRoundNumber),
         active: false,
+        submissionsOpen: false,
         groupCount: newGroupCount,
+        eliminationAmount: newEliminationAmount,
       };
 
       const res = await api.post("/rounds", payload);
@@ -93,6 +103,7 @@ export default function RoundsPage() {
       setIsCreateModalOpen(false);
       setNewRoundNumber("");
       setNewGroupCount(1);
+      setNewEliminationAmount(undefined);
     } catch (error: any) {
       // Error handled by interceptor
     } finally {
@@ -173,6 +184,7 @@ export default function RoundsPage() {
               <tr>
                 <th className="px-6 py-4 font-semibold">Round Number</th>
                 <th className="px-6 py-4 font-semibold">Status</th>
+                <th className="px-6 py-4 font-semibold">Submissions</th>
                 {isAdmin && <th className="px-6 py-4 font-semibold text-right">Actions</th>}
               </tr>
             </thead>
@@ -183,32 +195,63 @@ export default function RoundsPage() {
                     key={round.idRound}
                     className="border-b border-[#1E1F22] hover:bg-[#35373C]/50 transition-colors"
                   >
+                    {/* Round Number */}
                     <td className="px-6 py-4 font-medium text-white flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-[#5865F2]/20 flex items-center justify-center text-[#5865F2]">
-                        <Trophy className="w-4 h-4" />
+                        <Trophy className="w-4 h-4 shrink-0" />
                       </div>
                       Round {round.roundNumber}
                     </td>
+
+                    {/* Active Status */}
                     <td className="px-6 py-4">
                       <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
                           round.active
                             ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                            : "bg-gray-500/10 text-[#80848E] border-gray-500/20"
+                            : "bg-red-500/10 text-red-400 border-red-500/20"
                         }`}
                       >
                         {round.active ? (
-                          <CheckCircle2 className="w-3 h-3 mr-1.5" />
+                          <CheckCircle2 className="w-3 h-3 shrink-0" />
                         ) : (
-                          <XCircle className="w-3 h-3 mr-1.5" />
+                          <XCircle className="w-3 h-3 shrink-0" />
                         )}
-                        {round.active ? "Ongoing (Active)" : "Inactive"}
+                        <span className="mt-px leading-none">
+                          {round.active ? "Active" : "Inactive"}
+                        </span>
+                      </span>
+                    </td>
+
+                    {/* Submissions Status */}
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+                          round.submissionsOpen
+                            ? "bg-[#5865F2]/10 text-[#5865F2] border-[#5865F2]/20"
+                            : "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
+                        }`}
+                      >
+                        {round.submissionsOpen ? (
+                          <Unlock className="w-3 h-3 shrink-0" />
+                        ) : (
+                          <Lock className="w-3 h-3 shrink-0" />
+                        )}
+
+                        <span className="mt-px leading-none">
+                          {round.submissionsOpen ? "Submissions Open" : "Submissions Closed"}
+                        </span>
                       </span>
                     </td>
 
                     {isAdmin && (
                       <td className="px-6 py-4 text-right space-x-3">
-                        {/* The edit button navigates to the round's configuration page */}
+                        <button
+                          onClick={() => router.push(`/management/rounds/${round.idRound}/detail`)}
+                          className="text-emerald-400 hover:text-emerald-500 font-medium transition-colors inline-flex items-center"
+                        >
+                          <List className="w-4 h-4 mr-1" /> Detail
+                        </button>
                         <button
                           onClick={() => router.push(`/management/rounds/${round.idRound}`)}
                           className="text-[#5865F2] hover:text-[#4752C4] font-medium transition-colors inline-flex items-center"
@@ -268,7 +311,7 @@ export default function RoundsPage() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-[#80848E] uppercase mb-1.5">
-                  Number of Groups
+                  Total Groups
                 </label>
                 <input
                   type="number"
@@ -276,6 +319,31 @@ export default function RoundsPage() {
                   required
                   value={newGroupCount}
                   onChange={(e) => setNewGroupCount(Math.max(1, Number(e.target.value)))}
+                  className="w-full bg-[#1E1F22] border border-[#1E1F22] text-[#DBDEE1] rounded-md px-3 py-2 focus:border-[#5865F2] outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#80848E] uppercase mb-1.5">
+                  Elimination Amount{" "}
+                  <span className="text-[#80848E] italic font-normal lowercase">
+                    (optional on creation)
+                  </span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={
+                    newEliminationAmount || newEliminationAmount === 0
+                      ? newEliminationAmount.toString()
+                      : ""
+                  }
+                  onChange={(e) =>
+                    setNewEliminationAmount(
+                      e.target.value || e.target.value === "0"
+                        ? Math.max(0, Number(e.target.value))
+                        : undefined,
+                    )
+                  }
                   className="w-full bg-[#1E1F22] border border-[#1E1F22] text-[#DBDEE1] rounded-md px-3 py-2 focus:border-[#5865F2] outline-none"
                 />
               </div>
@@ -290,10 +358,14 @@ export default function RoundsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || newRoundNumber === ""}
-                  className="bg-[#5865F2] hover:bg-[#4752C4] text-white px-6 py-2 rounded-md text-sm font-semibold transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isSubmitting}
+                  className="bg-[#5865F2] hover:bg-[#4752C4] text-white px-6 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  {isSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
                   {isSubmitting ? "Creating..." : "Create"}
                 </button>
               </div>
@@ -323,7 +395,7 @@ export default function RoundsPage() {
                 type="button"
                 onClick={() => setRoundToDelete(null)}
                 disabled={isSubmitting}
-                className="px-4 py-2 text-sm font-medium text-[#DBDEE1] hover:underline disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-[#DBDEE1] hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
@@ -331,9 +403,13 @@ export default function RoundsPage() {
                 type="button"
                 onClick={handleDeleteConfirm}
                 disabled={isSubmitting}
-                className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-md text-sm font-semibold transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                {isSubmitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
                 {isSubmitting ? "Deleting..." : "Delete"}
               </button>
             </div>

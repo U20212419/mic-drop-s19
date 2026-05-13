@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -39,4 +40,6 @@ public class DiscordUser {
 	@JoinColumn(name = "judge_app_id_app", referencedColumnName = "id_app")
 	private JudgeApp judgeApp;
 
+	@Transient
+	private boolean isHost;
 }

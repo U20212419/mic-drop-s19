@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import api from "@/lib/axios";
 import { Gavel, Send, Loader2, Disc3, LogOut, Home } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { FormTextarea } from "@/components/FormTextarea";
 
 function JudgeAppForm() {
   const { data: session, status } = useSession();
@@ -46,7 +47,7 @@ function JudgeAppForm() {
     if (error === "AccessDenied" && !hasShownError.current) {
       hasShownError.current = true; // Ensure the toast only shows once per error occurrence
 
-      toast.error("Access Denied", {
+      toast.error("Access Denied.", {
         description:
           "You do not have permission to access or there was an issue with your account.",
         closeButton: true,
@@ -269,8 +270,8 @@ function JudgeAppForm() {
                 className="w-full bg-[#2B2D31] border border-[#35373C] text-white rounded-md px-3 py-2 outline-none focus:border-[#5865F2] text-sm mt-1"
               >
                 <option value="NO_PREFERENCE">I have no preference</option>
-                <option value="MORE">I prefer judging MORE songs</option>
-                <option value="LESS">I prefer judging LESS songs</option>
+                <option value="MORE">I prefer judging MORE tracks</option>
+                <option value="LESS">I prefer judging LESS tracks</option>
               </select>
             </div>
 
@@ -296,7 +297,7 @@ function JudgeAppForm() {
                 </div>
               </div>
               <span className="text-sm text-[#DBDEE1] font-medium">
-                (Optional) Giving Bonus Points (+0.25) to songs that you have not heard before.
+                (Optional) Giving Bonus Points (+0.25) to tracks that you have not heard before.
               </span>
             </label>
           </div>
@@ -319,38 +320,6 @@ function JudgeAppForm() {
           </button>
         </form>
       </div>
-    </div>
-  );
-}
-
-// Reusable Form Component to keep code clean
-function FormTextarea({ name, label, sublabel, value, onChange }: any) {
-  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const target = e.target;
-    target.style.height = "auto";
-    target.style.height = `${target.scrollHeight}px`;
-    onChange(e);
-  };
-
-  return (
-    <div className="space-y-1">
-      <label className="text-xs font-bold text-[#80848E] uppercase tracking-wide">
-        {label} <span className="text-red-400">*</span>
-      </label>
-      {sublabel && (
-        <p className="text-[#80848E] text-[11px] mb-2 italic leading-tight">{sublabel}</p>
-      )}
-      <textarea
-        required
-        name={name}
-        value={value}
-        onChange={handleInput}
-        maxLength={5000}
-        rows={2}
-        className="w-full bg-[#1E1F22] border border-[#1E1F22] text-[#DBDEE1] rounded-md px-3 py-2 outline-none focus:border-[#5865F2] transition-all duration-200 overflow-hidden min-h-20"
-        style={{ resize: "none" }}
-      />
-      <p className="text-[10px] text-right text-[#4E5058]">{value?.length || 0} / 5000</p>
     </div>
   );
 }

@@ -51,7 +51,7 @@ api.interceptors.response.use(
     if (error.response?.data) {
       const { message, traceId } = error.response.data;
 
-      toast.error("Server error", {
+      toast.error("Server error.", {
         description: `${message} (Trace ID: ${traceId})`,
         duration: 6000,
         closeButton: true,
@@ -59,7 +59,7 @@ api.interceptors.response.use(
 
       console.error(`Server error: ${message} (Trace ID: ${traceId})`);
     } else if (error.code === "ERR_NETWORK") {
-      toast.error("Network error", {
+      toast.error("Network error.", {
         description: "Unable to connect to the server. Please check your internet connection.",
         duration: 6000,
         closeButton: true,
@@ -67,7 +67,7 @@ api.interceptors.response.use(
 
       console.error("Network error:", error.message);
     } else {
-      toast.error("An unexpected error occurred", {
+      toast.error("An unexpected error occurred.", {
         description: "An unexpected error occurred. Please try again later.",
         duration: 6000,
         closeButton: true,

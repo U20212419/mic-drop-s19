@@ -20,8 +20,20 @@ function LoginContent() {
   // Trigger an error toast if redirected with an error query param (e.g. after failed auth)
   useEffect(() => {
     const error = searchParams.get("error");
-    if (error === "AccessDenied") {
-      toast.error("Access Denied", {
+    const callbackUrl = searchParams.get("callbackUrl");
+
+    if (!error) return;
+
+    if (error === "Callback") {
+      if (callbackUrl?.includes("/judge-app")) {
+        // Canceled from the judge application page
+        router.replace("/judge-app");
+      } else {
+        // Canceled from the main app login page
+        router.replace("/");
+      }
+    } else if (error === "AccessDenied") {
+      toast.error("Access Denied.", {
         description:
           "You do not have permission to access or there was an issue with your account.",
         closeButton: true,

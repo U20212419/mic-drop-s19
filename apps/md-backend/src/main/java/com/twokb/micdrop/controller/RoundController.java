@@ -19,7 +19,11 @@ import com.twokb.micdrop.dto.CreateRoundRequest;
 import com.twokb.micdrop.dto.RoundAssignmentsResponse;
 import com.twokb.micdrop.dto.UpdateRoundRequest;
 import com.twokb.micdrop.dto.UserAssignmentDTO;
+import com.twokb.micdrop.dto.myRounds.AdminBatchUpdateRequest;
+import com.twokb.micdrop.dto.myRounds.AdminSubmissionDTO;
+import com.twokb.micdrop.dto.myRounds.ExecuteEliminationsRequest;
 import com.twokb.micdrop.model.Round;
+import com.twokb.micdrop.service.RoundDetailService;
 import com.twokb.micdrop.service.RoundService;
 import com.twokb.micdrop.service.UserRoundService;
 
@@ -33,6 +37,8 @@ public class RoundController {
 	private final RoundService roundService;
 
 	private final UserRoundService userRoundService;
+
+	private final RoundDetailService roundDetailService;
 
 	@GetMapping
 	@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
@@ -55,7 +61,7 @@ public class RoundController {
 	@PostMapping
 	@PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<Round> createRound(@RequestBody CreateRoundRequest request) {
-		Round savedRound = roundService.createRound(request.roundNumber(), request.groupCount());
+		Round savedRound = roundService.createRound(request.roundNumber(), request.groupCount(), request.eliminationAmount());
 
 		return ResponseEntity.status(HttpStatus.CREATED).body(savedRound);
 	}
@@ -82,7 +88,7 @@ public class RoundController {
 	@PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<Round> updateRound(@PathVariable Integer idRound, @RequestBody UpdateRoundRequest request) {
 		Round updatedRound = roundService.updateRound(idRound, request.roundNumber(), request.active(),
-				request.groupCount());
+				request.groupCount(), request.submissionsOpen(), request.eliminationAmount());
 
 		return ResponseEntity.status(HttpStatus.OK).body(updatedRound);
 	}
@@ -95,4 +101,24 @@ public class RoundController {
 		return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
 	}
 
+	@GetMapping("/{idRound}/detail-submissions")
+	@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+	public ResponseEntity<List<AdminSubmissionDTO>> getRoundDetailSubmissions(@PathVariable Integer idRound) {
+		List<AdminSubmissionDTO> detailSubmissions = roundDetailService.getRoundSubmissions(idRound);
+		return ResponseEntity.ok(detailSubmissions);
+	}
+
+	@PutMapping("/{idRound}/detail-submissions")
+	@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+	public ResponseEntity<List<AdminSubmissionDTO>> updateRoundDetailSubmissions(@PathVariable Integer idRound, @RequestBody AdminBatchUpdateRequest updates) {
+		List<AdminSubmissionDTO> updatedSubmissions = roundDetailService.updateSubmissions(idRound, updates);
+		return ResponseEntity.status(HttpStatus.OK).body(updatedSubmissions);
+	}
+
+	@PostMapping("/{idRound}/execute-eliminations")
+	@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+	public ResponseEntity<Void> executeEliminations(@PathVariable Integer idRound, @RequestBody ExecuteEliminationsRequest request) {
+		roundDetailService.executeEliminations(idRound, request.groupNumber());
+		return ResponseEntity.status(HttpStatus.OK).build();
+	}
 }

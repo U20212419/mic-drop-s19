@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS discord_user (
 	username VARCHAR(50) NOT NULL,
 	status contestant_status NULL,
 	global_role global_role_type NOT NULL,
-	judge_app_id_app INTEGER,
+	judge_app_id_app INTEGER NULL,
 	CONSTRAINT fk_discord_user_judge_app
 		FOREIGN KEY (judge_app_id_app)
 		REFERENCES judge_app (id_app)
@@ -41,6 +41,9 @@ CREATE INDEX fk_discord_user_judge_app_idx ON discord_user (judge_app_id_app);
 CREATE INDEX idx_discord_user_status ON discord_user (status);
 CREATE INDEX idx_discord_user_global_role ON discord_user (global_role);
 
+INSERT INTO discord_user (discord_id, username, status, global_role)
+VALUES ('282323469553631233', '2kb', 'not_contestant', 'admin');
+
 -- -----------------------------------------------------
 -- Table `round`
 -- -----------------------------------------------------
@@ -48,7 +51,9 @@ CREATE TABLE IF NOT EXISTS round (
 	id_round SERIAL PRIMARY KEY,
 	round_number INTEGER NOT NULL UNIQUE,
 	active BOOLEAN NOT NULL,
-	group_count INTEGER NOT NULL
+	group_count INTEGER NOT NULL,
+	submissions_open BOOLEAN NOT NULL,
+	elimination_amount INTEGER NULL
 );
 
 CREATE INDEX idx_round_active ON round (active);
@@ -89,6 +94,10 @@ CREATE TABLE IF NOT EXISTS submission (
 	id_round INTEGER NOT NULL,
 	sub_link VARCHAR(200) NOT NULL,
 	score NUMERIC(4, 2) NULL,
+	review VARCHAR(5000) NULL,
+	title VARCHAR(200) NULL,
+	artist VARCHAR(200) NULL,
+	submitted_at TIMESTAMPTZ NOT NULL,
 	CONSTRAINT check_score_valid
 		CHECK (score >=0 AND score <= 10 AND score % 0.25 = 0),
 	CONSTRAINT fk_user_round_id_contestant
@@ -115,7 +124,9 @@ CREATE TABLE IF NOT EXISTS system_setting (
 );
 
 INSERT INTO system_setting (setting_key, setting_value)
-VALUES ('signup_message_id', 'N/A'), ('contestant_role_id', 'N/A');
+VALUES ('signup_message_id', 'N/A'),
+('contestant_role_id', 'N/A'),
+('season_host_id', '282323469553631233');
 
 -- -----------------------------------------------------
 -- Table `judge_app`

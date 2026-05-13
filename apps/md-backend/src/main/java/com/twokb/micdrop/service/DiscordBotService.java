@@ -15,7 +15,12 @@ public class DiscordBotService {
 
 	private final SystemSettingService systemSetting;
 
-	public void sendSingUpMessage(String channelId) {
+	public void sendSignUpMessage(String channelId, String requesterDiscordId) {
+		String hostId = systemSetting.getHostDiscordId();
+		if (!requesterDiscordId.equals(hostId)) {
+			throw new IllegalStateException("Only the host can send the signup message.");
+		}
+		
 		TextChannel channel = jda.getTextChannelById(channelId);
 
 		if (channel != null) {
@@ -27,7 +32,7 @@ public class DiscordBotService {
 				message.addReaction(Emoji.fromUnicode("☠️")).queue();
 
 				// Store the message ID in database
-				systemSetting.setSetting("signup_message_id", message.getId());
+				systemSetting.setSetting("signup_message_id", message.getId(), requesterDiscordId);
 			});
 		}
 		else {

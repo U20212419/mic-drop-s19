@@ -29,4 +29,9 @@ public class Round {
 	@Column(name = "group_count", nullable = false)
 	private Integer groupCount;
 
+	@Column(name = "submissions_open", nullable = false)
+	private Boolean submissionsOpen;
+
+	@Column(name = "elimination_amount", nullable = true)
+	private Integer eliminationAmount;
 }

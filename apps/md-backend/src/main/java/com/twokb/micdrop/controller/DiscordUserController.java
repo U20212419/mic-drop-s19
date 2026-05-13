@@ -9,6 +9,7 @@ import com.twokb.micdrop.service.DiscordUserService;
 
 import lombok.RequiredArgsConstructor;
 
+import java.security.Principal;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -47,9 +48,9 @@ public class DiscordUserController {
 	@PutMapping("/{idUser}")
 	@PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<DiscordUser> updateUser(@PathVariable Integer idUser,
-			@RequestBody UpdateUserRequest request) {
+			@RequestBody UpdateUserRequest request, Principal principal) {
 		DiscordUser updatedUser = discordUserService.updateUser(idUser, request.discordId(), request.username(),
-				request.status(), request.globalRole());
+				request.status(), request.globalRole(), principal.getName());
 
 		return ResponseEntity.status(HttpStatus.OK).body(updatedUser);
 	}

@@ -29,7 +29,7 @@ public class RoundService {
 	}
 
 	@Transactional
-	public Round createRound(Integer roundNumber, Integer groupCount) {
+	public Round createRound(Integer roundNumber, Integer groupCount, Integer eliminationAmount) {
 		if (roundRepository.findByRoundNumber(roundNumber).isPresent()) {
 			throw new IllegalArgumentException("Round number " + roundNumber + " already exists.");
 		}
@@ -38,24 +38,9 @@ public class RoundService {
 		round.setRoundNumber(roundNumber);
 		round.setGroupCount(groupCount);
 		round.setActive(false);
+		round.setSubmissionsOpen(false);
+		round.setEliminationAmount(eliminationAmount);
 		return roundRepository.save(round);
-	}
-
-	@Transactional
-	public void setActiveRound(Integer roundNumber) {
-		var currentActiveRoundOpt = roundRepository.findByActiveTrue();
-		if (currentActiveRoundOpt.isPresent()) {
-			var currentActiveRound = currentActiveRoundOpt.get();
-			if (currentActiveRound.getRoundNumber() == roundNumber) {
-				return; // Already active, no change needed
-			}
-			currentActiveRound.setActive(false);
-		}
-
-		var newActiveRound = roundRepository.findByRoundNumber(roundNumber)
-			.orElseThrow(() -> new IllegalArgumentException("Round number " + roundNumber + " not found."));
-
-		newActiveRound.setActive(true);
 	}
 
 	@Transactional(readOnly = true)
@@ -65,7 +50,8 @@ public class RoundService {
 	}
 
 	@Transactional
-	public Round updateRound(Integer idRound, Integer roundNumber, Boolean active, Integer groupCount) {
+	public Round updateRound(Integer idRound, Integer roundNumber, Boolean active, Integer groupCount,
+			Boolean submissionsOpen, Integer eliminationAmount) {
 		Round round = roundRepository.findById(idRound)
 			.orElseThrow(() -> new IllegalArgumentException("Round with ID " + idRound + " not found."));
 
@@ -82,6 +68,8 @@ public class RoundService {
 
 		round.setActive(active);
 		round.setGroupCount(groupCount);
+		round.setSubmissionsOpen(submissionsOpen);
+		round.setEliminationAmount(eliminationAmount);
 
 		return round;
 	}
