@@ -47,8 +47,9 @@ public class RefreshTokenService {
 
 	@Transactional
 	public String createRefreshToken(String discordId) {
-        // Search for an existing token for the user and use it if found, otherwise create a new one
-        RefreshToken refreshToken = refreshTokenRepository.findByDiscordId(discordId).orElse(new RefreshToken());
+		// Search for an existing token for the user and use it if found, otherwise create
+		// a new one
+		RefreshToken refreshToken = refreshTokenRepository.findByDiscordId(discordId).orElse(new RefreshToken());
 
 		// Generate the raw token
 		String rawToken = UUID.randomUUID().toString();
@@ -58,7 +59,7 @@ public class RefreshTokenService {
 
 		refreshToken.setDiscordId(discordId);
 		refreshToken.setTokenHash(hashedToken);
-        // Set expiry date to 7 days from now
+		// Set expiry date to 7 days from now
 		refreshToken.setExpiryDate(Instant.now().plusSeconds(7 * 24 * 60 * 60));
 
 		refreshTokenRepository.save(refreshToken);

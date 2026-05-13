@@ -99,18 +99,24 @@ public class AuthController {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "No refresh token provided."));
 		}
 
-		return refreshTokenService.verifyByRawToken(rawToken).map(RefreshToken::getDiscordId).map(discordId -> {
-			DiscordUser user = discordUserService.getUserByDiscordId(discordId);
+		return refreshTokenService.verifyByRawToken(rawToken)
+			.map(RefreshToken::getDiscordId)
+			.map(discordId -> {
+				DiscordUser user = discordUserService.getUserByDiscordId(discordId);
 
-			// Re-evaluate host status for the new access token
-			String hostId = systemSettingService.getHostDiscordId();
-			user.setHost(user.getDiscordId().equals(hostId));
+				// Re-evaluate host status for the new access token
+				String hostId = systemSettingService.getHostDiscordId();
+				user.setHost(user.getDiscordId().equals(hostId));
 
-			// Issue a new short-lived access token
-			String newAccessToken = generateJwtToken(user);
+				// Issue a new short-lived access token
+				String newAccessToken = generateJwtToken(user);
 
-			return ResponseEntity.ok(Map.of("token", newAccessToken));
-		}).orElseThrow(() -> new RuntimeException("Invalid refresh token. Please log in again."));
+				// Issue a new refresh token and invalidate the old one
+				String newRefreshToken = refreshTokenService.createRefreshToken(discordId);
+
+				return ResponseEntity.ok(Map.of("token", newAccessToken, "refreshToken", newRefreshToken));
+			})
+			.orElseThrow(() -> new RuntimeException("Invalid refresh token. Please log in again."));
 	}
 
 	@PostMapping("/signout")

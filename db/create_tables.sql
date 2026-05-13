@@ -152,7 +152,7 @@ CREATE TABLE IF NOT EXISTS refresh_token (
 	id_token SERIAL PRIMARY KEY,
 	discord_user_discord_id VARCHAR(50) NOT NULL UNIQUE,
 	token_hash VARCHAR(255) NOT NULL,
-	expiry_date TIMESTAMP NOT NULL,
+	expiry_date TIMESTAMPTZ NOT NULL,
 	CONSTRAINT fk_refresh_token_discord_user
 		FOREIGN KEY (discord_user_discord_id)
 		REFERENCES discord_user (discord_id)

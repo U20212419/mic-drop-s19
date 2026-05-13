@@ -12,6 +12,6 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Inte
 
 	Optional<RefreshToken> findByTokenHash(String tokenHash);
 
-    Optional<RefreshToken> findByDiscordId(String discordId);
+	Optional<RefreshToken> findByDiscordId(String discordId);
 
 }

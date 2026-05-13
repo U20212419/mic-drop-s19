@@ -16,6 +16,7 @@ import {
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
+import api from "@/lib/axios";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -75,6 +76,22 @@ export function Sidebar() {
 
   // Filter menu items based on user role
   const allowedMenu = menuItems.filter((item) => item.roles.includes(userRole));
+
+  const handleSignOut = async () => {
+    if (session?.user?.discordId) {
+      try {
+        // Inform backend about logout for cleanup of refresh token
+        await api.post("/auth/signout", {
+          discordId: session.user.discordId,
+        });
+      } catch (error) {
+        // Even if this fails, we still want to sign out on the client side, so we catch errors silently
+        console.error("Error during sign out:", error);
+      }
+    }
+
+    await signOut({ callbackUrl: "/" });
+  };
 
   return (
     <aside className="w-64 bg-[#2B2D31] text-[#DBDEE1] flex flex-col h-screen fixed left-0 top-0">
@@ -193,7 +210,7 @@ export function Sidebar() {
         </div>
 
         <button
-          onClick={() => signOut({ callbackUrl: "/" })}
+          onClick={handleSignOut}
           className="p-2 text-[#80848E] hover:text-red-400 hover:bg-[#313338] rounded-md transition-colors"
           title="Sign out"
         >

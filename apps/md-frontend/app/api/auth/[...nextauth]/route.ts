@@ -117,6 +117,7 @@ export const authOptions: NextAuthOptions = {
         return {
           ...token,
           accessToken: res.data.token,
+          refreshToken: res.data.refreshToken,
           accessTokenExpires: Date.now() + 25 * 60 * 1000, // Extend access token expiry
         };
       } catch (error: any) {

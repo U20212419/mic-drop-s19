@@ -96,6 +96,18 @@ function JudgeAppForm() {
   };
 
   const handleSignOut = async () => {
+    if (session?.user?.discordId) {
+      try {
+        // Inform backend about logout for cleanup of refresh token
+        await api.post("/auth/signout", {
+          discordId: session.user.discordId,
+        });
+      } catch (error) {
+        // Even if this fails, we still want to sign out on the client side, so we catch errors silently
+        console.error("Error during sign out:", error);
+      }
+    }
+
     await signOut({ callbackUrl: "/" });
   };
 
