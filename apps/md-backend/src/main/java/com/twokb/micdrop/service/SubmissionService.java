@@ -6,6 +6,7 @@ import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.HtmlUtils;
 
 import com.twokb.micdrop.model.Submission;
 import com.twokb.micdrop.repository.SubmissionRepository;
@@ -65,7 +66,9 @@ public class SubmissionService {
 	public Submission adminUpdateSubmission(Integer idSubmission, String subLink, String title, String artist) {
 		Submission sub = getById(idSubmission);
 
-		sub.setSubLink(subLink);
+		// Unescape the HTML entities back to normal URL characters before saving
+		String rawLink = HtmlUtils.htmlUnescape(subLink);
+		sub.setSubLink(rawLink);
 		sub.setTitle(title);
 		sub.setArtist(artist);
 

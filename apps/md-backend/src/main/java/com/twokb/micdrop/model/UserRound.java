@@ -35,4 +35,10 @@ public class UserRound {
 	@Column(name = "group_number", nullable = false)
 	private Integer groupNumber;
 
+	@Column(name = "placed_first", nullable = false)
+	private Boolean placedFirst = false;
+
+	@Column(name = "bonus_claimed", nullable = false)
+	private Boolean bonusClaimed = false;
+
 }

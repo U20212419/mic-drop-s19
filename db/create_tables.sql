@@ -28,9 +28,10 @@ CREATE TABLE IF NOT EXISTS discord_user (
 	id_user SERIAL PRIMARY KEY,
 	discord_id VARCHAR(50) NOT NULL UNIQUE,
 	username VARCHAR(50) NOT NULL,
-	status contestant_status NULL,
+	status contestant_status NOT NULL,
 	global_role global_role_type NOT NULL,
 	judge_app_id_app INTEGER NULL,
+	preliminary_status contestant_status NULL,
 	CONSTRAINT fk_discord_user_judge_app
 		FOREIGN KEY (judge_app_id_app)
 		REFERENCES judge_app (id_app)
@@ -41,9 +42,29 @@ CREATE TABLE IF NOT EXISTS discord_user (
 CREATE INDEX fk_discord_user_judge_app_idx ON discord_user (judge_app_id_app);
 CREATE INDEX idx_discord_user_status ON discord_user (status);
 CREATE INDEX idx_discord_user_global_role ON discord_user (global_role);
+CREATE INDEX idx_discord_user_preliminary_status ON discord_user (preliminary_status);
 
 INSERT INTO discord_user (discord_id, username, status, global_role)
 VALUES ('282323469553631233', '2kb', 'not_contestant', 'admin');
+
+-- -----------------------------------------------------
+-- Table `collection_item`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS collection_item (
+	id_collection SERIAL PRIMARY KEY,
+	id_contestant INTEGER NOT NULL,
+	sub_link VARCHAR(200) NOT NULL,
+	title VARCHAR(200) NULL,
+	artist VARCHAR(200) NULL,
+	quantity INTEGER NOT NULL DEFAULT 0,
+	CONSTRAINT fk_collection_discord_user
+		FOREIGN KEY (id_contestant)
+		REFERENCES discord_user (id_user)
+		ON DELETE NO ACTION
+		ON UPDATE NO ACTION
+);
+
+CREATE UNIQUE INDEX idx_collection_contestant_link ON collection_item (id_contestant, sub_link);
 
 -- -----------------------------------------------------
 -- Table `round`
@@ -54,7 +75,8 @@ CREATE TABLE IF NOT EXISTS round (
 	active BOOLEAN NOT NULL,
 	group_count INTEGER NOT NULL,
 	submissions_open BOOLEAN NOT NULL,
-	elimination_amount INTEGER NULL
+	elimination_amount INTEGER NULL,
+	special_round BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE INDEX idx_round_active ON round (active);
@@ -67,6 +89,8 @@ CREATE TABLE IF NOT EXISTS user_round (
 	round_id_round INTEGER NOT NULL,
 	user_role user_role_type NOT NULL,
 	group_number INTEGER NOT NULL,
+	placed_first BOOLEAN NOT NULL DEFAULT FALSE,
+	bonus_claimed BOOLEAN NOT NULL DEFAULT FALSE,
 	PRIMARY KEY (discord_user_id_user, round_id_round),
 	CONSTRAINT fk_user_round_discord_user
 		FOREIGN KEY (discord_user_id_user)

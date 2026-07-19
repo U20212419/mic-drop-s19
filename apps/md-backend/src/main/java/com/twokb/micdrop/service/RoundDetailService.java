@@ -36,6 +36,9 @@ public class RoundDetailService {
 
 	private final RoundService roundService;
 
+	private record ContestantStat(DiscordUser contestant, double avgScore, double stdDev, Instant maxSubmittedAt) {
+	}
+
 	@Transactional(readOnly = true)
 	public List<AdminSubmissionDTO> getRoundSubmissions(Integer idRound) {
 		List<Submission> subs = submissionService.getSubmissionsByRoundId(idRound);
@@ -100,7 +103,7 @@ public class RoundDetailService {
 	}
 
 	@Transactional
-	public void executeEliminations(Integer idRound, Integer groupNumber) {
+	public void calculatePreliminaryStatuses(Integer idRound, Integer groupNumber) {
 		Round round = roundService.getRound(idRound);
 
 		if (round.getSubmissionsOpen() || round.getEliminationAmount() == null || round.getEliminationAmount() <= 0) {
@@ -121,9 +124,38 @@ public class RoundDetailService {
 
 		int expectedSubmissionsPerContestant = judges.size();
 
-		// Calculate average scores for each contestant
-		record ContestantStat(DiscordUser contestant, double avgScore, double stdDev, Instant maxSubmittedAt) {
+		// Get status only for contestants who submitted to all judges
+		List<ContestantStat> activeStats = getGroupStats(idRound, contestants, judges);
+
+		Set<Integer> activeContestantIds = activeStats.stream()
+			.map(stat -> stat.contestant().getIdUser())
+			.collect(Collectors.toSet());
+
+		// Mark anyone who is not in the activeStats list as DID_NOT_SUBMIT
+		for (DiscordUser contestant : contestants) {
+			if (!activeContestantIds.contains(contestant.getIdUser())) {
+				contestant.setPreliminaryStatus(ContestantStatus.DID_NOT_SUBMIT);
+			}
 		}
+
+		// Assign ELIMINATED or ACTIVE to the valid contestants
+		int eliminateCount = Math.min(round.getEliminationAmount(), activeStats.size());
+
+		for (int i = 0; i < activeStats.size(); i++) {
+			DiscordUser contestant = activeStats.get(i).contestant;
+
+			if (i < eliminateCount) {
+				contestant.setPreliminaryStatus(ContestantStatus.ELIMINATED);
+			}
+			else {
+				contestant.setPreliminaryStatus(ContestantStatus.ACTIVE);
+			}
+		}
+	}
+
+	private List<ContestantStat> getGroupStats(Integer idRound, List<DiscordUser> contestants,
+			List<DiscordUser> judges) {
+		int expectedSubmissionsPerContestant = judges.size();
 		List<ContestantStat> activeStats = new ArrayList<>();
 
 		for (DiscordUser contestant : contestants) {
@@ -134,9 +166,8 @@ public class RoundDetailService {
 				.filter(s -> s.getSubLink() != null && !s.getSubLink().isBlank())
 				.count();
 
-			// If contestant didn't submit to all judges, mark as DID_NOT_SUBMIT
+			// Skip if the contestant did not submit the required amount
 			if (submittedCount < expectedSubmissionsPerContestant) {
-				contestant.setStatus(ContestantStatus.DID_NOT_SUBMIT);
 				continue;
 			}
 
@@ -167,27 +198,48 @@ public class RoundDetailService {
 		// Sort by average score ascending, then std dev descending, then max submission
 		// time ascending
 		activeStats.sort((a, b) -> {
-			int scoreCmp = Double.compare(a.avgScore, b.avgScore);
+			int scoreCmp = Double.compare(a.avgScore(), b.avgScore());
 			if (scoreCmp != 0)
 				return scoreCmp;
 
-			int stdDevCmp = Double.compare(b.stdDev, a.stdDev);
+			int stdDevCmp = Double.compare(b.stdDev(), a.stdDev());
 			if (stdDevCmp != 0)
 				return stdDevCmp;
 
 			return a.maxSubmittedAt.compareTo(b.maxSubmittedAt);
 		});
 
-		int eliminateCount = Math.min(round.getEliminationAmount(), activeStats.size());
+		return activeStats;
+	}
 
-		for (int i = 0; i < activeStats.size(); i++) {
-			DiscordUser contestant = activeStats.get(i).contestant;
+	@Transactional
+	public void applyStatuses(Integer idRound, Integer groupNumber) {
+		List<UserRound> groupUsers = userRoundService.getUsersByRoundIdAndGroupNumber(idRound, groupNumber);
 
-			if (i < eliminateCount) {
-				contestant.setStatus(ContestantStatus.ELIMINATED);
-			}
-			else {
-				contestant.setStatus(ContestantStatus.ACTIVE);
+		List<DiscordUser> contestants = groupUsers.stream()
+			.filter(ur -> ur.getUserRole() == UserRoleType.CONTESTANT)
+			.map(UserRound::getUser)
+			.toList();
+
+		List<DiscordUser> judges = groupUsers.stream()
+			.filter(ur -> ur.getUserRole() == UserRoleType.JUDGE)
+			.map(UserRound::getUser)
+			.toList();
+
+		// Get stats to find out who placed first
+		List<ContestantStat> activeStats = getGroupStats(idRound, contestants, judges);
+
+		// Grant 1st place bonus to the top contestant
+		if (!activeStats.isEmpty()) {
+			DiscordUser firstPlace = activeStats.get(0).contestant();
+			UserRound ur = userRoundService.getUserRoundByRoundIdAndDiscordId(idRound, firstPlace.getDiscordId());
+			ur.setPlacedFirst(true);
+		}
+
+		// Apply preliminary status to public status for all contestants in the group
+		for (DiscordUser contestant : contestants) {
+			if (contestant.getPreliminaryStatus() != null) {
+				contestant.setStatus(contestant.getPreliminaryStatus());
 			}
 		}
 	}

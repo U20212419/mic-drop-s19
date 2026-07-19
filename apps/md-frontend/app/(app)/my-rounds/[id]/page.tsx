@@ -31,6 +31,9 @@ export default function RoundDetailPage() {
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [openJudges, setOpenJudges] = useState<Record<string, boolean>>({});
 
+  const [collection, setCollection] = useState<any[]>([]);
+  const [selectedForCollection, setSelectedForCollection] = useState<string[]>([]);
+
   useEffect(() => {
     const fetchRoundData = async () => {
       try {
@@ -59,6 +62,12 @@ export default function RoundDetailPage() {
             detailRes.data.judges.length > 0 &&
             detailRes.data.judges.every((j: any) => j.subLink && j.subLink.trim() !== "");
           setHasSubmitted(alreadySubmitted);
+
+          // If it's a special round, fetch the user's collection
+          if (detailRes.data.isSpecialRound) {
+            const colRes = await api.get("/my-rounds/collection");
+            setCollection(colRes.data);
+          }
         } else {
           setJudgeData(detailRes.data);
         }
@@ -86,6 +95,19 @@ export default function RoundDetailPage() {
     setContestantData({
       ...contestantData,
       judges: newJudges,
+    });
+  };
+
+  const handleCollectionToggle = (discordId: string) => {
+    setSelectedForCollection((prev) => {
+      if (prev.includes(discordId)) return prev.filter((id) => id !== discordId);
+
+      if (prev.length >= 3) {
+        toast.error("You can only add 3 songs to your collection.", { closeButton: true });
+        return prev;
+      }
+
+      return [...prev, discordId];
     });
   };
 
@@ -180,6 +202,33 @@ export default function RoundDetailPage() {
       return;
     }
 
+    // Client-side validations for collections
+    if (contestantData.specialRound) {
+      // Validate that there's enough quantity if they picked the same song multiple times
+      const counts: Record<string, number> = {};
+      for (const j of contestantData.judges) {
+        counts[j.subLink] = (counts[j.subLink] || 0) + 1;
+      }
+      for (const link in counts) {
+        const item = collection.find((c) => c.subLink === link);
+        if (!item || item.quantity < counts[link]) {
+          toast.error(`Not enough copies of a selected song in your collection.`, {
+            description: `You selected "${item?.title || link}" ${counts[link]} times, but you only have ${item?.quantity || 0} in your collection.`,
+            closeButton: true,
+          });
+          return;
+        }
+      }
+    } else {
+      // Validate 3 selections if the round is normal and there are more than 3 judges
+      if (contestantData.judges.length > 3 && selectedForCollection.length !== 3) {
+        toast.error("You must select exactly 3 songs to add to your collection.", {
+          closeButton: true,
+        });
+        return;
+      }
+    }
+
     try {
       setSubmitting(true);
       const payload = {
@@ -187,6 +236,7 @@ export default function RoundDetailPage() {
         submissions: contestantData.judges.map((j: any) => ({
           judgeDiscordId: j.discordId,
           subLink: j.subLink.trim(),
+          addToCollection: selectedForCollection.includes(j.discordId),
         })),
       };
       await api.post("/my-rounds/batch-submit", payload);
@@ -212,10 +262,10 @@ export default function RoundDetailPage() {
           review: s.review || "",
         })),
       };
-      (await api.put("/my-rounds/batch-score", payload),
-        toast.success("Scores saved successfully.", {
-          closeButton: true,
-        }));
+      await api.put("/my-rounds/batch-score", payload);
+      toast.success("Scores saved successfully.", {
+        closeButton: true,
+      });
     } catch (error: any) {
       // Error handled by interceptor
     } finally {
@@ -234,8 +284,14 @@ export default function RoundDetailPage() {
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
       <div className="bg-[#2B2D31] p-6 rounded-xl border border-[#1E1F22] flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-white">
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             Round {role === "CONTESTANT" ? contestantData?.roundNumber : judgeData?.roundNumber}
+            {/* Special round badge */}
+            {role === "CONTESTANT" && contestantData?.specialRound && (
+              <span className="bg-[#E67E22] text-white text-xs font-black px-2 py-1 rounded ml-2 uppercase">
+                Special Round
+              </span>
+            )}
           </h1>
           <p className="text-[#80848E] text-sm mt-1">
             Group:{" "}
@@ -278,11 +334,20 @@ export default function RoundDetailPage() {
               <div className="flex items-center gap-2">
                 <Info className="w-5 h-5 text-[#5865F2] shrink-0" />
                 <p className="text-[#80848E] text-sm">
-                  Review the preferences of each judge in your group and submit your track links
-                  below.{" "}
-                  <strong className="text-[#DBDEE1]">
-                    You must provide a link for every judge to submit.
-                  </strong>
+                  {contestantData.specialRound ? (
+                    <>
+                      This is a <strong className="text-[#E67E22]">Special Round</strong>. You must
+                      select tracks from your Collection to submit.
+                    </>
+                  ) : (
+                    <>
+                      Review the preferences of each judge in your group and submit your track links
+                      below.{" "}
+                      <strong className="text-[#DBDEE1]">
+                        You must provide a link for every judge to submit.
+                      </strong>
+                    </>
+                  )}
                 </p>
               </div>
             )}
@@ -370,14 +435,50 @@ export default function RoundDetailPage() {
                           </a>
                         ) : null}
                       </div>
-                    ) : (
-                      <input
-                        type="url"
-                        placeholder="YouTube link"
+                    ) : contestantData.specialRound ? (
+                      // Special round dropdown
+                      <select
                         value={judge.subLink || ""}
                         onChange={(e) => handleLinkChange(judge.discordId, e.target.value)}
                         className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md px-4 py-3 outline-none focus:border-[#5865F2] focus:bg-[#111214] transition-all"
-                      />
+                      >
+                        <option value="">Select from your Collection...</option>
+                        {collection.map((item: any) => (
+                          <option
+                            key={item.subLink}
+                            value={item.subLink}
+                            disabled={item.quantity <= 0}
+                          >
+                            {item.title || "Unknown Title"} - {item.artist || "Unknown Artist"} (x
+                            {item.quantity})
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      // Normal round input
+                      <div className="space-y-3">
+                        <input
+                          type="url"
+                          placeholder="YouTube link"
+                          value={judge.subLink || ""}
+                          onChange={(e) => handleLinkChange(judge.discordId, e.target.value)}
+                          className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md px-4 py-3 outline-none focus:border-[#5865F2] focus:bg-[#111214] transition-all"
+                        />
+                        {/* Collection Checkbox */}
+                        {contestantData.judges.length > 3 && (
+                          <label className="flex items-center gap-2 cursor-pointer w-fit group">
+                            <input
+                              type="checkbox"
+                              checked={selectedForCollection.includes(judge.discordId)}
+                              onChange={() => handleCollectionToggle(judge.discordId)}
+                              className="w-4 h-4 rounded border-[#35373C] bg-[#1E1F22] text-[#5865F2] focus:ring-[#5865F2] focus:ring-offset-[#2B2D31] cursor-pointer"
+                            />
+                            <span className="text-sm font-medium text-[#80848E] group-hover:text-[#DBDEE1] transition-colors">
+                              Add this track to my Collection
+                            </span>
+                          </label>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

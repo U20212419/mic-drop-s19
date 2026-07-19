@@ -14,7 +14,10 @@ import {
   Skull,
   ChevronUp,
   ChevronDown,
+  Calculator,
+  Star,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 interface AdminSubmission {
   idSubmission: number;
@@ -29,13 +32,24 @@ interface AdminSubmission {
 }
 
 export default function RoundAdminDetailPage() {
+  const { data: session, status: authStatus } = useSession();
+
+  const userRole = (session?.user as any)?.role || "USER";
+  const isAdmin = userRole === "ADMIN";
+
   const { id } = useParams();
   const router = useRouter();
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isEliminating, setIsEliminating] = useState(false);
-  const [isEliminationModalOpen, setIsEliminationModalOpen] = useState(false);
+
+  // State for calculating preliminary statuses
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [isCalculateModalOpen, setIsCalculateModalOpen] = useState(false);
+
+  // State for applying preliminary statuses (execute eliminations)
+  const [isApplying, setIsApplying] = useState(false);
+  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
 
   const [round, setRound] = useState<any>(null);
   const [submissions, setSubmissions] = useState<AdminSubmission[]>([]);
@@ -141,22 +155,43 @@ export default function RoundAdminDetailPage() {
     }
   };
 
-  const handleExecuteEliminations = async () => {
+  const handleCalculateStatuses = async () => {
     try {
-      setIsEliminating(true);
-      await api.post(`/rounds/${id}/execute-eliminations`, { groupNumber: selectedGroup });
+      setIsCalculating(true);
+      await api.post(`/rounds/${id}/calculate-preliminary-statuses`, {
+        groupNumber: selectedGroup,
+      });
 
-      toast.success(`Eliminations executed successfully.`, {
+      toast.success(`Preliminary statuses calculated successfully.`, {
         description: `Contestants in Group ${selectedGroup} have been processed.`,
         closeButton: true,
       });
 
-      setIsEliminationModalOpen(false);
+      setIsCalculateModalOpen(false);
       fetchData();
     } catch (error) {
       // Error handled by interceptor
     } finally {
-      setIsEliminating(false);
+      setIsCalculating(false);
+    }
+  };
+
+  const handleApplyStatuses = async () => {
+    try {
+      setIsApplying(true);
+      await api.post(`/rounds/${id}/apply-statuses`, { groupNumber: selectedGroup });
+
+      toast.success(`Statuses applied successfully.`, {
+        description: `Contestants in Group ${selectedGroup} have been processed.`,
+        closeButton: true,
+      });
+
+      setIsApplyModalOpen(false);
+      fetchData();
+    } catch (error) {
+      // Error handled by interceptor
+    } finally {
+      setIsApplying(false);
     }
   };
 
@@ -203,8 +238,13 @@ export default function RoundAdminDetailPage() {
             <ChevronLeft />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-white">
+            <h1 className="text-2xl font-bold text-white flex items-center gap-3">
               Round {round?.roundNumber} Submissions Detail
+              {round?.specialRound && (
+                <span className="bg-[#E67E22]/10 text-[#E67E22] border border-[#E67E22]/30 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                  <Star className="w-3 h-3" /> Special
+                </span>
+              )}
             </h1>
             <p className="text-[#80848E] text-sm mt-1">Staff / Admin View</p>
           </div>
@@ -253,18 +293,37 @@ export default function RoundAdminDetailPage() {
           </div>
         </div>
 
-        <button
-          onClick={() => setIsEliminationModalOpen(true)}
-          disabled={!canExecuteElimination || isEliminating}
-          className={`px-4 py-2 tabular-nums rounded-md text-sm font-bold flex items-center gap-2 transition-colors ${canExecuteElimination ? "bg-red-500 hover:bg-red-600 text-white" : "bg-[#35373C] text-[#80848E] cursor-not-allowed"}`}
-        >
-          {isEliminating ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Skull className="w-4 h-4" />
+        <div className="flex items-center gap-2">
+          {/* Calculate Button */}
+          <button
+            onClick={() => setIsCalculateModalOpen(true)}
+            disabled={!canExecuteElimination || isCalculating}
+            className={`px-4 py-2 tabular-nums rounded-md text-sm font-bold flex items-center gap-2 transition-colors ${canExecuteElimination ? "bg-[#E67E22] hover:bg-[#D35400] text-white" : "bg-[#35373C] text-[#80848E] cursor-not-allowed"}`}
+          >
+            {isCalculating ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Calculator className="w-4 h-4" />
+            )}
+            Calculate Statuses (G{selectedGroup})
+          </button>
+
+          {/* Apply Button */}
+          {isAdmin && (
+            <button
+              onClick={() => setIsApplyModalOpen(true)}
+              disabled={!canExecuteElimination || isApplying}
+              className={`px-4 py-2 tabular-nums rounded-md text-sm font-bold flex items-center gap-2 transition-colors ${canExecuteElimination ? "bg-red-500 hover:bg-red-600 text-white" : "bg-[#35373C] text-[#80848E] cursor-not-allowed"}`}
+            >
+              {isApplying ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Skull className="w-4 h-4" />
+              )}
+              Apply Statuses (G{selectedGroup})
+            </button>
           )}
-          Execute Eliminations (G{selectedGroup})
-        </button>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -430,42 +489,86 @@ export default function RoundAdminDetailPage() {
         )}
       </div>
 
-      {/* Elimination Confirmation Modal */}
-      {isEliminationModalOpen && (
+      {/* Calculate Statuses Confirmation Modal */}
+      {isCalculateModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-[#2B2D31] rounded-xl border border-[#1E1F22] w-full max-w-md shadow-2xl overflow-hidden">
             <div className="p-6 text-center">
-              <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
-                <Skull className="w-8 h-8 text-red-500" />
+              <div className="w-16 h-16 rounded-full bg-[#E67E22]/10 flex items-center justify-center mx-auto mb-4">
+                <Calculator className="w-8 h-8 text-[#E67E22]" />
               </div>
-              <h2 className="text-xl font-bold text-white mb-2">Execute Eliminations</h2>
+              <h2 className="text-xl font-bold text-white mb-2">Calculate Statuses</h2>
               <p className="text-[#80848E] text-sm">
-                Are you sure you want to execute eliminations for{" "}
+                Are you sure you want to calculate statuses for{" "}
                 <strong className="text-[#DBDEE1]">Group {selectedGroup}</strong>?
               </p>
               <p className="text-[#80848E] text-xs mt-3 bg-[#1E1F22] p-3 rounded border border-[#35373C]">
                 This will recalculate statuses for all users in this group (DID_NOT_SUBMIT,
-                ELIMINATED, or ACTIVE). This action may be executed again later.
+                ELIMINATED, or ACTIVE). Users will not see these changes yet. This action may be
+                executed again later.
               </p>
             </div>
 
             <div className="bg-[#1E1F22] p-4 flex items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setIsEliminationModalOpen(false)}
-                disabled={isEliminating}
+                onClick={() => setIsCalculateModalOpen(false)}
+                disabled={isCalculating}
                 className="px-4 py-2 text-sm font-medium text-[#DBDEE1] hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={handleExecuteEliminations}
-                disabled={isEliminating}
+                onClick={handleCalculateStatuses}
+                disabled={isCalculating}
+                className="bg-[#E67E22] hover:bg-[#D35400] text-white px-6 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isCalculating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                {isCalculating ? "Calculating..." : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Apply Statuses Confirmation Modal */}
+      {isAdmin && isApplyModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#2B2D31] rounded-xl border border-[#1E1F22] w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                <Skull className="w-8 h-8 text-red-500" />
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">Apply Statuses</h2>
+              <p className="text-[#80848E] text-sm">
+                Are you sure you want to apply statuses for{" "}
+                <strong className="text-[#DBDEE1]">Group {selectedGroup}</strong>?
+              </p>
+              <p className="text-[#80848E] text-xs mt-3 bg-[#1E1F22] p-3 rounded border border-[#35373C]">
+                This will effectively apply calculated statuses for all users in this group
+                (DID_NOT_SUBMIT, ELIMINATED, or ACTIVE). Users will be able to see these changes
+                once they are applied. This action may be executed again later.
+              </p>
+            </div>
+
+            <div className="bg-[#1E1F22] p-4 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsApplyModalOpen(false)}
+                disabled={isApplying}
+                className="px-4 py-2 text-sm font-medium text-[#DBDEE1] hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyStatuses}
+                disabled={isApplying}
                 className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isEliminating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                {isEliminating ? "Executing..." : "Confirm Execution"}
+                {isApplying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                {isApplying ? "Applying..." : "Confirm"}
               </button>
             </div>
           </div>

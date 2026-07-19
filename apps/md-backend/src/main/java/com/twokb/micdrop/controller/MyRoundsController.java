@@ -18,6 +18,7 @@ import com.twokb.micdrop.dto.myRounds.BatchSubmissionRequest;
 import com.twokb.micdrop.dto.myRounds.ContestantRoundDetailDTO;
 import com.twokb.micdrop.dto.myRounds.JudgeRoundDetailDTO;
 import com.twokb.micdrop.dto.myRounds.MyRoundDTO;
+import com.twokb.micdrop.model.CollectionItem;
 import com.twokb.micdrop.service.MyRoundsService;
 
 import lombok.RequiredArgsConstructor;
@@ -59,6 +60,20 @@ public class MyRoundsController {
 	@PreAuthorize("isAuthenticated()")
 	public ResponseEntity<Void> submitScores(@RequestBody BatchScoreRequest request, Principal principal) {
 		myRoundsService.submitScores(request, principal.getName());
+		return ResponseEntity.ok().build();
+	}
+
+	@GetMapping("/collection")
+	@PreAuthorize("isAuthenticated()")
+	public ResponseEntity<List<CollectionItem>> getMyCollection(Principal principal) {
+		return ResponseEntity.ok(myRoundsService.getMyCollection(principal.getName()));
+	}
+
+	@PostMapping("/{idRound}/claim-bonus")
+	@PreAuthorize("isAuthenticated()")
+	public ResponseEntity<Void> claimFirstPlaceBonus(@PathVariable Integer idRound, @RequestBody String subLink,
+			Principal principal) {
+		myRoundsService.claimFirstPlaceBonus(idRound, principal.getName(), subLink);
 		return ResponseEntity.ok().build();
 	}
 

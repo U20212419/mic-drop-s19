@@ -7,13 +7,11 @@ import java.util.Set;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import com.twokb.micdrop.model.DiscordUser;
 import com.twokb.micdrop.model.UserRound;
 import com.twokb.micdrop.model.UserRoundId;
 
-@Repository
 public interface UserRoundRepository extends JpaRepository<UserRound, UserRoundId> {
 
 	List<UserRound> findById_RoundId(Integer idRound);

@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Home,
   Gavel,
+  Disc3,
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -48,6 +49,12 @@ export function Sidebar() {
       name: "My Rounds",
       href: "/my-rounds",
       icon: Mic2,
+      roles: ["ADMIN", "STAFF", "USER"],
+    },
+    {
+      name: "Collection",
+      href: "/collection",
+      icon: Disc3,
       roles: ["ADMIN", "STAFF", "USER"],
     },
     {

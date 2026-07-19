@@ -16,6 +16,7 @@ import {
   Loader2,
   UserPlus,
   RefreshCw,
+  Star,
 } from "lucide-react";
 
 interface DiscordUser {
@@ -34,6 +35,7 @@ interface Round {
   submissionsOpen: boolean;
   groupCount: number;
   eliminationAmount?: number;
+  specialRound?: boolean;
 }
 
 export default function RoundDetailPage() {
@@ -208,6 +210,24 @@ export default function RoundDetailPage() {
     });
   };
 
+  const handleSpecialRoundToggle = () => {
+    if (!round) return;
+
+    // Prevent changing roundd type if submissions are open
+    if (round.submissionsOpen) {
+      toast.error("Cannot change round type while submissions are open.", {
+        description: "Please close submissions before changing the round type.",
+        closeButton: true,
+      });
+      return;
+    }
+
+    setRound({
+      ...round,
+      specialRound: !round.specialRound,
+    });
+  };
+
   const handleSave = async () => {
     try {
       setIsSaving(true);
@@ -262,8 +282,13 @@ export default function RoundDetailPage() {
           >
             <ChevronLeft />
           </button>
-          <h1 className="text-2xl font-bold text-white">
+          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
             Round {round?.roundNumber} Configuration
+            {round?.specialRound && (
+              <span className="bg-[#E67E22]/10 text-[#E67E22] border border-[#E67E22]/30 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                <Star className="w-3 h-3" /> Special
+              </span>
+            )}
           </h1>
         </div>
         <button
@@ -403,6 +428,28 @@ export default function RoundDetailPage() {
                 >
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${round.submissionsOpen ? "translate-x-6" : "translate-x-1"}`}
+                  />
+                </button>
+              </div>
+
+              {/* Special Round Toggle */}
+              <div
+                className={`flex items-center justify-between p-4 bg-[#1E1F22] rounded-lg border border-[#35373C] transition-opacity ${round.submissionsOpen ? "opacity-50" : ""}`}
+              >
+                <div>
+                  <p className="text-white font-medium flex items-center gap-2">
+                    Special Round <Star className="w-4 h-4 text-[#E67E22]" />
+                  </p>
+                  <p className="text-[#80848E] text-sm">
+                    Forces contestants to select tracks from their Collection.
+                  </p>
+                </div>
+                <button
+                  onClick={handleSpecialRoundToggle}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${round.specialRound ? "bg-[#E67E22]" : "bg-[#4E5058]"} ${round.submissionsOpen ? "cursor-not-allowed" : ""}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${round.specialRound ? "translate-x-6" : "translate-x-1"}`}
                   />
                 </button>
               </div>

@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.HtmlUtils;
 
 import com.twokb.micdrop.dto.JudgeAppDTO;
 import com.twokb.micdrop.dto.myRounds.BatchScoreRequest;
@@ -18,6 +19,7 @@ import com.twokb.micdrop.dto.myRounds.MyRoundDTO;
 import com.twokb.micdrop.dto.myRounds.SubmissionJudgeDTO;
 import com.twokb.micdrop.dto.myRounds.SubmitLinkRequest;
 import com.twokb.micdrop.dto.myRounds.SubmitScoreRequest;
+import com.twokb.micdrop.model.CollectionItem;
 import com.twokb.micdrop.model.DiscordUser;
 import com.twokb.micdrop.model.JudgeApp;
 import com.twokb.micdrop.model.Round;
@@ -38,6 +40,8 @@ public class MyRoundsService {
 	private final DiscordUserService discordUserService;
 
 	private final RoundService roundService;
+
+	private final CollectionItemService collectionItemService;
 
 	@Transactional(readOnly = true)
 	public List<MyRoundDTO> getMyRounds(String discordId) {
@@ -74,7 +78,7 @@ public class MyRoundsService {
 		}).toList();
 
 		return new ContestantRoundDetailDTO(idRound, myUr.getRound().getRoundNumber(), myUr.getGroupNumber(),
-				myUr.getRound().getSubmissionsOpen(), judges);
+				myUr.getRound().getSubmissionsOpen(), myUr.getRound().getSpecialRound(), judges);
 	}
 
 	@Transactional(readOnly = true)
@@ -102,7 +106,23 @@ public class MyRoundsService {
 		}
 
 		DiscordUser contestant = discordUserService.getUserByDiscordId(contestantDiscordId);
+		List<UserRound> judges = userRoundService.getUsersByRoundIdAndRoleAndGroupNumber(request.idRound(),
+				userRoundService.getUserRoundByRoundIdAndDiscordId(request.idRound(), contestantDiscordId)
+					.getGroupNumber(),
+				UserRoleType.JUDGE.name().toLowerCase());
 
+		boolean isSpecialRound = round.getSpecialRound() != null && round.getSpecialRound();
+
+		if (isSpecialRound) {
+			// Deduct from collection
+			collectionItemService.deductFromCollection(contestant, request.submissions());
+		}
+		else {
+			// Add to collection
+			collectionItemService.addToCollection(contestant, request.submissions(), judges.size());
+		}
+
+		// Save submissions
 		for (SubmitLinkRequest slr : request.submissions()) {
 			DiscordUser judge = discordUserService.getUserByDiscordId(slr.judgeDiscordId());
 
@@ -117,7 +137,9 @@ public class MyRoundsService {
 					return newSub;
 				});
 
-			sub.setSubLink(slr.subLink());
+			// Unescape the HTML entities back to normal URL characters before saving
+			String rawLink = HtmlUtils.htmlUnescape(slr.subLink());
+			sub.setSubLink(rawLink);
 			submissionService.saveSubmission(sub);
 		}
 	}
@@ -150,6 +172,31 @@ public class MyRoundsService {
 			sub.setReview(ssr.review());
 			submissionService.saveSubmission(sub);
 		}
+	}
+
+	@Transactional(readOnly = true)
+	public List<CollectionItem> getMyCollection(String discordId) {
+		DiscordUser contestant = discordUserService.getUserByDiscordId(discordId);
+		return collectionItemService.getCollectionForUser(contestant);
+	}
+
+	@Transactional
+	public void claimFirstPlaceBonus(Integer idRound, String discordId, String subLink) {
+		DiscordUser contestant = discordUserService.getUserByDiscordId(discordId);
+		UserRound ur = userRoundService.getUserRoundByRoundIdAndDiscordId(idRound, discordId);
+
+		if (!ur.getPlacedFirst() || ur.getBonusClaimed()) {
+			throw new IllegalStateException(
+					"You are not eligible to claim the first place bonus for this round or have already claimed it.");
+		}
+		
+		// Unescape the HTML entities back to normal URL characters before adding to collection
+		String rawLink = HtmlUtils.htmlUnescape(subLink);
+
+		// Add the bonus to the user's collection
+		collectionItemService.addToCollection(contestant, rawLink);
+
+		ur.setBonusClaimed(true);
 	}
 
 }

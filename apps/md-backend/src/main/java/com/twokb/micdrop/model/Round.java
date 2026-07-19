@@ -35,4 +35,7 @@ public class Round {
 	@Column(name = "elimination_amount", nullable = true)
 	private Integer eliminationAmount;
 
+	@Column(name = "special_round", nullable = false)
+	private Boolean specialRound = false;
+
 }

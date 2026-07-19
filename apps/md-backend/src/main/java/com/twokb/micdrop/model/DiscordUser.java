@@ -40,6 +40,9 @@ public class DiscordUser {
 	@JoinColumn(name = "judge_app_id_app", referencedColumnName = "id_app")
 	private JudgeApp judgeApp;
 
+	@Column(name = "preliminary_status", nullable = true)
+	private ContestantStatus preliminaryStatus;
+
 	@Transient
 	private boolean isHost;
 

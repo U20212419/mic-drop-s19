@@ -21,7 +21,7 @@ import com.twokb.micdrop.dto.UpdateRoundRequest;
 import com.twokb.micdrop.dto.UserAssignmentDTO;
 import com.twokb.micdrop.dto.myRounds.AdminBatchUpdateRequest;
 import com.twokb.micdrop.dto.myRounds.AdminSubmissionDTO;
-import com.twokb.micdrop.dto.myRounds.ExecuteEliminationsRequest;
+import com.twokb.micdrop.dto.myRounds.ChangeStatusesRequest;
 import com.twokb.micdrop.model.Round;
 import com.twokb.micdrop.service.RoundDetailService;
 import com.twokb.micdrop.service.RoundService;
@@ -62,7 +62,7 @@ public class RoundController {
 	@PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<Round> createRound(@RequestBody CreateRoundRequest request) {
 		Round savedRound = roundService.createRound(request.roundNumber(), request.groupCount(),
-				request.eliminationAmount());
+				request.eliminationAmount(), request.specialRound());
 
 		return ResponseEntity.status(HttpStatus.CREATED).body(savedRound);
 	}
@@ -89,7 +89,7 @@ public class RoundController {
 	@PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<Round> updateRound(@PathVariable Integer idRound, @RequestBody UpdateRoundRequest request) {
 		Round updatedRound = roundService.updateRound(idRound, request.roundNumber(), request.active(),
-				request.groupCount(), request.submissionsOpen(), request.eliminationAmount());
+				request.groupCount(), request.submissionsOpen(), request.eliminationAmount(), request.specialRound());
 
 		return ResponseEntity.status(HttpStatus.OK).body(updatedRound);
 	}
@@ -117,11 +117,19 @@ public class RoundController {
 		return ResponseEntity.status(HttpStatus.OK).body(updatedSubmissions);
 	}
 
-	@PostMapping("/{idRound}/execute-eliminations")
+	@PostMapping("/{idRound}/calculate-preliminary-statuses")
 	@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
-	public ResponseEntity<Void> executeEliminations(@PathVariable Integer idRound,
-			@RequestBody ExecuteEliminationsRequest request) {
-		roundDetailService.executeEliminations(idRound, request.groupNumber());
+	public ResponseEntity<Void> calculatePreliminaryStatuses(@PathVariable Integer idRound,
+			@RequestBody ChangeStatusesRequest request) {
+		roundDetailService.calculatePreliminaryStatuses(idRound, request.groupNumber());
+		return ResponseEntity.status(HttpStatus.OK).build();
+	}
+
+	@PostMapping("/{idRound}/apply-statuses")
+	@PreAuthorize("hasRole('ADMIN')")
+	public ResponseEntity<Void> applyStatuses(@PathVariable Integer idRound,
+			@RequestBody ChangeStatusesRequest request) {
+		roundDetailService.applyStatuses(idRound, request.groupNumber());
 		return ResponseEntity.status(HttpStatus.OK).build();
 	}
 

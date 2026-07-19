@@ -38,6 +38,7 @@ const INITIAL_FORM_STATE: FormDataPayload = {
   username: "",
   globalRole: "USER",
   status: "NOT_CONTESTANT",
+  host: false,
 };
 
 const GLOBAL_ROLES = ["ADMIN", "STAFF", "USER"];
@@ -78,14 +79,6 @@ export default function UsersPage() {
   }, [authStatus]);
 
   const fetchUsers = async () => {
-    const token = session?.accessToken;
-
-    if (!token) {
-      console.error("No access token found in session. User might not be authenticated.");
-      setIsLoading(false);
-      return;
-    }
-
     try {
       setIsLoading(true);
       const res = await api.get(`/users`);
@@ -126,13 +119,6 @@ export default function UsersPage() {
 
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    const token = session?.accessToken;
-
-    if (!token) {
-      console.error("No access token found in session. User might not be authenticated.");
-      return;
-    }
 
     try {
       setIsSubmitting(true);
