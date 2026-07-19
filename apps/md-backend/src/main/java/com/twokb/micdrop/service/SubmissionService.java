@@ -75,4 +75,16 @@ public class SubmissionService {
 		return submissionRepository.save(sub);
 	}
 
+	@Transactional(readOnly = true)
+	public Optional<Submission> getSubmissionByContestantAndSubLink(Integer idContestant, String subLink) {
+		String rawLink = HtmlUtils.htmlUnescape(subLink);
+		return submissionRepository.findFirstByIdContestantAndSubLink(idContestant, rawLink);
+	}
+
+	@Transactional(readOnly = true)
+	public Optional<Submission> getSubmissionBySubLink(String subLink) {
+		String rawLink = HtmlUtils.htmlUnescape(subLink);
+		return submissionRepository.findFirstBySubLink(rawLink);
+	}
+
 }

@@ -15,6 +15,5 @@ public record JudgeAppDTO(
 		@NotBlank @Size(max = 5000, message = "Text is too long (max 5000 characters)") String safePickCriteria,
 		@NotNull Boolean givingBonus,
 		@NotBlank @Size(max = 5000, message = "Text is too long (max 5000 characters)") String bannedArtists,
-		@NotNull JudgingAmountPreference amountPreference
-) {
+		@NotNull JudgingAmountPreference amountPreference) {
 }

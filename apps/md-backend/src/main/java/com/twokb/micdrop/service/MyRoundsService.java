@@ -3,6 +3,7 @@ package com.twokb.micdrop.service;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -119,7 +120,22 @@ public class MyRoundsService {
 		}
 		else {
 			// Add to collection
-			collectionItemService.addToCollection(contestant, request.submissions(), judges.size());
+			long collectionAdditions = request.submissions()
+				.stream()
+				.filter(s -> Boolean.TRUE.equals(s.addToCollection()))
+				.count();
+
+			if (judges.size() > 3 && collectionAdditions != 3) {
+				throw new IllegalArgumentException("You must select exactly 3 songs to add to your collection.");
+			}
+
+			for (SubmitLinkRequest slr : request.submissions()) {
+				boolean shouldAdd = judges.size() <= 3 || Boolean.TRUE.equals(slr.addToCollection());
+				String rawLink = HtmlUtils.htmlUnescape(slr.subLink());
+				if (shouldAdd && rawLink != null && !rawLink.isBlank()) {
+					addOrIncrementCollectionItem(contestant, rawLink, null, null);
+				}
+			}
 		}
 
 		// Save submissions
@@ -189,14 +205,74 @@ public class MyRoundsService {
 			throw new IllegalStateException(
 					"You are not eligible to claim the first place bonus for this round or have already claimed it.");
 		}
-		
-		// Unescape the HTML entities back to normal URL characters before adding to collection
+
+		// Get the data for the song to be added to the collection
 		String rawLink = HtmlUtils.htmlUnescape(subLink);
+		Submission ref = submissionService.getSubmissionBySubLink(rawLink)
+			.orElseThrow(() -> new IllegalArgumentException("Submission with the provided link not found."));
+
+		addOrIncrementCollectionItem(contestant, rawLink, ref.getTitle(), ref.getArtist());
 
 		// Add the bonus to the user's collection
 		collectionItemService.addToCollection(contestant, rawLink);
 
 		ur.setBonusClaimed(true);
+	}
+
+	@Transactional
+	private void addOrIncrementCollectionItem(DiscordUser contestant, String subLink, String providedTitle,
+			String providedArtist) {
+		List<CollectionItem> items = collectionItemService.getCollectionForUser(contestant);
+
+		String title = providedTitle;
+		String artist = providedArtist;
+
+		String rawLink = HtmlUtils.htmlUnescape(subLink);
+
+		// If the title or artist is not provided, try to find it from existing
+		// submissions
+		if (title == null || artist == null || title.isBlank() || artist.isBlank()) {
+			Optional<Submission> pastSub = submissionService.getSubmissionByContestantAndSubLink(contestant.getIdUser(),
+					rawLink);
+			if (pastSub.isPresent()) {
+				title = pastSub.get().getTitle();
+				artist = pastSub.get().getArtist();
+			}
+		}
+
+		final String finalTitle = title;
+		final String finalArtist = artist;
+
+		// Search for an existing collection item with the same subLink or title/artist
+		// combination
+		Optional<CollectionItem> matchingItem = items.stream()
+			.filter(ci -> ci.getSubLink().equals(rawLink) || (finalTitle != null && finalArtist != null
+					&& finalTitle.equalsIgnoreCase(ci.getTitle()) && finalArtist.equalsIgnoreCase(ci.getArtist())
+					&& !finalTitle.isBlank() && !finalArtist.isBlank()))
+			.findFirst();
+
+		if (matchingItem.isPresent()) {
+			// If a matching item is found, increment its count
+			CollectionItem item = matchingItem.get();
+			item.setQuantity(item.getQuantity() + 1);
+
+			// Update title and artist if they are provided and not blank
+			if (finalTitle != null && !finalTitle.isBlank()) {
+				item.setTitle(finalTitle);
+			}
+			if (finalArtist != null && !finalArtist.isBlank()) {
+				item.setArtist(finalArtist);
+			}
+		}
+		else {
+			// If no matching item is found, create a new collection item
+			CollectionItem newItem = new CollectionItem();
+			newItem.setContestant(contestant);
+			newItem.setSubLink(rawLink);
+			newItem.setTitle(finalTitle);
+			newItem.setArtist(finalArtist);
+			newItem.setQuantity(1);
+		}
 	}
 
 }

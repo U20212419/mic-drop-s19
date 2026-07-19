@@ -24,4 +24,8 @@ public interface SubmissionRepository extends JpaRepository<Submission, Integer>
 
 	List<Submission> findByIdRoundAndIdJudgeOrderByIdSubmissionAsc(Integer idRound, Integer idJudge);
 
+	Optional<Submission> findFirstByIdContestantAndSubLink(Integer idContestant, String subLink);
+
+	Optional<Submission> findFirstBySubLink(String subLink);
+
 }

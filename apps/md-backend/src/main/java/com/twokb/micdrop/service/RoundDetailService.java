@@ -5,12 +5,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.HtmlUtils;
 
 import com.twokb.micdrop.dto.myRounds.AdminBatchUpdateRequest;
 import com.twokb.micdrop.dto.myRounds.AdminSubmissionDTO;
@@ -27,6 +29,8 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class RoundDetailService {
+
+	private final CollectionItemService collectionItemService;
 
 	private final DiscordUserService discordUserService;
 
@@ -90,8 +94,20 @@ public class RoundDetailService {
 	@Transactional
 	public List<AdminSubmissionDTO> updateSubmissions(Integer idRound, AdminBatchUpdateRequest request) {
 		for (AdminSubmissionUpdateDTO update : request.updates()) {
-			submissionService.adminUpdateSubmission(update.idSubmission(), update.subLink(), update.title(),
+			Submission oldSub = submissionService.getById(update.idSubmission());
+
+			if (oldSub == null) {
+				throw new IllegalArgumentException("Submission with ID " + update.idSubmission() + " not found.");
+			}
+			
+			String rawLink = HtmlUtils.htmlUnescape(update.subLink());
+
+			// Sync with the table collection_item
+			collectionItemService.syncCollectionItemData(oldSub.getContestant().getUser(), oldSub.getSubLink(), update.subLink(), update.title(),
 					update.artist());
+			
+			// Update submission table
+			submissionService.adminUpdateSubmission(update.idSubmission(), rawLink, update.title(), update.artist());
 		}
 
 		Set<Integer> updatedIds = request.updates()
