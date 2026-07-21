@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -99,13 +98,13 @@ public class RoundDetailService {
 			if (oldSub == null) {
 				throw new IllegalArgumentException("Submission with ID " + update.idSubmission() + " not found.");
 			}
-			
+
 			String rawLink = HtmlUtils.htmlUnescape(update.subLink());
 
 			// Sync with the table collection_item
-			collectionItemService.syncCollectionItemData(oldSub.getContestant().getUser(), oldSub.getSubLink(), update.subLink(), update.title(),
-					update.artist());
-			
+			collectionItemService.syncCollectionItemData(oldSub.getContestant().getUser(), oldSub.getSubLink(),
+					update.subLink(), update.title(), update.artist());
+
 			// Update submission table
 			submissionService.adminUpdateSubmission(update.idSubmission(), rawLink, update.title(), update.artist());
 		}
@@ -137,8 +136,6 @@ public class RoundDetailService {
 			.filter(ur -> ur.getUserRole() == UserRoleType.JUDGE)
 			.map(UserRound::getUser)
 			.toList();
-
-		int expectedSubmissionsPerContestant = judges.size();
 
 		// Get status only for contestants who submitted to all judges
 		List<ContestantStat> activeStats = getGroupStats(idRound, contestants, judges);

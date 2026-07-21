@@ -64,7 +64,7 @@ export default function RoundDetailPage() {
           setHasSubmitted(alreadySubmitted);
 
           // If it's a special round, fetch the user's collection
-          if (detailRes.data.isSpecialRound) {
+          if (detailRes.data.specialRound) {
             const colRes = await api.get("/my-rounds/collection");
             setCollection(colRes.data);
           }
@@ -443,16 +443,18 @@ export default function RoundDetailPage() {
                         className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md px-4 py-3 outline-none focus:border-[#5865F2] focus:bg-[#111214] transition-all"
                       >
                         <option value="">Select from your Collection...</option>
-                        {collection.map((item: any) => (
-                          <option
-                            key={item.subLink}
-                            value={item.subLink}
-                            disabled={item.quantity <= 0}
-                          >
-                            {item.title || "Unknown Title"} - {item.artist || "Unknown Artist"} (x
-                            {item.quantity})
-                          </option>
-                        ))}
+                        {collection
+                          .filter((item: any) => item.quantity > 0)
+                          .map((item: any) => (
+                            <option
+                              key={item.subLink}
+                              value={item.subLink}
+                              disabled={item.quantity <= 0}
+                            >
+                              {item.title || "Unknown Title"} - {item.artist || "Unknown Artist"} (x
+                              {item.quantity})
+                            </option>
+                          ))}
                       </select>
                     ) : (
                       // Normal round input

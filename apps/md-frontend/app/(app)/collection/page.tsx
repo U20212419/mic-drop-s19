@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import api from "@/lib/axios";
 import { Loader2, Disc3, Music, Mic2, ExternalLink, Info } from "lucide-react";
-import { toast } from "sonner";
 
 interface CollectionItem {
   subLink: string;

@@ -13,12 +13,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.twokb.micdrop.dto.CollectionItemResponse;
 import com.twokb.micdrop.dto.myRounds.BatchScoreRequest;
 import com.twokb.micdrop.dto.myRounds.BatchSubmissionRequest;
 import com.twokb.micdrop.dto.myRounds.ContestantRoundDetailDTO;
 import com.twokb.micdrop.dto.myRounds.JudgeRoundDetailDTO;
 import com.twokb.micdrop.dto.myRounds.MyRoundDTO;
-import com.twokb.micdrop.model.CollectionItem;
 import com.twokb.micdrop.service.MyRoundsService;
 
 import lombok.RequiredArgsConstructor;
@@ -65,7 +65,7 @@ public class MyRoundsController {
 
 	@GetMapping("/collection")
 	@PreAuthorize("isAuthenticated()")
-	public ResponseEntity<List<CollectionItem>> getMyCollection(Principal principal) {
+	public ResponseEntity<List<CollectionItemResponse>> getMyCollection(Principal principal) {
 		return ResponseEntity.ok(myRoundsService.getMyCollection(principal.getName()));
 	}
 

@@ -56,15 +56,12 @@ CREATE TABLE IF NOT EXISTS collection_item (
 	sub_link VARCHAR(200) NOT NULL,
 	title VARCHAR(200) NULL,
 	artist VARCHAR(200) NULL,
-	quantity INTEGER NOT NULL DEFAULT 0,
 	CONSTRAINT fk_collection_discord_user
 		FOREIGN KEY (id_contestant)
 		REFERENCES discord_user (id_user)
 		ON DELETE NO ACTION
 		ON UPDATE NO ACTION
 );
-
-CREATE UNIQUE INDEX idx_collection_contestant_link ON collection_item (id_contestant, sub_link);
 
 -- -----------------------------------------------------
 -- Table `round`

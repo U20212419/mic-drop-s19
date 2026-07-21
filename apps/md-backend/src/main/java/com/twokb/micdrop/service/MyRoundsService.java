@@ -3,13 +3,14 @@ package com.twokb.micdrop.service;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.HtmlUtils;
 
+import com.twokb.micdrop.dto.CollectionItemResponse;
 import com.twokb.micdrop.dto.JudgeAppDTO;
 import com.twokb.micdrop.dto.myRounds.BatchScoreRequest;
 import com.twokb.micdrop.dto.myRounds.BatchSubmissionRequest;
@@ -132,8 +133,9 @@ public class MyRoundsService {
 			for (SubmitLinkRequest slr : request.submissions()) {
 				boolean shouldAdd = judges.size() <= 3 || Boolean.TRUE.equals(slr.addToCollection());
 				String rawLink = HtmlUtils.htmlUnescape(slr.subLink());
+				
 				if (shouldAdd && rawLink != null && !rawLink.isBlank()) {
-					addOrIncrementCollectionItem(contestant, rawLink, null, null);
+					collectionItemService.addToCollection(contestant, rawLink);
 				}
 			}
 		}
@@ -191,9 +193,29 @@ public class MyRoundsService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<CollectionItem> getMyCollection(String discordId) {
+	public List<CollectionItemResponse> getMyCollection(String discordId) {
 		DiscordUser contestant = discordUserService.getUserByDiscordId(discordId);
-		return collectionItemService.getCollectionForUser(contestant);
+		List<CollectionItem> rawItems = collectionItemService.getCollectionForUser(contestant);
+
+		// Group by subLink or by artist/title combination
+		Map<String, List<CollectionItem>> groupedItems = rawItems.stream()
+			.collect(Collectors.groupingBy(this::getSmartGroupingKey));
+
+		return groupedItems.values().stream().map(items -> {
+			CollectionItem first = items.get(0);
+
+			// Quantity is the number of items in the group
+			return new CollectionItemResponse(first.getSubLink(), first.getTitle(), first.getArtist(), items.size());
+		}).toList();
+	}
+
+	private String getSmartGroupingKey(CollectionItem item) {
+		if (item.getTitle() != null && !item.getTitle().isBlank() &&
+			item.getArtist() != null && !item.getArtist().isBlank()) {
+			// Normalize to make it case-insensitive and combine them
+			return item.getArtist().trim().toLowerCase() + "|||" + item.getTitle().trim().toLowerCase();
+		}
+		return item.getSubLink();
 	}
 
 	@Transactional
@@ -211,68 +233,10 @@ public class MyRoundsService {
 		Submission ref = submissionService.getSubmissionBySubLink(rawLink)
 			.orElseThrow(() -> new IllegalArgumentException("Submission with the provided link not found."));
 
-		addOrIncrementCollectionItem(contestant, rawLink, ref.getTitle(), ref.getArtist());
-
-		// Add the bonus to the user's collection
-		collectionItemService.addToCollection(contestant, rawLink);
+		// Add the submission data to the user's collection
+		collectionItemService.addToCollection(contestant, rawLink, ref.getTitle(), ref.getArtist());
 
 		ur.setBonusClaimed(true);
-	}
-
-	@Transactional
-	private void addOrIncrementCollectionItem(DiscordUser contestant, String subLink, String providedTitle,
-			String providedArtist) {
-		List<CollectionItem> items = collectionItemService.getCollectionForUser(contestant);
-
-		String title = providedTitle;
-		String artist = providedArtist;
-
-		String rawLink = HtmlUtils.htmlUnescape(subLink);
-
-		// If the title or artist is not provided, try to find it from existing
-		// submissions
-		if (title == null || artist == null || title.isBlank() || artist.isBlank()) {
-			Optional<Submission> pastSub = submissionService.getSubmissionByContestantAndSubLink(contestant.getIdUser(),
-					rawLink);
-			if (pastSub.isPresent()) {
-				title = pastSub.get().getTitle();
-				artist = pastSub.get().getArtist();
-			}
-		}
-
-		final String finalTitle = title;
-		final String finalArtist = artist;
-
-		// Search for an existing collection item with the same subLink or title/artist
-		// combination
-		Optional<CollectionItem> matchingItem = items.stream()
-			.filter(ci -> ci.getSubLink().equals(rawLink) || (finalTitle != null && finalArtist != null
-					&& finalTitle.equalsIgnoreCase(ci.getTitle()) && finalArtist.equalsIgnoreCase(ci.getArtist())
-					&& !finalTitle.isBlank() && !finalArtist.isBlank()))
-			.findFirst();
-
-		if (matchingItem.isPresent()) {
-			// If a matching item is found, increment its count
-			CollectionItem item = matchingItem.get();
-			item.setQuantity(item.getQuantity() + 1);
-
-			// Update title and artist if they are provided and not blank
-			if (finalTitle != null && !finalTitle.isBlank()) {
-				item.setTitle(finalTitle);
-			}
-			if (finalArtist != null && !finalArtist.isBlank()) {
-				item.setArtist(finalArtist);
-			}
-		}
-		else {
-			// If no matching item is found, create a new collection item
-			CollectionItem newItem = new CollectionItem();
-			newItem.setContestant(contestant);
-			newItem.setSubLink(rawLink);
-			newItem.setTitle(finalTitle);
-			newItem.setArtist(finalArtist);
-			newItem.setQuantity(1);
-		}
 	}
 
 }

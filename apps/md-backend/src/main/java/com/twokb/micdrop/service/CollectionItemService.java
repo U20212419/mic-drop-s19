@@ -32,27 +32,25 @@ public class CollectionItemService {
 			.map(s -> HtmlUtils.htmlUnescape(s.subLink()))
 			.collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
-		List<CollectionItem> collection = collectionItemRepository.findByContestantIdUser(contestant.getIdUser());
+		List<CollectionItem> collection = getCollectionForUser(contestant);
 
 		for (Map.Entry<String, Long> entry : submittedCounts.entrySet()) {
 			String linkToDeduct = entry.getKey();
-			long quantityToDeduct = entry.getValue();
+			long countToDeduct = entry.getValue();
 
-			Optional<CollectionItem> itemOpt = collection.stream()
-				.filter(ci -> ci.getSubLink().equals(linkToDeduct)
-						|| (ci.getTitle() != null && ci.getArtist() != null && isSameSong(ci, linkToDeduct)))
-				.findFirst();
+			// Filter the rows that match the submitted link
+			List<CollectionItem> matchingCopies = collection.stream()
+				.filter(ci -> ci.getSubLink().equals(linkToDeduct) || isSameSong(ci, linkToDeduct))
+				.limit(countToDeduct)
+				.toList();
 
-			if (itemOpt.isEmpty()) {
-				throw new IllegalArgumentException("Song not found in collection: " + linkToDeduct);
+			if (matchingCopies.size() < countToDeduct) {
+				throw new IllegalArgumentException("Not enough copies in collection for song: " + linkToDeduct);
 			}
 
-			CollectionItem item = itemOpt.get();
-
-			if (item.getQuantity() < quantityToDeduct) {
-				throw new IllegalArgumentException("Not enough copies in collection for song: " + entry.getKey());
-			}
-			item.setQuantity((int) (item.getQuantity() - quantityToDeduct));
+			// Delete the matching copies from the collection
+			collectionItemRepository.deleteAll(matchingCopies);
+			collection.removeAll(matchingCopies); // Update the local collection list
 		}
 	}
 
@@ -89,25 +87,23 @@ public class CollectionItemService {
 	public void addToCollection(DiscordUser contestant, String subLink) {
 		String rawLink = HtmlUtils.htmlUnescape(subLink);
 
-		List<CollectionItem> collection = collectionItemRepository.findByContestantIdUser(contestant.getIdUser());
+		CollectionItem newItem = new CollectionItem();
+		newItem.setContestant(contestant);
+		newItem.setSubLink(rawLink);
+		// Leave artist/title blank until staff add them
+		collectionItemRepository.save(newItem);
+	}
 
-		Optional<CollectionItem> existingItemOpt = collection.stream()
-			.filter(ci -> ci.getSubLink().equals(rawLink)
-					|| (ci.getTitle() != null && ci.getArtist() != null && isSameSong(ci, rawLink)))
-			.findFirst();
+	@Transactional
+	public void addToCollection(DiscordUser contestant, String subLink, String title, String artist) {
+		String rawLink = HtmlUtils.htmlUnescape(subLink);
 
-		if (existingItemOpt.isPresent()) {
-			CollectionItem existingItem = existingItemOpt.get();
-			existingItem.setQuantity(existingItem.getQuantity() + 1);
-		}
-		else {
-			CollectionItem newItem = new CollectionItem();
-			newItem.setContestant(contestant);
-			newItem.setSubLink(rawLink);
-			newItem.setQuantity(1);
-			// Leave title/artist blank until staff add them
-			collectionItemRepository.save(newItem);
-		}
+		CollectionItem newItem = new CollectionItem();
+		newItem.setContestant(contestant);
+		newItem.setSubLink(rawLink);
+		newItem.setTitle(title);
+		newItem.setArtist(artist);
+		collectionItemRepository.save(newItem);
 	}
 
 	@Transactional(readOnly = true)
@@ -116,23 +112,21 @@ public class CollectionItemService {
 	}
 
 	@Transactional
-	public void syncCollectionItemData(DiscordUser contestant, String originalLink, String subLink, String title, String artist) {
+	public void syncCollectionItemData(DiscordUser contestant, String originalLink, String subLink, String title,
+			String artist) {
 		String rawLink = HtmlUtils.htmlUnescape(subLink);
-		String rawOriginalLink = HtmlUtils.htmlUnescape(originalLink);
+		String rawOriginalLink = originalLink != null ? HtmlUtils.htmlUnescape(originalLink) : "";
 
-		CollectionItem item = collectionItemRepository.findByContestantIdUserAndSubLink(contestant.getIdUser(), rawOriginalLink)
-			.orElseGet(() -> {
-				CollectionItem newItem = new CollectionItem();
-				newItem.setContestant(contestant);
-				newItem.setSubLink(rawLink);
-				newItem.setQuantity(1);
-				return newItem;
-			});
+		// Get all collection items that match the original link
+		List<CollectionItem> copiesToUpdate = collectionItemRepository
+			.findByContestantIdUserAndSubLink(contestant.getIdUser(), rawOriginalLink);
 
-		item.setSubLink(rawLink);
-		item.setTitle(title);
-		item.setArtist(artist);
-		collectionItemRepository.save(item);
+		// Update the subLink, title, and artist for all matching collection items
+		for (CollectionItem item : copiesToUpdate) {
+			item.setSubLink(rawLink);
+			item.setTitle(title);
+			item.setArtist(artist);
+		}
 	}
 
 }

@@ -36,7 +36,4 @@ public class CollectionItem {
 	@Column(name = "artist")
 	private String artist;
 
-	@Column(name = "quantity", nullable = false)
-	private Integer quantity = 0;
-
 }
