@@ -76,7 +76,18 @@ api.interceptors.response.use(
     }
 
     if (error.response?.data) {
-      const { message, traceId } = error.response.data;
+      let errorData = error.response.data;
+
+      if (errorData instanceof Blob) {
+        try {
+          const text = await errorData.text();
+          errorData = JSON.parse(text);
+        } catch (e) {
+          console.error("Failed to parse error blob as JSON:", e);
+        }
+      }
+
+      const { message, traceId } = errorData as ServerErrorResponse;
 
       toast.error("Server error.", {
         description: `${message} (Trace ID: ${traceId})`,

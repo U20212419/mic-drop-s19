@@ -39,7 +39,7 @@ public class RoundDetailService {
 
 	private final RoundService roundService;
 
-	private record ContestantStat(DiscordUser contestant, double avgScore, double stdDev, Instant maxSubmittedAt) {
+	record ContestantStat(DiscordUser contestant, double avgScore, double stdDev, Instant maxSubmittedAt) {
 	}
 
 	@Transactional(readOnly = true)
@@ -166,7 +166,7 @@ public class RoundDetailService {
 		}
 	}
 
-	private List<ContestantStat> getGroupStats(Integer idRound, List<DiscordUser> contestants,
+	public List<ContestantStat> getGroupStats(Integer idRound, List<DiscordUser> contestants,
 			List<DiscordUser> judges) {
 		int expectedSubmissionsPerContestant = judges.size();
 		List<ContestantStat> activeStats = new ArrayList<>();
@@ -233,6 +233,11 @@ public class RoundDetailService {
 			.filter(ur -> ur.getUserRole() == UserRoleType.CONTESTANT)
 			.map(UserRound::getUser)
 			.toList();
+
+		// Ensure preliminaryStatus are set for every contestant
+		if (contestants.stream().anyMatch(c -> c.getPreliminaryStatus() == null)) {
+			throw new IllegalStateException("Statuses must be calculated before applying them.");
+		}
 
 		List<DiscordUser> judges = groupUsers.stream()
 			.filter(ur -> ur.getUserRole() == UserRoleType.JUDGE)

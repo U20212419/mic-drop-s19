@@ -3,7 +3,9 @@ package com.twokb.micdrop.controller;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.twokb.micdrop.dto.CreateRoundRequest;
@@ -25,6 +28,7 @@ import com.twokb.micdrop.dto.myRounds.ChangeStatusesRequest;
 import com.twokb.micdrop.model.Round;
 import com.twokb.micdrop.service.RoundDetailService;
 import com.twokb.micdrop.service.RoundService;
+import com.twokb.micdrop.service.SlideGeneratorService;
 import com.twokb.micdrop.service.UserRoundService;
 
 import lombok.RequiredArgsConstructor;
@@ -39,6 +43,8 @@ public class RoundController {
 	private final UserRoundService userRoundService;
 
 	private final RoundDetailService roundDetailService;
+
+	private final SlideGeneratorService slideGeneratorService;
 
 	@GetMapping
 	@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
@@ -131,6 +137,20 @@ public class RoundController {
 			@RequestBody ChangeStatusesRequest request) {
 		roundDetailService.applyStatuses(idRound, request.groupNumber());
 		return ResponseEntity.status(HttpStatus.OK).build();
+	}
+
+	@GetMapping("/{idRound}/slides/download")
+	@PreAuthorize("hasRole('ADMIN')")
+	public ResponseEntity<byte[]> downloadSlidesZip(@PathVariable Integer idRound,
+			@RequestParam(defaultValue = "1") Integer groupNumber) {
+		byte[] zipData = slideGeneratorService.generateRoundSlidesZip(idRound, groupNumber);
+
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.valueOf("application/zip"));
+		headers.setContentDispositionFormData("attachment",
+				"Round_" + idRound + "_Group_" + groupNumber + "_Slides.zip");
+
+		return new ResponseEntity<>(zipData, headers, HttpStatus.OK);
 	}
 
 }

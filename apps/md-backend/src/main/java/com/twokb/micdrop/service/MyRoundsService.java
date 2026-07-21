@@ -133,7 +133,7 @@ public class MyRoundsService {
 			for (SubmitLinkRequest slr : request.submissions()) {
 				boolean shouldAdd = judges.size() <= 3 || Boolean.TRUE.equals(slr.addToCollection());
 				String rawLink = HtmlUtils.htmlUnescape(slr.subLink());
-				
+
 				if (shouldAdd && rawLink != null && !rawLink.isBlank()) {
 					collectionItemService.addToCollection(contestant, rawLink);
 				}
@@ -210,8 +210,8 @@ public class MyRoundsService {
 	}
 
 	private String getSmartGroupingKey(CollectionItem item) {
-		if (item.getTitle() != null && !item.getTitle().isBlank() &&
-			item.getArtist() != null && !item.getArtist().isBlank()) {
+		if (item.getTitle() != null && !item.getTitle().isBlank() && item.getArtist() != null
+				&& !item.getArtist().isBlank()) {
 			// Normalize to make it case-insensitive and combine them
 			return item.getArtist().trim().toLowerCase() + "|||" + item.getTitle().trim().toLowerCase();
 		}

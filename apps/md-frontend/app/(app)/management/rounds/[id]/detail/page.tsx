@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Calculator,
   Star,
+  DownloadCloud,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
@@ -62,6 +63,8 @@ export default function RoundAdminDetailPage() {
   const [viewMode, setViewMode] = useState<"contestant" | "judge">("contestant");
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
+  const [isGeneratingSlides, setIsGeneratingSlides] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -195,6 +198,33 @@ export default function RoundAdminDetailPage() {
     }
   };
 
+  const handleGenerateSlides = async () => {
+    try {
+      setIsGeneratingSlides(true);
+
+      // Fetch the file as a blob
+      const response = await api.get(`/rounds/${id}/slides/download`, {
+        responseType: "blob",
+      });
+
+      // Create a temporary URL for the blob and trigger the download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Round_${id}_Group_${selectedGroup}_Slides.zip`);
+      document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      // Error handled by interceptor
+    } finally {
+      setIsGeneratingSlides(false);
+    }
+  };
+
   // Group the data based on View Mode
   const groupedData = useMemo(() => {
     const groupSubs = submissions.filter((s) => s.groupNumber === selectedGroup);
@@ -244,6 +274,20 @@ export default function RoundAdminDetailPage() {
                 <span className="bg-[#E67E22]/10 text-[#E67E22] border border-[#E67E22]/30 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
                   <Star className="w-3 h-3" /> Special
                 </span>
+              )}
+              {isAdmin && (
+                <button
+                  onClick={handleGenerateSlides}
+                  disabled={isGeneratingSlides}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-lg transition-colors font-medium text-sm disabled:opacity-50"
+                >
+                  {isGeneratingSlides ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <DownloadCloud className="w-4 h-4" />
+                  )}
+                  Generate Slides (ZIP)
+                </button>
               )}
             </h1>
             <p className="text-[#80848E] text-sm mt-1">Staff / Admin View</p>

@@ -50,6 +50,7 @@ export default function RoundsPage() {
 
   const userRole = (session?.user as any)?.role || "USER";
   const isAdmin = userRole === "ADMIN";
+  const isStaff = userRole === "STAFF";
 
   // State management
   const [rounds, setRounds] = useState<Round[]>([]);
@@ -204,7 +205,9 @@ export default function RoundsPage() {
                 <th className="px-6 py-4 font-semibold">Round Number</th>
                 <th className="px-6 py-4 font-semibold">Status</th>
                 <th className="px-6 py-4 font-semibold">Submissions</th>
-                {isAdmin && <th className="px-6 py-4 font-semibold text-right">Actions</th>}
+                {(isAdmin || isStaff) && (
+                  <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -263,7 +266,7 @@ export default function RoundsPage() {
                       </span>
                     </td>
 
-                    {isAdmin && (
+                    {(isAdmin || isStaff) && (
                       <td className="px-6 py-4 text-right space-x-3">
                         <button
                           onClick={() => router.push(`/management/rounds/${round.idRound}/detail`)}
@@ -271,18 +274,22 @@ export default function RoundsPage() {
                         >
                           <List className="w-4 h-4 mr-1" /> Detail
                         </button>
-                        <button
-                          onClick={() => router.push(`/management/rounds/${round.idRound}`)}
-                          className="text-[#5865F2] hover:text-[#4752C4] font-medium transition-colors inline-flex items-center"
-                        >
-                          <Edit className="w-4 h-4 mr-1" /> Configure
-                        </button>
-                        <button
-                          onClick={() => setRoundToDelete(round)}
-                          className="text-red-400 hover:text-red-500 font-medium transition-colors inline-flex items-center"
-                        >
-                          <Trash2 className="w-4 h-4 mr-1" /> Delete
-                        </button>
+                        {isAdmin && (
+                          <>
+                            <button
+                              onClick={() => router.push(`/management/rounds/${round.idRound}`)}
+                              className="text-[#5865F2] hover:text-[#4752C4] font-medium transition-colors inline-flex items-center"
+                            >
+                              <Edit className="w-4 h-4 mr-1" /> Configure
+                            </button>
+                            <button
+                              onClick={() => setRoundToDelete(round)}
+                              className="text-red-400 hover:text-red-500 font-medium transition-colors inline-flex items-center"
+                            >
+                              <Trash2 className="w-4 h-4 mr-1" /> Delete
+                            </button>
+                          </>
+                        )}
                       </td>
                     )}
                   </tr>
