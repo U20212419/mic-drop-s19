@@ -22,6 +22,22 @@ CREATE CAST (varchar AS user_role_type) WITH INOUT AS IMPLICIT;
 CREATE CAST (varchar AS judging_amount_preference) WITH INOUT AS IMPLICIT;
 
 -- -----------------------------------------------------
+-- Table `judge_app`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS judge_app (
+	id_app SERIAL PRIMARY KEY,
+	fav_artists VARCHAR(5000) NOT NULL,
+	least_fav_artists VARCHAR(5000) NOT NULL,
+	fav_genres VARCHAR(5000) NOT NULL,
+	least_fav_genres VARCHAR(5000) NOT NULL,
+	judging_style VARCHAR(5000) NOT NULL,
+	safe_pick_criteria VARCHAR(5000) NOT NULL,
+	giving_bonus BOOLEAN NOT NULL,
+	banned_artists VARCHAR(5000) NOT NULL,
+	amount_preference judging_amount_preference NOT NULL
+);
+
+-- -----------------------------------------------------
 -- Table `discord_user`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS discord_user (
@@ -36,7 +52,7 @@ CREATE TABLE IF NOT EXISTS discord_user (
 		FOREIGN KEY (judge_app_id_app)
 		REFERENCES judge_app (id_app)
 		ON DELETE NO ACTION
-		ON UPDATE NO ACTION,
+		ON UPDATE NO ACTION
 );
 
 CREATE INDEX fk_discord_user_judge_app_idx ON discord_user (judge_app_id_app);
@@ -149,22 +165,6 @@ INSERT INTO system_setting (setting_key, setting_value)
 VALUES ('signup_message_id', 'N/A'),
 ('contestant_role_id', 'N/A'),
 ('season_host_id', '282323469553631233');
-
--- -----------------------------------------------------
--- Table `judge_app`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS judge_app (
-	id_app SERIAL PRIMARY KEY,
-	fav_artists VARCHAR(5000) NOT NULL,
-	least_fav_artists VARCHAR(5000) NOT NULL,
-	fav_genres VARCHAR(5000) NOT NULL,
-	least_fav_genres VARCHAR(5000) NOT NULL,
-	judging_style VARCHAR(5000) NOT NULL,
-	safe_pick_criteria VARCHAR(5000) NOT NULL,
-	giving_bonus BOOLEAN NOT NULL,
-	banned_artists VARCHAR(5000) NOT NULL,
-	amount_preference judging_amount_preference NOT NULL
-);
 
 -- -----------------------------------------------------
 -- Table `refresh_tokens`
