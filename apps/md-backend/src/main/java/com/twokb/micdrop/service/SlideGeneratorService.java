@@ -95,8 +95,8 @@ public class SlideGeneratorService {
 					// Establish the template
 					String templateName = getTemplateName(rank, sortedJudges.size(),
 							stat.contestant().getPreliminaryStatus());
-                    String safeUsername = stat.contestant().getUsername().replaceAll("[^a-zA-Z0-9.-]", "_");
-                    String filePrefix = String.format("Rank_%02d_%s", rank, safeUsername);
+					String safeUsername = stat.contestant().getUsername().replaceAll("[^a-zA-Z0-9.-]", "_");
+					String filePrefix = String.format("Rank_%02d_%s", rank, safeUsername);
 
 					try (InputStream is = new ClassPathResource("templates/" + templateName).getInputStream();
 							XMLSlideShow templatePpt = new XMLSlideShow(is)) {
@@ -115,8 +115,8 @@ public class SlideGeneratorService {
 						graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 						graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
 								RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB);
-                        graphics.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS,
-                                RenderingHints.VALUE_FRACTIONALMETRICS_ON);
+						graphics.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS,
+								RenderingHints.VALUE_FRACTIONALMETRICS_ON);
 
 						slide.draw(graphics);
 
@@ -125,10 +125,10 @@ public class SlideGeneratorService {
 						ImageIO.write(img, "png", zos);
 						zos.closeEntry();
 
-                        // Export the PPTX directly
-                        zos.putNextEntry(new ZipEntry(filePrefix + ".pptx"));
-                        templatePpt.write(zos);
-                        zos.closeEntry();
+						// Export the PPTX directly
+						zos.putNextEntry(new ZipEntry(filePrefix + ".pptx"));
+						templatePpt.write(zos);
+						zos.closeEntry();
 					}
 				}
 			}
@@ -189,35 +189,39 @@ public class SlideGeneratorService {
 				}
 
 				if (changed) {
-                    // Recover the original text formatting before setting the new text
-                    Double originalFontSize = null;
-                    String originalFontFamily = null;
-                    PaintStyle originalFontColor = null;
-                    boolean isBold = false;
-                    boolean isItalic = false;
+					// Recover the original text formatting before setting the new text
+					Double originalFontSize = null;
+					String originalFontFamily = null;
+					PaintStyle originalFontColor = null;
+					boolean isBold = false;
+					boolean isItalic = false;
 
-                    if (!textShape.getTextParagraphs().isEmpty() && !textShape.getTextParagraphs().get(0).getTextRuns().isEmpty()) {
-                        XSLFTextRun firstRun = textShape.getTextParagraphs().get(0).getTextRuns().get(0);
-                        originalFontSize = firstRun.getFontSize();
-                        originalFontFamily = firstRun.getFontFamily();
-                        originalFontColor = firstRun.getFontColor();
-                        isBold = firstRun.isBold();
-                        isItalic = firstRun.isItalic();
-                    }
+					if (!textShape.getTextParagraphs().isEmpty()
+							&& !textShape.getTextParagraphs().get(0).getTextRuns().isEmpty()) {
+						XSLFTextRun firstRun = textShape.getTextParagraphs().get(0).getTextRuns().get(0);
+						originalFontSize = firstRun.getFontSize();
+						originalFontFamily = firstRun.getFontFamily();
+						originalFontColor = firstRun.getFontColor();
+						isBold = firstRun.isBold();
+						isItalic = firstRun.isItalic();
+					}
 
-                    // Set the new text
-                    textShape.setText(text);
+					// Set the new text
+					textShape.setText(text);
 
-                    // Restore the original text formatting
-                    for (XSLFTextParagraph p : textShape.getTextParagraphs()) {
-                        for (XSLFTextRun r : p.getTextRuns()) {
-                            if (originalFontSize != null) r.setFontSize(originalFontSize);
-                            if (originalFontFamily != null) r.setFontFamily(originalFontFamily);
-                            if (originalFontColor != null) r.setFontColor(originalFontColor);
-                            r.setBold(isBold);
-                            r.setItalic(isItalic);
-                        }
-                    }
+					// Restore the original text formatting
+					for (XSLFTextParagraph p : textShape.getTextParagraphs()) {
+						for (XSLFTextRun r : p.getTextRuns()) {
+							if (originalFontSize != null)
+								r.setFontSize(originalFontSize);
+							if (originalFontFamily != null)
+								r.setFontFamily(originalFontFamily);
+							if (originalFontColor != null)
+								r.setFontColor(originalFontColor);
+							r.setBold(isBold);
+							r.setItalic(isItalic);
+						}
+					}
 				}
 			}
 		}
@@ -226,16 +230,15 @@ public class SlideGeneratorService {
 	private String getTemplateName(int rank, int numJudges, ContestantStatus preliminaryStatus) {
 		String suffix = numJudges == 4 ? "_4j.pptx" : "_3j.pptx";
 
-        String prefix = switch (rank) {
-            case 1 -> "1st_place";
-            case 2 -> "2nd_place";
-            case 3 -> "3rd_place";
-            default -> (preliminaryStatus == ContestantStatus.DID_NOT_SUBMIT || preliminaryStatus == ContestantStatus.ELIMINATED)
-                ? "eliminated"
-                : "other_place";
-        };
-        
-        return prefix + suffix;
+		String prefix = switch (rank) {
+			case 1 -> "1st_place";
+			case 2 -> "2nd_place";
+			case 3 -> "3rd_place";
+			default -> (preliminaryStatus == ContestantStatus.DID_NOT_SUBMIT
+					|| preliminaryStatus == ContestantStatus.ELIMINATED) ? "eliminated" : "other_place";
+		};
+
+		return prefix + suffix;
 	}
 
 }
