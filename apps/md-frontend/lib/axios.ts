@@ -16,6 +16,8 @@ const api = axios.create({
   },
 });
 
+console.log("Backend URL:", process.env.NEXT_PUBLIC_API_BASE_URL);
+
 api.interceptors.request.use(
   async (config) => {
     const session = await getSession();
