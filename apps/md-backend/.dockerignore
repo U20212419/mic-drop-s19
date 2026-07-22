@@ -1,0 +1,24 @@
+# Security (Secrets & env vars)
+
+.env
+.env.\*
+\*.env
+
+# Build output and cache
+
+target/
+.turbo/
+
+# Logs
+
+logs/
+\*.log
+
+# Dependencies
+
+node_modules/
+
+# Version control and docs
+
+.git/
+\*.md
