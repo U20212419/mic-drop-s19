@@ -10,7 +10,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}-backend
+  IMAGE_NAME: u20212419/mic-drop-s19-backend
 
 jobs:
   build-and-deploy:
