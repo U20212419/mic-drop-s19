@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "apps/md-backend/**" # Trigger only if backend files change
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
