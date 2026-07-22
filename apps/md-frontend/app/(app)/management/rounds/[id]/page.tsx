@@ -17,6 +17,7 @@ import {
   UserPlus,
   RefreshCw,
   Star,
+  FileText,
 } from "lucide-react";
 
 interface DiscordUser {
@@ -26,6 +27,7 @@ interface DiscordUser {
   globalRole: string;
   status: string;
   groupNumber?: number; // Only relevant for contestants to track their group assignment
+  judgeApp?: any; // Field to validate if a user has submitted a judge application
 }
 
 interface Round {
@@ -61,6 +63,12 @@ export default function RoundDetailPage() {
   // Search filters
   const [contestantSearch, setContestantSearch] = useState("");
   const [judgeSearch, setJudgeSearch] = useState("");
+
+  // Judge app modal states
+  const [isJudgeAppModalOpen, setIsJudgeAppModalOpen] = useState<boolean>(false);
+  const [isLoadingJudgeApp, setIsLoadingJudgeApp] = useState<boolean>(false);
+  const [selectedJudgeApp, setSelectedJudgeApp] = useState<any>(null);
+  const [selectedJudgeName, setSelectedJudgeName] = useState("");
 
   useEffect(() => {
     fetchInitialData();
@@ -118,6 +126,7 @@ export default function RoundDetailPage() {
         !selectedIds.includes(u.idUser) &&
         !contestantIds.includes(u.idUser) && // A contestant cannot be a judge
         u.status !== "DID_NOT_SUBMIT" && // Users who did not submit cannot be judges
+        u.judgeApp && // Only include users who have submitted a judge application
         u.username.toLowerCase().includes(judgeSearch.toLowerCase()),
     );
   }, [allUsers, selectedJudges, selectedContestants, judgeSearch]);
@@ -261,6 +270,25 @@ export default function RoundDetailPage() {
       // Error handled by interceptor
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleViewJudgeApp = async (e: React.MouseEvent, user: any) => {
+    e.stopPropagation(); // Prevent triggering the user selection toggle
+    setSelectedJudgeName(user.username);
+    setIsLoadingJudgeApp(true);
+    setIsJudgeAppModalOpen(true);
+    setSelectedJudgeApp(null); // Reset previous app data
+
+    try {
+      const res = await api.get(`/judge-apps/user/${user.discordId}`);
+      if (res.status === 200 && res.data) {
+        setSelectedJudgeApp(res.data);
+      }
+    } catch (error: any) {
+      // Error handled by interceptor
+    } finally {
+      setIsLoadingJudgeApp(false);
     }
   };
 
@@ -588,7 +616,19 @@ export default function RoundDetailPage() {
                         </div>
                         <span className="text-sm text-[#DBDEE1]">{user.username}</span>
                       </div>
-                      <UserPlus className="w-4 h-4 text-[#4E5058] group-hover:text-[#5865F2] transition-colors" />
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {activeTab === "judges" && (
+                          <button
+                            onClick={(e) => handleViewJudgeApp(e, user)}
+                            className="p-1.5 text-[#80848E] hover:text-[#DBDEE1] hover:bg-[#4E5058] rounded transition-colors"
+                            title="View Judge App"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
+                        )}
+                        <UserPlus className="w-4 h-4 text-[#4E5058] group-hover:text-[#5865F2] transition-colors" />
+                      </div>
                     </div>
                   ),
                 )}
@@ -603,6 +643,91 @@ export default function RoundDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Judge App Modal */}
+      {isJudgeAppModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="bg-[#313338] border border-[#1E1F22] rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="bg-[#1E1F22] p-5 border-b border-[#35373C] flex items-center justify-between shrink-0">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Gavel className="w-5 h-5 text-[#5865F2]" />
+                Judge App: <span className="text-[#5865F2]">{selectedJudgeName}</span>
+              </h2>
+              <button
+                onClick={() => setIsJudgeAppModalOpen(false)}
+                className="p-1 text-[#80848E] hover:text-[#DBDEE1] hover:bg-[#35373C] rounded transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto custom-scrollbar">
+              {isLoadingJudgeApp ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <Loader2 className="w-8 h-8 animate-spin text-[#5865F2]" />
+                  <p className="text-[#80848E] text-sm font-medium">Loading application...</p>
+                </div>
+              ) : selectedJudgeApp ? (
+                <div className="space-y-6">
+                  {/* Helper function to render each field */}
+                  {[
+                    { label: "Favourite Artists", val: selectedJudgeApp.favArtists },
+                    { label: "Least Favourite Artists", val: selectedJudgeApp.leastFavArtists },
+                    { label: "Favourite Genres", val: selectedJudgeApp.favGenres },
+                    { label: "Least Favourite Genres", val: selectedJudgeApp.leastFavGenres },
+                    { label: "Banned Artists", val: selectedJudgeApp.bannedArtists },
+                    { label: "Judging Style", val: selectedJudgeApp.judgingStyle },
+                    { label: "Safe Pick Criteria", val: selectedJudgeApp.safePickCriteria },
+                  ].map((field, idx) => (
+                    <div key={idx} className="bg-[#2B2D31] border border-[#1E1F22] rounded-md p-4">
+                      <label className="text-xs font-bold text-[#80848E] uppercase tracking-wide mb-2 block">
+                        {field.label}
+                      </label>
+                      <p className="text-[#DBDEE1] text-sm whitespace-pre-wrap leading-relaxed">
+                        {field.val || <span className="text-[#4E5058] italic">Not provided</span>}
+                      </p>
+                    </div>
+                  ))}
+
+                  {/* Preferences */}
+                  <div className="bg-[#1E1F22] p-4 rounded-lg border border-[#35373C] flex flex-col gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-[#80848E] uppercase tracking-wide">
+                        Preferred Judging Workload
+                      </label>
+                      <p className="text-[#DBDEE1] text-sm mt-1 font-medium bg-[#2B2D31] px-3 py-2 rounded border border-[#1E1F22]">
+                        {selectedJudgeApp.amountPreference === "MORE"
+                          ? "Prefers judging MORE tracks"
+                          : selectedJudgeApp.amountPreference === "LESS"
+                            ? "Prefers judging LESS tracks"
+                            : "No preference"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-[#80848E] uppercase tracking-wide">
+                        Giving Bonus Points
+                      </label>
+                      <p className="text-[#DBDEE1] text-sm mt-1 font-medium bg-[#2B2D31] px-3 py-2 rounded border border-[#1E1F22]">
+                        {selectedJudgeApp.givingBonus ? "Yes (+0.25 to unheard tracks)" : "No"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="w-16 h-16 bg-[#2B2D31] rounded-full flex items-center justify-center mb-4">
+                    <FileText className="w-8 h-8 text-[#4E5058]" />
+                  </div>
+                  <p className="text-[#DBDEE1] font-bold">No application found</p>
+                  <p className="text-[#80848E] text-sm mt-1">
+                    This user hasn't submitted a judge application yet.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

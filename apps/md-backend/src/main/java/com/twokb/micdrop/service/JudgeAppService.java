@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.twokb.micdrop.dto.JudgeAppDTO;
+import com.twokb.micdrop.exception.NotFoundException;
 import com.twokb.micdrop.model.DiscordUser;
 import com.twokb.micdrop.model.JudgeApp;
 import com.twokb.micdrop.repository.JudgeAppRepository;
@@ -21,13 +22,14 @@ public class JudgeAppService {
 	private final JudgeAppRepository judgeAppRepository;
 
 	@Transactional(readOnly = true)
-	public Optional<JudgeAppDTO> getJudgeAppByDiscordId(String discordId) {
+	public JudgeAppDTO getJudgeAppByDiscordId(String discordId) {
 		DiscordUser user = discordUserService.getUserByDiscordId(discordId);
 
 		return Optional.ofNullable(user.getJudgeApp())
 			.map(app -> new JudgeAppDTO(app.getFavArtists(), app.getLeastFavArtists(), app.getFavGenres(),
 					app.getLeastFavGenres(), app.getJudgingStyle(), app.getSafePickCriteria(), app.getGivingBonus(),
-					app.getBannedArtists(), app.getAmountPreference()));
+					app.getBannedArtists(), app.getAmountPreference()))
+			.orElseThrow(() -> new NotFoundException("No judge application found for the specified user."));
 	}
 
 	@Transactional

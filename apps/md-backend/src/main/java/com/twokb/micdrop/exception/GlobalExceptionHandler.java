@@ -104,4 +104,20 @@ public class GlobalExceptionHandler {
 		return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
 	}
 
+	@ExceptionHandler(NotFoundException.class)
+	public ResponseEntity<ErrorResponse> handleNotFoundException(NotFoundException ex) {
+		// Generate an 8-character trace ID for correlating logs
+		String traceId = UUID.randomUUID().toString().substring(0, 8);
+
+		// Log the exception with the trace ID for backend debugging
+		log.warn("Trace ID {}: Not Found Error - {}", traceId, ex.getMessage(), ex);
+
+		ErrorResponse errorResponse = new ErrorResponse(Instant.now(), // Current UTC time
+				HttpStatus.NOT_FOUND.value(), // HTTP status code
+				ex.getMessage(), // Exception message
+				traceId // Trace ID for backend log correlation
+		);
+
+		return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
+	}
 }
