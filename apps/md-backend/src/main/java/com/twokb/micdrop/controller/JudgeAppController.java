@@ -44,4 +44,5 @@ public class JudgeAppController {
 		JudgeAppDTO judgeApp = judgeAppService.getJudgeAppByDiscordId(discordId);
 		return ResponseEntity.ok(judgeApp);
 	}
+
 }
