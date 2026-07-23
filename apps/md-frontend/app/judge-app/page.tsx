@@ -220,6 +220,7 @@ function JudgeAppForm() {
             sublabel="Provide at least 5."
             value={formData.favArtists}
             onChange={handleChange}
+            required={true}
           />
 
           <FormTextarea
@@ -228,6 +229,7 @@ function JudgeAppForm() {
             sublabel="Answer with N/A if there are none."
             value={formData.leastFavArtists}
             onChange={handleChange}
+            required={true}
           />
 
           <FormTextarea
@@ -236,6 +238,7 @@ function JudgeAppForm() {
             sublabel="Provide at least 3, prefer listing sub-genres."
             value={formData.favGenres}
             onChange={handleChange}
+            required={true}
           />
 
           <FormTextarea
@@ -244,6 +247,7 @@ function JudgeAppForm() {
             sublabel="Answer with N/A if there are none."
             value={formData.leastFavGenres}
             onChange={handleChange}
+            required={true}
           />
 
           <FormTextarea
@@ -252,6 +256,7 @@ function JudgeAppForm() {
             sublabel="Answer with N/A if you would like to ban none."
             value={formData.bannedArtists}
             onChange={handleChange}
+            required={true}
           />
 
           <FormTextarea
@@ -260,6 +265,7 @@ function JudgeAppForm() {
             sublabel="A lengthier explanation of your style in general will be appreciated."
             value={formData.judgingStyle}
             onChange={handleChange}
+            required={true}
           />
 
           <FormTextarea
@@ -268,6 +274,7 @@ function JudgeAppForm() {
             sublabel="You can use sources such as Spotify playlists, last.fm scrobbles, RYM/AOTY ratings, etc."
             value={formData.safePickCriteria}
             onChange={handleChange}
+            required={true}
           />
 
           <div className="bg-[#1E1F22] p-4 rounded-lg border border-[#35373C] flex flex-col gap-4">

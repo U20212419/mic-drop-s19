@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -119,6 +120,30 @@ public class GlobalExceptionHandler {
 		);
 
 		return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
+	}
+
+	@ExceptionHandler(MethodArgumentNotValidException.class)
+	public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {
+		// Generate an 8-character trace ID for correlating logs
+		String traceId = UUID.randomUUID().toString().substring(0, 8);
+
+		String errorMessage = ex.getBindingResult()
+			.getFieldErrors()
+			.stream()
+			.map(error -> "Field " + error.getField() + ": " + error.getDefaultMessage() + ".")
+			.findFirst()
+			.orElse("Validation error");
+
+		// Log the exception with the trace ID for backend debugging
+		log.warn("Trace ID {}: Method Argument Not Valid Error - {}", traceId, ex.getMessage(), ex);
+
+		ErrorResponse errorResponse = new ErrorResponse(Instant.now(), // Current UTC time
+				HttpStatus.BAD_REQUEST.value(), // HTTP status code
+				errorMessage, // Exception message
+				traceId // Trace ID for backend log correlation
+		);
+
+		return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
 	}
 
 }
