@@ -18,11 +18,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="min-h-screen bg-[#313338] flex">
+    <div className="flex h-screen overflow-hidden bg-[#313338] text-[#DBDEE1]">
       <Sidebar />
 
       {/* Main content that gets pushed to the right due to sidebar width (ml-64) */}
-      <main className="flex-1 ml-64 p-8 overflow-y-auto h-screen text-[#DBDEE1]">{children}</main>
+      <main className="flex-1 overflow-y-auto pt-18.25 md:pt-0">
+        <div className="mx-auto max-w-7xl p-4 md:p-8">{children}</div>
+      </main>
     </div>
   );
 }
