@@ -66,9 +66,7 @@ public class SubmissionService {
 	public Submission adminUpdateSubmission(Integer idSubmission, String subLink, String title, String artist) {
 		Submission sub = getById(idSubmission);
 
-		// Unescape the HTML entities back to normal URL characters before saving
-		String rawLink = HtmlUtils.htmlUnescape(subLink);
-		sub.setSubLink(rawLink);
+		sub.setSubLink(subLink);
 		sub.setTitle(title);
 		sub.setArtist(artist);
 
@@ -77,14 +75,12 @@ public class SubmissionService {
 
 	@Transactional(readOnly = true)
 	public Optional<Submission> getSubmissionByContestantAndSubLink(Integer idContestant, String subLink) {
-		String rawLink = HtmlUtils.htmlUnescape(subLink);
-		return submissionRepository.findFirstByIdContestantAndSubLink(idContestant, rawLink);
+		return submissionRepository.findFirstByIdContestantAndSubLink(idContestant, subLink);
 	}
 
 	@Transactional(readOnly = true)
 	public Optional<Submission> getSubmissionBySubLink(String subLink) {
-		String rawLink = HtmlUtils.htmlUnescape(subLink);
-		return submissionRepository.findFirstBySubLink(rawLink);
+		return submissionRepository.findFirstBySubLink(subLink);
 	}
 
 }

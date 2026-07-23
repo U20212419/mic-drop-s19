@@ -64,10 +64,9 @@ public class CollectionItemService {
 
 		for (SubmitLinkRequest slr : submissions) {
 			boolean shouldAdd = judgeAmount <= 3 || Boolean.TRUE.equals(slr.addToCollection());
-			String rawLink = HtmlUtils.htmlUnescape(slr.subLink());
 
-			if (shouldAdd && rawLink != null && !rawLink.isBlank()) {
-				addToCollection(contestant, rawLink);
+			if (shouldAdd && slr.subLink() != null && !slr.subLink().isBlank()) {
+				addToCollection(contestant, slr.subLink());
 			}
 		}
 	}
@@ -85,22 +84,18 @@ public class CollectionItemService {
 
 	@Transactional
 	public void addToCollection(DiscordUser contestant, String subLink) {
-		String rawLink = HtmlUtils.htmlUnescape(subLink);
-
 		CollectionItem newItem = new CollectionItem();
 		newItem.setContestant(contestant);
-		newItem.setSubLink(rawLink);
+		newItem.setSubLink(subLink);
 		// Leave artist/title blank until staff add them
 		collectionItemRepository.save(newItem);
 	}
 
 	@Transactional
 	public void addToCollection(DiscordUser contestant, String subLink, String title, String artist) {
-		String rawLink = HtmlUtils.htmlUnescape(subLink);
-
 		CollectionItem newItem = new CollectionItem();
 		newItem.setContestant(contestant);
-		newItem.setSubLink(rawLink);
+		newItem.setSubLink(subLink);
 		newItem.setTitle(title);
 		newItem.setArtist(artist);
 		collectionItemRepository.save(newItem);
@@ -114,7 +109,6 @@ public class CollectionItemService {
 	@Transactional
 	public void syncCollectionItemData(DiscordUser contestant, String originalLink, String subLink, String title,
 			String artist) {
-		String rawLink = HtmlUtils.htmlUnescape(subLink);
 		String rawOriginalLink = originalLink != null ? HtmlUtils.htmlUnescape(originalLink) : "";
 
 		// Get all collection items that match the original link
@@ -123,7 +117,7 @@ public class CollectionItemService {
 
 		// Update the subLink, title, and artist for all matching collection items
 		for (CollectionItem item : copiesToUpdate) {
-			item.setSubLink(rawLink);
+			item.setSubLink(subLink);
 			item.setTitle(title);
 			item.setArtist(artist);
 		}

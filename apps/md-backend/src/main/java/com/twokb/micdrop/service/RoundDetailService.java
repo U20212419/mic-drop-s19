@@ -99,14 +99,13 @@ public class RoundDetailService {
 				throw new IllegalArgumentException("Submission with ID " + update.idSubmission() + " not found.");
 			}
 
-			String rawLink = HtmlUtils.htmlUnescape(update.subLink());
-
 			// Sync with the table collection_item
 			collectionItemService.syncCollectionItemData(oldSub.getContestant().getUser(), oldSub.getSubLink(),
 					update.subLink(), update.title(), update.artist());
 
 			// Update submission table
-			submissionService.adminUpdateSubmission(update.idSubmission(), rawLink, update.title(), update.artist());
+			submissionService.adminUpdateSubmission(update.idSubmission(), update.subLink(), update.title(),
+					update.artist());
 		}
 
 		Set<Integer> updatedIds = request.updates()

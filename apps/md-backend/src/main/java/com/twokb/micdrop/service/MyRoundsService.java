@@ -132,10 +132,9 @@ public class MyRoundsService {
 
 			for (SubmitLinkRequest slr : request.submissions()) {
 				boolean shouldAdd = judges.size() <= 3 || Boolean.TRUE.equals(slr.addToCollection());
-				String rawLink = HtmlUtils.htmlUnescape(slr.subLink());
 
-				if (shouldAdd && rawLink != null && !rawLink.isBlank()) {
-					collectionItemService.addToCollection(contestant, rawLink);
+				if (shouldAdd && slr.subLink() != null && !slr.subLink().isBlank()) {
+					collectionItemService.addToCollection(contestant, slr.subLink());
 				}
 			}
 		}
@@ -155,9 +154,7 @@ public class MyRoundsService {
 					return newSub;
 				});
 
-			// Unescape the HTML entities back to normal URL characters before saving
-			String rawLink = HtmlUtils.htmlUnescape(slr.subLink());
-			sub.setSubLink(rawLink);
+			sub.setSubLink(slr.subLink());
 			submissionService.saveSubmission(sub);
 		}
 	}
@@ -229,12 +226,11 @@ public class MyRoundsService {
 		}
 
 		// Get the data for the song to be added to the collection
-		String rawLink = HtmlUtils.htmlUnescape(subLink);
-		Submission ref = submissionService.getSubmissionBySubLink(rawLink)
+		Submission ref = submissionService.getSubmissionBySubLink(subLink)
 			.orElseThrow(() -> new IllegalArgumentException("Submission with the provided link not found."));
 
 		// Add the submission data to the user's collection
-		collectionItemService.addToCollection(contestant, rawLink, ref.getTitle(), ref.getArtist());
+		collectionItemService.addToCollection(contestant, subLink, ref.getTitle(), ref.getArtist());
 
 		ur.setBonusClaimed(true);
 	}
