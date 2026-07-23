@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 interface FormTextareaProps {
   name: string;
   label: string;
@@ -19,10 +21,17 @@ export function FormTextarea({
   required = false,
   placeholder = "",
 }: FormTextareaProps) {
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const textArea = textAreaRef.current;
+    if (textArea) {
+      textArea.style.height = "auto";
+      textArea.style.height = `${textArea.scrollHeight}px`;
+    }
+  }, [value]);
+
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const target = e.target;
-    target.style.height = "auto";
-    target.style.height = `${target.scrollHeight}px`;
     onChange(e);
   };
 
@@ -38,6 +47,7 @@ export function FormTextarea({
         required={required}
         name={name}
         value={value}
+        ref={textAreaRef}
         onChange={handleInput}
         placeholder={placeholder}
         maxLength={5000}
