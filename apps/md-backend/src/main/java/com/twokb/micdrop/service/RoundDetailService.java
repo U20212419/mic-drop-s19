@@ -205,8 +205,10 @@ public class RoundDetailService {
 				.filter(s -> s.getSubLink() != null && !s.getSubLink().isBlank())
 				.count();
 
-			// Skip if the contestant did not submit the required amount
-			if (submittedCount < expectedSubmissionsPerContestant) {
+			// Skip if the contestant did not submit any song
+			// The songs that were submitted will be considered for the average score
+			// calculation, and the ones that were not submitted will have a score of 0
+			if (submittedCount == 0) {
 				continue;
 			}
 

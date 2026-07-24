@@ -6,6 +6,7 @@ import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -80,13 +81,24 @@ public class SlideGeneratorService {
 			// Reverse the list to have the highest average score first
 			Collections.reverse(stats);
 
+			// Append contestants with DID_NOT_SUBMIT preliminary status at the end of the
+			// list since getGroupStats only returns contestants that submitted at least
+			// one song
+			List<ContestantStat> didNotSubmitStats = contestants.stream()
+				.filter(c -> c.getPreliminaryStatus() == ContestantStatus.DID_NOT_SUBMIT)
+				.map(c -> new ContestantStat(c, 0.0, 0, Instant.MAX))
+				.collect(Collectors.toList());
+
+			stats.addAll(didNotSubmitStats);
+
 			// Generate PPTX and PNG in memory
 			ByteArrayOutputStream zipBaos = new ByteArrayOutputStream();
 			try (ZipOutputStream zos = new ZipOutputStream(zipBaos)) {
 
 				for (int i = 0; i < stats.size(); i++) {
 					var stat = stats.get(i);
-					int rank = i + 1;
+					String rank = stat.contestant().getPreliminaryStatus() == ContestantStatus.DID_NOT_SUBMIT ? "DNS"
+							: String.valueOf(i + 1);
 
 					// Get the submissions for the contestant
 					List<Submission> subs = submissionService.getByRoundIdAndContestantIdAndJudgeIds(idRound,
@@ -96,7 +108,9 @@ public class SlideGeneratorService {
 					String templateName = getTemplateName(rank, sortedJudges.size(),
 							stat.contestant().getPreliminaryStatus());
 					String safeUsername = stat.contestant().getUsername().replaceAll("[^a-zA-Z0-9.-]", "_");
-					String filePrefix = String.format("Rank_%02d_%s", rank, safeUsername);
+					String filePrefix = rank != "DNS"
+							? String.format("Rank_%02d_%s", Integer.parseInt(rank), safeUsername)
+							: String.format("DNS_%s", safeUsername);
 
 					try (InputStream is = new ClassPathResource("templates/" + templateName).getInputStream();
 							XMLSlideShow templatePpt = new XMLSlideShow(is)) {
@@ -143,12 +157,12 @@ public class SlideGeneratorService {
 		}
 	}
 
-	private void replacePlaceholders(XSLFSlide slide, int rank, ContestantStat stat, List<DiscordUser> judges,
+	private void replacePlaceholders(XSLFSlide slide, String rank, ContestantStat stat, List<DiscordUser> judges,
 			List<Submission> subs) {
 		Map<String, String> rep = new HashMap<>();
-		rep.put("{p}", String.valueOf(rank));
+		rep.put(rank != "DNS" ? "{p}" : "#{p}", rank);
 		rep.put("{name}", stat.contestant().getUsername());
-		rep.put("{avg}", String.format(Locale.US, "%.2f", stat.avgScore()));
+		rep.put("{avg}", rank != "DNS" ? String.format(Locale.US, "%.2f", stat.avgScore()) : "N/A");
 
 		// Map submissions by judge ID for easy access
 		Map<Integer, Submission> subMap = subs.stream()
@@ -227,15 +241,21 @@ public class SlideGeneratorService {
 		}
 	}
 
-	private String getTemplateName(int rank, int numJudges, ContestantStatus preliminaryStatus) {
+	private String getTemplateName(String rank, int numJudges, ContestantStatus preliminaryStatus) {
 		String suffix = numJudges == 4 ? "_4j.pptx" : "_3j.pptx";
 
+		// If the contestant is eliminated or did not submit, use the eliminated template
+		// This ensures that eliminated contestants always use the eliminated template,
+		// regardless of rank
+		if (preliminaryStatus == ContestantStatus.DID_NOT_SUBMIT || preliminaryStatus == ContestantStatus.ELIMINATED) {
+			return "eliminated" + suffix;
+		}
+
 		String prefix = switch (rank) {
-			case 1 -> "1st_place";
-			case 2 -> "2nd_place";
-			case 3 -> "3rd_place";
-			default -> (preliminaryStatus == ContestantStatus.DID_NOT_SUBMIT
-					|| preliminaryStatus == ContestantStatus.ELIMINATED) ? "eliminated" : "other_place";
+			case "1" -> "1st_place";
+			case "2" -> "2nd_place";
+			case "3" -> "3rd_place";
+			default -> "other_place";
 		};
 
 		return prefix + suffix;
