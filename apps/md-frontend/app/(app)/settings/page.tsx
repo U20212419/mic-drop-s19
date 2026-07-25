@@ -3,7 +3,18 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import api from "@/lib/axios";
-import { Settings, Save, RefreshCw, AlertCircle, Loader2, Lock, Send, Bot } from "lucide-react";
+import {
+  Settings,
+  Save,
+  RefreshCw,
+  AlertCircle,
+  Loader2,
+  Lock,
+  Send,
+  Bot,
+  BellRing,
+  Clock,
+} from "lucide-react";
 import { useSession } from "next-auth/react";
 
 interface SystemSetting {
@@ -20,6 +31,9 @@ export default function SettingsPage() {
 
   const [signupChannelId, setSignupChannelId] = useState("");
   const [isSendingSignup, setIsSendingSignup] = useState(false);
+  const [reminderChannelId, setReminderChannelId] = useState("");
+  const [judgingDeadline, setJudgingDeadline] = useState("");
+  const [isSendingReminder, setIsSendingReminder] = useState(false);
 
   const isHost = session?.user?.host;
 
@@ -94,6 +108,42 @@ export default function SettingsPage() {
       // Error handled by interceptor
     } finally {
       setIsSendingSignup(false);
+    }
+  };
+
+  const handleSendJudgingReminder = async () => {
+    if (!reminderChannelId.trim() || !judgingDeadline) {
+      toast.error("Channel and deadline required.", {
+        description: "Enter a Discord channel ID and the judging deadline.",
+        closeButton: true,
+      });
+      return;
+    }
+
+    const deadline = new Date(judgingDeadline);
+    if (Number.isNaN(deadline.getTime()) || deadline <= new Date()) {
+      toast.error("Invalid deadline.", {
+        description: "The judging deadline must be in the future.",
+        closeButton: true,
+      });
+      return;
+    }
+
+    try {
+      setIsSendingReminder(true);
+      const res = await api.post("/bot/send-judging-reminder", {
+        channelId: reminderChannelId.trim(),
+        deadline: deadline.toISOString(),
+      });
+
+      toast.success("Judging reminder sent!", {
+        description: `Round ${res.data.roundNumber}: ${res.data.judgesMentioned} judges mentioned with ${res.data.songsRemaining} songs remaining.`,
+        closeButton: true,
+      });
+    } catch (error: any) {
+      // Error handled by interceptor
+    } finally {
+      setIsSendingReminder(false);
     }
   };
 
@@ -200,32 +250,78 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          <div className="bg-[#2B2D31] border border-[#1E1F22] rounded-xl p-5 max-w-lg">
-            <h3 className="text-white font-semibold mb-1">Send Signup Message</h3>
-            <p className="text-xs text-[#80848E] mb-4">
-              Trigger the bot to send the official Season 19 signup message and reaction button.
-            </p>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 max-w-5xl">
+            <div className="bg-[#2B2D31] border border-[#1E1F22] rounded-xl p-5">
+              <h3 className="text-white font-semibold mb-1">Send Signup Message</h3>
+              <p className="text-xs text-[#80848E] mb-4">
+                Trigger the bot to send the official Season 19 signup message and reaction button.
+              </p>
 
-            <div className="flex gap-3">
-              <input
-                type="text"
-                placeholder="Target Channel ID"
-                value={signupChannelId}
-                onChange={(e) => setSignupChannelId(e.target.value)}
-                className="flex-1 bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md px-3 py-2 outline-none focus:border-emerald-500 text-sm transition-colors"
-              />
-              <button
-                onClick={handleSendSignupMessage}
-                disabled={isSendingSignup || !signupChannelId.trim()}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-              >
-                {isSendingSignup ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-                {isSendingSignup ? "Dispatching..." : "Send to Channel"}
-              </button>
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  placeholder="Target Channel ID"
+                  value={signupChannelId}
+                  onChange={(e) => setSignupChannelId(e.target.value)}
+                  className="flex-1 min-w-0 bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md px-3 py-2 outline-none focus:border-emerald-500 text-sm transition-colors"
+                />
+                <button
+                  onClick={handleSendSignupMessage}
+                  disabled={isSendingSignup || !signupChannelId.trim()}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  {isSendingSignup ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  {isSendingSignup ? "Dispatching..." : "Send to Channel"}
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-[#2B2D31] border border-[#1E1F22] rounded-xl p-5">
+              <h3 className="text-white font-semibold mb-1 flex items-center gap-2">
+                <BellRing className="w-4 h-4 text-[#5865F2]" />
+                Send Judging Reminder
+              </h3>
+              <p className="text-xs text-[#80848E] mb-4">
+                Post a general reminder for the active round, mentioning judges with pending songs.
+              </p>
+
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="Target Channel ID"
+                  value={reminderChannelId}
+                  onChange={(e) => setReminderChannelId(e.target.value)}
+                  className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md px-3 py-2 outline-none focus:border-[#5865F2] text-sm transition-colors"
+                />
+
+                <div className="relative">
+                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#80848E] pointer-events-none" />
+                  <input
+                    type="datetime-local"
+                    aria-label="Judging deadline"
+                    value={judgingDeadline}
+                    onChange={(e) => setJudgingDeadline(e.target.value)}
+                    className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md pl-10 pr-3 py-2 outline-none focus:border-[#5865F2] text-sm transition-colors scheme-dark"
+                  />
+                </div>
+
+                <button
+                  onClick={handleSendJudgingReminder}
+                  disabled={isSendingReminder || !reminderChannelId.trim() || !judgingDeadline}
+                  className="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white px-5 py-2 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSendingReminder ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <BellRing className="w-4 h-4" />
+                  )}
+                  {isSendingReminder ? "Dispatching..." : "Send Judging Reminder"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

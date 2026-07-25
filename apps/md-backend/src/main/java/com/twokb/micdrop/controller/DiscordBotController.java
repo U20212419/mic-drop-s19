@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.twokb.micdrop.dto.DiscordBotMessageRequest;
+import com.twokb.micdrop.dto.DiscordJudgingReminderRequest;
+import com.twokb.micdrop.dto.DiscordJudgingReminderResponse;
 import com.twokb.micdrop.service.DiscordBotService;
 
 import jakarta.validation.Valid;
@@ -28,6 +30,14 @@ public class DiscordBotController {
 			Principal principal) {
 		discordBotService.sendSignUpMessage(request.channelId(), principal.getName());
 		return ResponseEntity.ok("Signup message sent successfully to channel ID: " + request.channelId());
+	}
+
+	@PostMapping("/send-judging-reminder")
+	@PreAuthorize("hasRole('ADMIN')")
+	public ResponseEntity<DiscordJudgingReminderResponse> sendJudgingReminder(
+			@Valid @RequestBody DiscordJudgingReminderRequest request, Principal principal) {
+		return ResponseEntity.ok(
+				discordBotService.sendJudgingReminder(request.channelId(), request.deadline(), principal.getName()));
 	}
 
 }

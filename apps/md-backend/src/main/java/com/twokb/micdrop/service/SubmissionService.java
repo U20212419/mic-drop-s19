@@ -62,6 +62,11 @@ public class SubmissionService {
 		return submissionRepository.findByIdRoundAndIdJudgeOrderByIdSubmissionAsc(idRound, idJudge);
 	}
 
+	@Transactional(readOnly = true)
+	public long countPendingJudgeSubmissions(Integer idRound, Integer idJudge) {
+		return submissionRepository.countByIdRoundAndIdJudgeAndScoreIsNull(idRound, idJudge);
+	}
+
 	@Transactional
 	public Submission adminUpdateSubmission(Integer idSubmission, String subLink, String title, String artist) {
 		Submission sub = getById(idSubmission);
