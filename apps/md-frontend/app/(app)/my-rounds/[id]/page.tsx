@@ -514,10 +514,87 @@ export default function RoundDetailPage() {
 
       {role === "JUDGE" && judgeData && (
         <div className="space-y-4">
-          <p className="text-[#80848E] text-sm bg-[#2B2D31] p-4 rounded-lg border border-[#1E1F22]">
-            Review the tracks submitted to you and assign a score between 0 and 10 (increments of
-            0.25).
-          </p>
+          <div className="text-[#80848E] bg-[#2B2D31] p-4 rounded-lg border border-[#1E1F22] flex flex-col gap-4 structure-rules">
+            <p className="italic">
+              <strong>1.</strong> The score you input into the textbox should{" "}
+              <span className="font-semibold">include bonus points</span> if any are given. In
+              regards to reviews, a <span className="font-semibold">(+0.25)</span> should{" "}
+              <span className="font-semibold">be added at the end</span> of reviews to inform us
+              that they were given.
+            </p>
+
+            <p className="italic">
+              <strong>2.</strong> Bonus points of <span className="font-semibold">(+0.25)</span>{" "}
+              should <span className="font-semibold">not be given to scores of 9 and above.</span>
+            </p>
+
+            <p className="italic">
+              <strong>3.</strong> If you receive{" "}
+              <span className="font-semibold">duplicate submissions</span> ensure that you{" "}
+              <span className="font-semibold">gave both entries the same scores</span>, reviews
+              don't have to be the same. If a song reaches the criteria to become a safe submission{" "}
+              <span className="font-semibold">mid-round</span>, you have the choice to{" "}
+              <span className="font-semibold">lower the score</span> of the submissions received{" "}
+              <span className="font-semibold">after the song becomes safe</span>.
+            </p>
+
+            <p className="italic">
+              <strong>4.</strong> Judging should be done{" "}
+              <span className="font-semibold">as the songs come in</span> rather than leaving them
+              once all submissions have been entered. This is done so that results can be announced
+              as quickly as possible.
+            </p>
+
+            <p className="italic">
+              <strong>5.</strong> You may{" "}
+              <span className="font-semibold">
+                only give <span className="font-semibold">ONE song</span> a score of 10
+              </span>{" "}
+              per <span className="font-semibold">10</span> contestants judged rounded to the
+              nearest 10s.
+            </p>
+
+            <p className="italic">
+              <strong>6.</strong> There will be a{" "}
+              <span className="font-semibold">
+                judging deadline of 24 hours after the submission deadline
+              </span>
+              . Failure of doing so will lead to results being{" "}
+              <span className="font-semibold">announced without your scores and reviews</span>.
+            </p>
+
+            <p className="italic">
+              <strong>7.</strong> While you do hold the right to penalise entries if you{" "}
+              <span className="font-semibold">consider them too safe</span>, or have had{" "}
+              <span className="font-semibold">multiple of the same entries</span>, ensure the
+              penalisation is at a <span className="font-semibold">reasonable amount</span>.{" "}
+              <span className="font-semibold">
+                This will be due to staff interpretation since it may not be so black and white
+              </span>
+              .
+            </p>
+
+            <p className="italic">
+              <strong>8.</strong> You may{" "}
+              <span className="font-semibold">add increments of .5 and .25</span> to your scores.
+            </p>
+
+            <p className="italic">
+              <strong>9.</strong> You can write whatever you want in your reviews, but{" "}
+              <span className="font-semibold">ensure that they are appropriate</span>.
+            </p>
+
+            <p className="italic">
+              <strong>10.</strong> Submissions will be added to this page{" "}
+              <span className="font-semibold">as contestants submit them</span>.
+            </p>
+
+            <p className="italic">
+              <strong>11.</strong> Your reviews of any individual songs must be{" "}
+              <span className="font-semibold">lower than 1000 characters</span>. This is done to
+              make slides easily readable.
+            </p>
+          </div>
 
           {judgeData.submissions.length === 0 ? (
             <div className="text-center py-12 bg-[#2B2D31] rounded-xl border border-[#1E1F22]">
@@ -537,6 +614,19 @@ export default function RoundDetailPage() {
                         <div className="bg-[#5865F2]/20 text-[#5865F2] text-xs font-bold px-2 py-1 rounded">
                           Track #{idx + 1}
                         </div>
+                      </div>
+
+                      {/* Display the track artist and title if available, otherwise show the link */}
+                      <div className="mt-3 space-y-2">
+                        {sub.artist && sub.title ? (
+                          <p className="text-white font-medium">
+                            {sub.artist} - {sub.title}
+                          </p>
+                        ) : (
+                          <span className="text-[#80848E] text-sm italic">
+                            No artist or title available.
+                          </span>
+                        )}
                       </div>
 
                       <div className="mt-3 space-y-2">

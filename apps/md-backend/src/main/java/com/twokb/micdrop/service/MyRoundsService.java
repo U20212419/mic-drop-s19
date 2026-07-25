@@ -8,7 +8,6 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.util.HtmlUtils;
 
 import com.twokb.micdrop.dto.CollectionItemResponse;
 import com.twokb.micdrop.dto.JudgeAppDTO;
@@ -92,7 +91,8 @@ public class MyRoundsService {
 		List<Submission> subs = submissionService.getJudgeSubmissionsOrderedAsc(idRound, judgeUser.getIdUser());
 
 		List<SubmissionJudgeDTO> subDtos = subs.stream()
-			.map(s -> new SubmissionJudgeDTO(s.getIdSubmission(), s.getSubLink(), s.getScore(), s.getReview()))
+			.map(s -> new SubmissionJudgeDTO(s.getIdSubmission(), s.getSubLink(), s.getScore(), s.getReview(),
+					s.getArtist(), s.getTitle()))
 			.toList();
 
 		return new JudgeRoundDetailDTO(idRound, myUr.getRound().getRoundNumber(), myUr.getGroupNumber(),
