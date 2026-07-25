@@ -6,7 +6,6 @@ import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.util.HtmlUtils;
 
 import com.twokb.micdrop.model.Submission;
 import com.twokb.micdrop.repository.SubmissionRepository;

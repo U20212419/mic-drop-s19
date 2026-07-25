@@ -42,6 +42,7 @@ export const authOptions: NextAuthOptions = {
           await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/verify`, {
             discordId: discordProfile.id,
             username: discordProfile.username,
+            avatar: discordProfile.avatar,
           });
 
           // If verification is successful, allow sign-in
@@ -71,6 +72,7 @@ export const authOptions: NextAuthOptions = {
           const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}${endpoint}`, {
             discordId: discordProfile.id,
             username: discordProfile.username,
+            avatar: discordProfile.avatar,
           });
 
           console.log("Server status:", res.status);

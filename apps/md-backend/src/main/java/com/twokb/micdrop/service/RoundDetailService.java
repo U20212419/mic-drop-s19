@@ -11,7 +11,6 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.util.HtmlUtils;
 
 import com.twokb.micdrop.dto.myRounds.AdminBatchUpdateRequest;
 import com.twokb.micdrop.dto.myRounds.AdminSubmissionDTO;
@@ -168,18 +167,47 @@ public class RoundDetailService {
 	public List<ContestantStat> getGroupStats(Integer idRound, List<DiscordUser> contestants,
 			List<DiscordUser> judges) {
 		int expectedSubmissionsPerContestant = judges.size();
+		List<Integer> allJudgeIds = judges.stream().map(DiscordUser::getIdUser).toList();
+
+		// Fetch all submissions and group them by contestant
+		Map<DiscordUser, List<Submission>> submissionsByContestant = contestants.stream()
+			.collect(Collectors.toMap(c -> c, c -> submissionService.getByRoundIdAndContestantIdAndJudgeIds(idRound,
+					c.getIdUser(), allJudgeIds)));
+
+		// Identify disqualified judges (those who left a null score on any valid
+		// submission)
+		Set<Integer> disqualifiedJudgeIds = submissionsByContestant.values()
+			.stream()
+			.flatMap(List::stream)
+			.filter(s -> s.getSubLink() != null && !s.getSubLink().isBlank())
+			.filter(s -> s.getScore() == null)
+			.map(Submission::getIdJudge)
+			.collect(Collectors.toSet());
+
+		expectedSubmissionsPerContestant -= disqualifiedJudgeIds.size();
+
+		// Early return if no valid judges remain
+		if (expectedSubmissionsPerContestant <= 0) {
+			throw new IllegalStateException("All judges have been disqualified. Cannot calculate statuses.");
+		}
+
 		List<ContestantStat> activeStats = new ArrayList<>();
 
 		for (DiscordUser contestant : contestants) {
-			List<Submission> subs = submissionService.getByRoundIdAndContestantIdAndJudgeIds(idRound,
-					contestant.getIdUser(), judges.stream().map(DiscordUser::getIdUser).toList());
+			List<Submission> allContestantSubs = submissionsByContestant.get(contestant);
+
+			List<Submission> subs = allContestantSubs.stream()
+				.filter(s -> !disqualifiedJudgeIds.contains(s.getIdJudge()))
+				.toList();
 
 			long submittedCount = subs.stream()
 				.filter(s -> s.getSubLink() != null && !s.getSubLink().isBlank())
 				.count();
 
-			// Skip if the contestant did not submit the required amount
-			if (submittedCount < expectedSubmissionsPerContestant) {
+			// Skip if the contestant did not submit any song
+			// The songs that were submitted will be considered for the average score
+			// calculation, and the ones that were not submitted will have a score of 0
+			if (submittedCount == 0) {
 				continue;
 			}
 

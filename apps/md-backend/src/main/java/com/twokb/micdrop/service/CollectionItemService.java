@@ -2,13 +2,11 @@ package com.twokb.micdrop.service;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.util.HtmlUtils;
 
 import com.twokb.micdrop.dto.myRounds.SubmitLinkRequest;
 import com.twokb.micdrop.model.CollectionItem;
@@ -29,7 +27,7 @@ public class CollectionItemService {
 	@Transactional
 	public void deductFromCollection(DiscordUser contestant, List<SubmitLinkRequest> submissions) {
 		Map<String, Long> submittedCounts = submissions.stream()
-			.map(s -> HtmlUtils.htmlUnescape(s.subLink()))
+			.map(s -> s.subLink())
 			.collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
 		List<CollectionItem> collection = getCollectionForUser(contestant);
@@ -109,7 +107,7 @@ public class CollectionItemService {
 	@Transactional
 	public void syncCollectionItemData(DiscordUser contestant, String originalLink, String subLink, String title,
 			String artist) {
-		String rawOriginalLink = originalLink != null ? HtmlUtils.htmlUnescape(originalLink) : "";
+		String rawOriginalLink = originalLink != null ? originalLink : "";
 
 		// Get all collection items that match the original link
 		List<CollectionItem> copiesToUpdate = collectionItemRepository

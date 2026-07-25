@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
-import { CheckCircle2, XCircle, Loader2, Lock, Unlock } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Lock, Unlock, Star } from "lucide-react";
 
 interface MyRound {
   idRound: number;
@@ -12,6 +12,7 @@ interface MyRound {
   submissionsOpen: boolean;
   role: string;
   groupNumber: number;
+  specialRound: boolean;
 }
 
 export default function MyRoundsPage() {
@@ -71,6 +72,11 @@ export default function MyRoundsPage() {
                   )}
                   {round.active ? "Active" : "Inactive"}
                 </span>
+                {round.specialRound && (
+                  <span className="bg-[#E67E22]/10 text-[#E67E22] border border-[#E67E22]/30 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                    <Star className="w-3 h-3" /> Special
+                  </span>
+                )}
               </h2>
             </div>
             <div className="flex justify-between mb-4">

@@ -43,6 +43,9 @@ public class DiscordUser {
 	@Column(name = "preliminary_status", nullable = true)
 	private ContestantStatus preliminaryStatus;
 
+	@Column(name = "avatar")
+	private String avatar;
+
 	@Transient
 	private boolean isHost;
 
