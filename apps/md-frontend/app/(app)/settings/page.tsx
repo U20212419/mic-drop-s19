@@ -14,6 +14,8 @@ import {
   Bot,
   BellRing,
   Clock,
+  CalendarClock,
+  Users,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
@@ -21,6 +23,20 @@ interface SystemSetting {
   settingKey: string;
   settingValue: string;
 }
+
+interface SubmissionReminderConfig {
+  channelId: string;
+  deadline: string | null;
+  enabled: boolean;
+  reminderHours: number[];
+}
+
+const toLocalDateTimeInput = (isoDate: string | null) => {
+  if (!isoDate) return "";
+  const date = new Date(isoDate);
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return localDate.toISOString().slice(0, 16);
+};
 
 export default function SettingsPage() {
   const { data: session, status: authStatus } = useSession();
@@ -34,14 +50,21 @@ export default function SettingsPage() {
   const [reminderChannelId, setReminderChannelId] = useState("");
   const [judgingDeadline, setJudgingDeadline] = useState("");
   const [isSendingReminder, setIsSendingReminder] = useState(false);
+  const [submissionReminderChannelId, setSubmissionReminderChannelId] = useState("");
+  const [submissionDeadline, setSubmissionDeadline] = useState("");
+  const [submissionRemindersEnabled, setSubmissionRemindersEnabled] = useState(false);
+  const [isSavingSubmissionReminders, setIsSavingSubmissionReminders] = useState(false);
 
   const isHost = session?.user?.host;
 
   useEffect(() => {
     if (authStatus === "authenticated") {
       fetchSettings();
+      if (isHost) {
+        fetchSubmissionReminderSchedule();
+      }
     }
-  }, [authStatus]);
+  }, [authStatus, isHost]);
 
   const fetchSettings = async () => {
     try {
@@ -49,14 +72,28 @@ export default function SettingsPage() {
       const res = await api.get("/system-settings");
 
       // Sort settings alphabetically by settingKey ascending
-      res.data.sort((a: SystemSetting, b: SystemSetting) =>
+      const visibleSettings = res.data.filter(
+        (setting: SystemSetting) => !setting.settingKey.startsWith("submission_reminder_"),
+      );
+      visibleSettings.sort((a: SystemSetting, b: SystemSetting) =>
         a.settingKey.localeCompare(b.settingKey, undefined, { sensitivity: "base" }),
       );
-      setSettings(res.data);
+      setSettings(visibleSettings);
     } catch (error: any) {
       // Error handled by interceptor
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchSubmissionReminderSchedule = async () => {
+    try {
+      const res = await api.get<SubmissionReminderConfig>("/bot/submission-reminder-schedule");
+      setSubmissionReminderChannelId(res.data.channelId === "N/A" ? "" : res.data.channelId);
+      setSubmissionDeadline(toLocalDateTimeInput(res.data.deadline));
+      setSubmissionRemindersEnabled(res.data.enabled);
+    } catch (error: any) {
+      // Error handled by interceptor
     }
   };
 
@@ -144,6 +181,56 @@ export default function SettingsPage() {
       // Error handled by interceptor
     } finally {
       setIsSendingReminder(false);
+    }
+  };
+
+  const handleSaveSubmissionReminders = async () => {
+    if (!submissionReminderChannelId.trim() || !submissionDeadline) {
+      toast.error("Channel and deadline required.", {
+        description: "Enter the Discord channel and submission deadline.",
+        closeButton: true,
+      });
+      return;
+    }
+
+    const deadline = new Date(submissionDeadline);
+    if (Number.isNaN(deadline.getTime()) || deadline <= new Date()) {
+      toast.error("Invalid deadline.", {
+        description: "The submission deadline must be in the future.",
+        closeButton: true,
+      });
+      return;
+    }
+
+    try {
+      setIsSavingSubmissionReminders(true);
+      const res = await api.put<SubmissionReminderConfig>("/bot/submission-reminder-schedule", {
+        channelId: submissionReminderChannelId.trim(),
+        deadline: deadline.toISOString(),
+      });
+      setSubmissionRemindersEnabled(res.data.enabled);
+      toast.success("Automatic submission reminders enabled!", {
+        description:
+          "Contestants still missing songs will be pinged 24h, 12h, 6h, and 1h before the deadline.",
+        closeButton: true,
+      });
+    } catch (error: any) {
+      // Error handled by interceptor
+    } finally {
+      setIsSavingSubmissionReminders(false);
+    }
+  };
+
+  const handleDisableSubmissionReminders = async () => {
+    try {
+      setIsSavingSubmissionReminders(true);
+      const res = await api.delete<SubmissionReminderConfig>("/bot/submission-reminder-schedule");
+      setSubmissionRemindersEnabled(res.data.enabled);
+      toast.success("Automatic submission reminders disabled.", { closeButton: true });
+    } catch (error: any) {
+      // Error handled by interceptor
+    } finally {
+      setIsSavingSubmissionReminders(false);
     }
   };
 
@@ -321,6 +408,78 @@ export default function SettingsPage() {
                   )}
                   {isSendingReminder ? "Dispatching..." : "Send Judging Reminder"}
                 </button>
+              </div>
+            </div>
+
+            <div className="bg-[#2B2D31] border border-[#1E1F22] rounded-xl p-5 xl:col-span-2">
+              <div className="flex items-start justify-between gap-3 mb-1">
+                <h3 className="text-white font-semibold flex items-center gap-2">
+                  <Users className="w-4 h-4 text-amber-400" />
+                  Automatic “Yet to Submit” Pings
+                </h3>
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                    submissionRemindersEnabled
+                      ? "bg-emerald-500/15 text-emerald-400"
+                      : "bg-[#1E1F22] text-[#80848E]"
+                  }`}
+                >
+                  {submissionRemindersEnabled ? "Enabled" : "Disabled"}
+                </span>
+              </div>
+              <p className="text-xs text-[#80848E] mb-4">
+                Ping contestants who still owe songs 24h, 12h, 6h, and 1h before the active
+                round&apos;s submission deadline.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  placeholder="Target Channel ID"
+                  value={submissionReminderChannelId}
+                  onChange={(e) => setSubmissionReminderChannelId(e.target.value)}
+                  className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md px-3 py-2 outline-none focus:border-amber-500 text-sm transition-colors"
+                />
+
+                <div className="relative">
+                  <CalendarClock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#80848E] pointer-events-none" />
+                  <input
+                    type="datetime-local"
+                    aria-label="Submission deadline"
+                    value={submissionDeadline}
+                    onChange={(e) => setSubmissionDeadline(e.target.value)}
+                    className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md pl-10 pr-3 py-2 outline-none focus:border-amber-500 text-sm transition-colors scheme-dark"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={handleSaveSubmissionReminders}
+                  disabled={
+                    isSavingSubmissionReminders ||
+                    !submissionReminderChannelId.trim() ||
+                    !submissionDeadline
+                  }
+                  className="flex-1 bg-amber-600 hover:bg-amber-500 text-white px-5 py-2 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSavingSubmissionReminders ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CalendarClock className="w-4 h-4" />
+                  )}
+                  Save & Enable Schedule
+                </button>
+
+                {submissionRemindersEnabled && (
+                  <button
+                    onClick={handleDisableSubmissionReminders}
+                    disabled={isSavingSubmissionReminders}
+                    className="bg-[#4E5058] hover:bg-[#5D6069] text-white px-5 py-2 rounded-md text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Disable
+                  </button>
+                )}
               </div>
             </div>
           </div>

@@ -164,7 +164,11 @@ CREATE TABLE IF NOT EXISTS system_setting (
 INSERT INTO system_setting (setting_key, setting_value)
 VALUES ('signup_message_id', 'N/A'),
 ('contestant_role_id', 'N/A'),
-('season_host_id', '282323469553631233');
+('season_host_id', '282323469553631233'),
+('submission_reminder_channel_id', 'N/A'),
+('submission_reminder_deadline', 'N/A'),
+('submission_reminder_enabled', 'false'),
+('submission_reminder_state', '');
 
 -- -----------------------------------------------------
 -- Table `refresh_tokens`

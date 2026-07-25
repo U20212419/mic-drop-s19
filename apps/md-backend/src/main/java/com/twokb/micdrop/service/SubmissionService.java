@@ -67,6 +67,11 @@ public class SubmissionService {
 		return submissionRepository.countByIdRoundAndIdJudgeAndScoreIsNull(idRound, idJudge);
 	}
 
+	@Transactional(readOnly = true)
+	public long countSubmittedSongs(Integer idRound, Integer idContestant) {
+		return submissionRepository.countSubmittedSongs(idRound, idContestant);
+	}
+
 	@Transactional
 	public Submission adminUpdateSubmission(Integer idSubmission, String subLink, String title, String artist) {
 		Submission sub = getById(idSubmission);
