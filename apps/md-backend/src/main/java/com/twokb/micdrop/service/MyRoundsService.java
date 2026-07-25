@@ -50,7 +50,7 @@ public class MyRoundsService {
 			.stream()
 			.map(ur -> new MyRoundDTO(ur.getRound().getIdRound(), ur.getRound().getRoundNumber(),
 					ur.getRound().getActive(), ur.getRound().getSubmissionsOpen(), ur.getUserRole().name(),
-					ur.getGroupNumber()))
+					ur.getGroupNumber(), ur.getRound().getSpecialRound()))
 			.collect(Collectors.toList());
 	}
 
@@ -96,7 +96,7 @@ public class MyRoundsService {
 			.toList();
 
 		return new JudgeRoundDetailDTO(idRound, myUr.getRound().getRoundNumber(), myUr.getGroupNumber(),
-				myUr.getRound().getSubmissionsOpen(), subDtos);
+				myUr.getRound().getSubmissionsOpen(), myUr.getRound().getSpecialRound(), subDtos);
 	}
 
 	@Transactional

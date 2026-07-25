@@ -287,9 +287,10 @@ export default function RoundDetailPage() {
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             Round {role === "CONTESTANT" ? contestantData?.roundNumber : judgeData?.roundNumber}
             {/* Special round badge */}
-            {role === "CONTESTANT" && contestantData?.specialRound && (
-              <span className="bg-[#E67E22] text-white text-xs font-black px-2 py-1 rounded ml-2 uppercase">
-                Special Round
+            {((role === "CONTESTANT" && contestantData?.specialRound) ||
+              (role === "JUDGE" && judgeData?.specialRound)) && (
+              <span className="bg-[#E67E22]/10 text-[#E67E22] border border-[#E67E22]/30 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                <Star className="w-3 h-3" /> Special
               </span>
             )}
           </h1>
