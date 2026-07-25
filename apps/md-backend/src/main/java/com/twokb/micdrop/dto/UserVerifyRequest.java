@@ -1,4 +1,4 @@
 package com.twokb.micdrop.dto;
 
-public record UserVerifyRequest(String discordId, String username) {
+public record UserVerifyRequest(String discordId, String username, String avatar) {
 }

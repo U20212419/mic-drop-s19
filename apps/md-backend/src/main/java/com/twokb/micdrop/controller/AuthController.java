@@ -46,6 +46,9 @@ public class AuthController {
 		try {
 			DiscordUser user = discordUserService.getUserByDiscordId(request.discordId());
 
+			// Update the user's avatar if provided
+			discordUserService.updateUserAvatar(user, request.avatar());
+
 			String hostId = systemSettingService.getHostDiscordId();
 			user.setHost(user.getDiscordId().equals(hostId));
 
@@ -77,7 +80,8 @@ public class AuthController {
 	@PostMapping("/judge-app-login")
 	public ResponseEntity<Map<String, Object>> judgeAppLogin(@RequestBody UserVerifyRequest request,
 			HttpServletResponse response) {
-		DiscordUser user = discordUserService.loginOrRegisterUser(request.discordId(), request.username());
+		DiscordUser user = discordUserService.loginOrRegisterUser(request.discordId(), request.username(),
+				request.avatar());
 
 		String hostId = systemSettingService.getHostDiscordId();
 		user.setHost(user.getDiscordId().equals(hostId));

@@ -82,7 +82,7 @@ public class DiscordUserService {
 
 	// Login or register user from Judge App page
 	@Transactional
-	public DiscordUser loginOrRegisterUser(String discordId, String username) {
+	public DiscordUser loginOrRegisterUser(String discordId, String username, String avatar) {
 		// If user exists, return it. If not, create a new one with default role and
 		// status
 		return discordUserRepository.findByDiscordId(discordId).orElseGet(() -> {
@@ -92,6 +92,7 @@ public class DiscordUserService {
 			newUser.setStatus(ContestantStatus.INACTIVE);
 			newUser.setGlobalRole(GlobalRoleType.USER);
 			newUser.setHost(false);
+			newUser.setAvatar(avatar);
 			return discordUserRepository.save(newUser);
 		});
 	}
@@ -120,6 +121,13 @@ public class DiscordUserService {
 		user.setStatus(status);
 		user.setGlobalRole(globalRole);
 		return user;
+	}
+
+	@Transactional
+	public void updateUserAvatar(DiscordUser user, String avatar) {
+		if (avatar != null && !avatar.isBlank() && !avatar.equals(user.getAvatar())) {
+			user.setAvatar(avatar);
+		}
 	}
 
 	@Transactional

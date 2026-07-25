@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS discord_user (
 	global_role global_role_type NOT NULL,
 	judge_app_id_app INTEGER NULL,
 	preliminary_status contestant_status NULL,
+	avatar VARCHAR(255) NULL,
 	CONSTRAINT fk_discord_user_judge_app
 		FOREIGN KEY (judge_app_id_app)
 		REFERENCES judge_app (id_app)
