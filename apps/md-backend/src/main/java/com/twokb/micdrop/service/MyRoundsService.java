@@ -95,8 +95,13 @@ public class MyRoundsService {
 					s.getArtist(), s.getTitle()))
 			.toList();
 
-		return new JudgeRoundDetailDTO(idRound, myUr.getRound().getRoundNumber(), myUr.getGroupNumber(),
-				myUr.getRound().getSubmissionsOpen(), myUr.getRound().getSpecialRound(), subDtos);
+		Round round = myUr.getRound();
+
+		JudgeApp app = judgeUser.getJudgeApp();
+		Boolean givingBonus = (app == null) ? false : app.getGivingBonus();
+
+		return new JudgeRoundDetailDTO(idRound, round.getRoundNumber(), myUr.getGroupNumber(),
+				round.getSubmissionsOpen(), round.getSpecialRound(), givingBonus, subDtos);
 	}
 
 	@Transactional

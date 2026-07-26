@@ -69,7 +69,32 @@ export default function RoundDetailPage() {
             setCollection(colRes.data);
           }
         } else {
-          setJudgeData(detailRes.data);
+          // Parse judge data to extract the bonus state from the DB cleanly
+          // This separates the visual state (base score) from the backend state
+          const parsedSubmissions = detailRes.data.submissions.map((s: any) => {
+            const hasBonus = s.review?.includes("(+0.25)") || false;
+            let displayScore = s.score !== null && s.score !== undefined ? s.score.toString() : "";
+            let displayReview = s.review || "";
+
+            if (hasBonus) {
+              // Strip the bonus from the UI so it doesn't double-stack visually
+              if (displayScore !== "") {
+                displayScore = (parseFloat(displayScore) - 0.25).toString();
+              }
+              displayReview = displayReview.replace(" (+0.25)", "").replace("(+0.25)", "").trim();
+            }
+
+            return {
+              ...s,
+              score: displayScore,
+              review: displayReview,
+              hasBonus: hasBonus,
+            };
+          });
+          setJudgeData({
+            ...detailRes.data,
+            submissions: parsedSubmissions,
+          });
         }
       } catch (error: any) {
         // Error handled by interceptor
@@ -115,7 +140,9 @@ export default function RoundDetailPage() {
     contestantData?.judges?.length > 0 &&
     contestantData.judges.every((j: any) => j.subLink && j.subLink.trim() !== "");
 
-  const handleScoreChange = (idSub: number, e: any) => {
+  const handleScoreChange = (sub: any, e: any) => {
+    if (!sub) return;
+
     const rawVal = e.target.value;
     const cursor = e.target.selectionStart;
 
@@ -124,7 +151,7 @@ export default function RoundDetailPage() {
     // Block non-numeric input except for one decimal point at most
     if (!/^\d*\.?\d*$/.test(val)) {
       const oldScore =
-        judgeData.submissions.find((s: any) => s.idSubmission === idSub)?.score ?? "";
+        judgeData.submissions.find((s: any) => s.idSubmission === sub.idSubmission)?.score ?? "";
       e.target.value = oldScore;
       e.target.setSelectionRange(cursor - 1, cursor - 1);
       return;
@@ -134,7 +161,7 @@ export default function RoundDetailPage() {
       setJudgeData({
         ...judgeData,
         submissions: judgeData.submissions.map((s: any) =>
-          s.idSubmission === idSub ? { ...s, score: "" } : s,
+          s.idSubmission === sub.idSubmission ? { ...s, score: "" } : s,
         ),
       });
       return;
@@ -175,23 +202,51 @@ export default function RoundDetailPage() {
         e.target.setSelectionRange(newCursor, newCursor);
       }
 
+      // Automatically remove the bonus if the manual score is 9 or above
+      let newHasBonus = sub.hasBonus || false;
+      if (parseFloat(finalVal) >= 9 && newHasBonus) {
+        newHasBonus = false;
+      }
+
       setJudgeData({
         ...judgeData,
         submissions: judgeData.submissions.map((s: any) =>
-          s.idSubmission === idSub ? { ...s, score: finalVal } : s,
+          s.idSubmission === sub.idSubmission
+            ? { ...s, score: finalVal, hasBonus: newHasBonus }
+            : s,
         ),
       });
     }
   };
 
-  const handleReviewChange = (idSub: number, e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const val = e.target.value;
+  const handleReviewChange = (sub: any, e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    if (!sub) return;
+
+    const newValue = e.target.value;
+
     setJudgeData({
       ...judgeData,
       submissions: judgeData.submissions.map((s: any) =>
-        s.idSubmission === idSub ? { ...s, review: val } : s,
+        s.idSubmission === sub.idSubmission ? { ...s, review: newValue } : s,
       ),
     });
+  };
+
+  const handleBonusToggle = (sub: any, isChecked: boolean) => {
+    if (!sub) return;
+
+    const currentScore = parseFloat(sub.score || "0");
+    if (isNaN(currentScore)) return; // Do not allow toggling if the score is invalid
+
+    // If the score is 9 or above, prevent adding the bonus
+    if (isChecked && currentScore >= 9) return;
+
+    setJudgeData((prev: any) => ({
+      ...prev,
+      submissions: prev.submissions.map((s: any) =>
+        s.idSubmission === sub.idSubmission ? { ...s, hasBonus: isChecked } : s,
+      ),
+    }));
   };
 
   const submitContestantLinks = async () => {
@@ -256,11 +311,22 @@ export default function RoundDetailPage() {
       setSubmitting(true);
       const payload = {
         idRound: Number(id),
-        scores: judgeData.submissions.map((s: any) => ({
-          idSubmission: s.idSubmission,
-          score: s.score === "" || s.score === null ? null : Number(s.score),
-          review: s.review || "",
-        })),
+        scores: judgeData.submissions.map((s: any) => {
+          let finalScore = s.score === "" || s.score === null ? null : Number(s.score);
+          if (finalScore !== null && s.hasBonus) {
+            finalScore += 0.25;
+          }
+
+          let finalReview = s.review || "";
+          if (s.hasBonus) {
+            finalReview = finalReview.trim() ? `${finalReview.trim()} (+0.25)` : "(+0.25)";
+          }
+          return {
+            idSubmission: s.idSubmission,
+            score: finalScore,
+            review: finalReview,
+          };
+        }),
       };
       await api.put("/my-rounds/batch-score", payload);
       toast.success("Scores saved successfully.", {
@@ -516,19 +582,20 @@ export default function RoundDetailPage() {
       {role === "JUDGE" && judgeData && (
         <div className="space-y-4">
           <div className="text-[#80848E] bg-[#2B2D31] p-4 rounded-lg border border-[#1E1F22] flex flex-col gap-4 structure-rules">
+            <strong>Judging Guidelines:</strong>
             <p className="italic">
               <strong>1.</strong> The score you input into the textbox should{" "}
-              <span className="font-semibold">include bonus points</span> if any are given. In
-              regards to reviews, a <span className="font-semibold">(+0.25)</span> should{" "}
-              <span className="font-semibold">be added at the end</span> of reviews to inform us
-              that they were given.
+              <span className="font-semibold">not include bonus points</span> if any are given. Use
+              the corresponding <span className="font-semibold">checkbox</span> for that purpose. In
+              regards to reviews, a{" "}
+              <span className="font-semibold">(+0.25) will automatically be added at the end</span>{" "}
+              of reviews to inform us that they were given. You{" "}
+              <span className="font-semibold">do not need to add the bonus to your review</span>.
             </p>
-
             <p className="italic">
               <strong>2.</strong> Bonus points of <span className="font-semibold">(+0.25)</span>{" "}
               should <span className="font-semibold">not be given to scores of 9 and above.</span>
             </p>
-
             <p className="italic">
               <strong>3.</strong> If you receive{" "}
               <span className="font-semibold">duplicate submissions</span> ensure that you{" "}
@@ -538,14 +605,12 @@ export default function RoundDetailPage() {
               <span className="font-semibold">lower the score</span> of the submissions received{" "}
               <span className="font-semibold">after the song becomes safe</span>.
             </p>
-
             <p className="italic">
               <strong>4.</strong> Judging should be done{" "}
               <span className="font-semibold">as the songs come in</span> rather than leaving them
               once all submissions have been entered. This is done so that results can be announced
               as quickly as possible.
             </p>
-
             <p className="italic">
               <strong>5.</strong> You may{" "}
               <span className="font-semibold">
@@ -554,7 +619,6 @@ export default function RoundDetailPage() {
               per <span className="font-semibold">10</span> contestants judged rounded to the
               nearest 10s.
             </p>
-
             <p className="italic">
               <strong>6.</strong> There will be a{" "}
               <span className="font-semibold">
@@ -563,7 +627,6 @@ export default function RoundDetailPage() {
               . Failure of doing so will lead to results being{" "}
               <span className="font-semibold">announced without your scores and reviews</span>.
             </p>
-
             <p className="italic">
               <strong>7.</strong> While you do hold the right to penalise entries if you{" "}
               <span className="font-semibold">consider them too safe</span>, or have had{" "}
@@ -574,22 +637,18 @@ export default function RoundDetailPage() {
               </span>
               .
             </p>
-
             <p className="italic">
               <strong>8.</strong> You may{" "}
               <span className="font-semibold">add increments of .5 and .25</span> to your scores.
             </p>
-
             <p className="italic">
               <strong>9.</strong> You can write whatever you want in your reviews, but{" "}
               <span className="font-semibold">ensure that they are appropriate</span>.
             </p>
-
             <p className="italic">
               <strong>10.</strong> Submissions will be added to this page{" "}
               <span className="font-semibold">as contestants submit them</span>.
             </p>
-
             <p className="italic">
               <strong>11.</strong> Your reviews of any individual songs must be{" "}
               <span className="font-semibold">lower than 1000 characters</span>. This is done to
@@ -648,23 +707,48 @@ export default function RoundDetailPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 bg-[#1E1F22] p-4 rounded-lg border border-[#35373C] shrink-0">
-                      <div className="w-8 h-8 rounded-full bg-yellow-400/20 flex items-center justify-center">
-                        <Star className="w-4 h-4 text-yellow-400" />
+                    <div className="flex flex-col sm:flex-row items-center gap-4 bg-[#1E1F22] p-4 rounded-lg border border-[#35373C] shrink-0">
+                      {/* Score Input Block */}
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-yellow-400/20 flex items-center justify-center">
+                          <Star className="w-4 h-4 text-yellow-400" />
+                        </div>
+                        <div className="flex flex-col">
+                          <label className="text-[10px] text-[#80848E] font-bold uppercase mb-1">
+                            Score (0-10)
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={sub.score ?? ""}
+                            onChange={(e) => handleScoreChange(sub, e)}
+                            className="w-24 bg-[#2B2D31] border border-[#4E5058] text-white rounded px-3 py-2 outline-none focus:border-[#5865F2] font-mono text-center"
+                            placeholder="--"
+                          />
+                        </div>
                       </div>
-                      <div className="flex flex-col">
-                        <label className="text-[10px] text-[#80848E] font-bold uppercase mb-1">
-                          Score (0-10)
-                        </label>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={sub.score ?? ""}
-                          onChange={(e) => handleScoreChange(sub.idSubmission, e)}
-                          className="w-24 bg-[#2B2D31] border border-[#4E5058] text-white rounded px-3 py-2 outline-none focus:border-[#5865F2] font-mono text-center"
-                          placeholder="--"
-                        />
-                      </div>
+
+                      {/* Bonus Points Checkbox */}
+                      {judgeData.givingBonus && (
+                        <div className="flex items-center sm:border-l border-[#35373C] sm:pl-4">
+                          <label
+                            className={`flex items-center gap-2 text-sm font-medium select-none ${
+                              sub.score && parseFloat(sub.score) >= 9
+                                ? "text-[#4E5058] cursor-not-allowed"
+                                : "text-[#80848E] cursor-pointer"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 accent-[#5865F2] rounded cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                              checked={sub.hasBonus || false}
+                              disabled={!sub.score || parseFloat(sub.score) >= 9}
+                              onChange={(e) => handleBonusToggle(sub, e.target.checked)}
+                            />
+                            Bonus (+0.25)
+                          </label>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -675,9 +759,22 @@ export default function RoundDetailPage() {
                       label={`Review for Track #${idx + 1}`}
                       sublabel="Explain why you gave this score."
                       value={sub.review || ""}
-                      onChange={(e) => handleReviewChange(sub.idSubmission, e)}
-                      required={false} // Cambia a true si quieres obligarlos a escribir algo
+                      onChange={(e) => handleReviewChange(sub, e)}
+                      placeholder="Write your review here..."
+                      required={false}
                     />
+
+                    {/* Visual Indicator of the appended string (Immutable UI representation) */}
+                    {sub.hasBonus && (
+                      <div className="mt-3 flex justify-end">
+                        <span
+                          className="inline-flex items-center gap-1.5 text-xs font-bold text-[#5865F2] bg-[#5865F2]/10 px-2.5 py-1.5 rounded-md border border-[#5865F2]/20 select-none cursor-default"
+                          title="This tag will be automatically appended to your review upon saving."
+                        >
+                          <Lock className="w-3 h-3" /> (+0.25) appended to review
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
