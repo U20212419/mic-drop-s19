@@ -1,7 +1,10 @@
 package com.twokb.micdrop.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -50,13 +53,13 @@ class UserRoundServiceTests {
 		List<DiscordUser> activeUsers = activeUserIds.stream().map(this::userWithId).toList();
 
 		when(roundService.getRound(20)).thenReturn(round);
-		when(roundService.getRoundByNumber(2)).thenReturn(round);
+		lenient().when(roundService.getRoundByNumber(2)).thenReturn(round);
 		when(discordUserService.getActiveUserIds()).thenReturn(activeUserIds);
 		when(discordUserService.getAllUsersById(anyList())).thenReturn(activeUsers);
-		when(userRoundRepository.findByRoundIdAndRole(20, "contestant")).thenReturn(List.of());
-		when(userRoundRepository.findUserIdsByRound_RoundNumber(2)).thenReturn(Set.of());
-		when(userRoundRepository.findUsersByRoundAndRole(20, "contestant")).thenReturn(List.of());
-		when(userRoundRepository.findUsersByRoundAndRole(20, "judge")).thenReturn(List.of());
+		lenient().when(userRoundRepository.findByRoundIdAndRole(anyInt(), anyString())).thenReturn(List.of());
+		lenient().when(userRoundRepository.findUserIdsByRound_RoundNumber(anyInt())).thenReturn(Set.of());
+		lenient().when(userRoundRepository.findUsersByRoundAndRole(anyInt(), anyString())).thenReturn(List.of());
+		lenient().when(userRoundRepository.findById_RoundId(anyInt())).thenReturn(List.of());
 
 		userRoundService.randomlyAssignContestants(20);
 

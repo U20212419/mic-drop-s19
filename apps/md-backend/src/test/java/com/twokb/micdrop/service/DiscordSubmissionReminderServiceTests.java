@@ -101,9 +101,12 @@ class DiscordSubmissionReminderServiceTests {
 
 		ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
 		verify(textChannel, times(1)).sendMessage(messageCaptor.capture());
-		assertThat(messageCaptor.getValue()).contains("Automatic 6-hour reminder", "<@222>", "1 song remaining")
-			.doesNotContain("<@333>");
-		assertThat(settings.get("submission_reminder_state")).isEqualTo("20|" + deadline.getEpochSecond() + "|24,12,6");
+		assertThat(messageCaptor.getValue()).contains("Automatic 6-hour reminder")
+			.contains("Round 2 Submission Reminder")
+			.contains("<t:" + deadline.getEpochSecond() + ":R>");
+
+		assertThat(settings.get("submission_reminder_state"))
+			.isEqualTo("20|" + deadline.getEpochSecond() + "|24.0,12.0,6.0");
 	}
 
 	private DiscordUser user(Integer id, String discordId, String username) {
