@@ -16,6 +16,7 @@ import {
   Clock,
   CalendarClock,
   Users,
+  Hourglass,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
@@ -52,6 +53,7 @@ export default function SettingsPage() {
   const [isSendingReminder, setIsSendingReminder] = useState(false);
   const [submissionReminderChannelId, setSubmissionReminderChannelId] = useState("");
   const [submissionDeadline, setSubmissionDeadline] = useState("");
+  const [submissionReminderHours, setSubmissionReminderHours] = useState("");
   const [submissionRemindersEnabled, setSubmissionRemindersEnabled] = useState(false);
   const [isSavingSubmissionReminders, setIsSavingSubmissionReminders] = useState(false);
 
@@ -92,6 +94,11 @@ export default function SettingsPage() {
       setSubmissionReminderChannelId(res.data.channelId === "N/A" ? "" : res.data.channelId);
       setSubmissionDeadline(toLocalDateTimeInput(res.data.deadline));
       setSubmissionRemindersEnabled(res.data.enabled);
+      if (res.data.reminderHours && res.data.reminderHours.length > 0) {
+        setSubmissionReminderHours(res.data.reminderHours.join(", "));
+      } else {
+        setSubmissionReminderHours("");
+      }
     } catch (error: any) {
       // Error handled by interceptor
     }
@@ -185,9 +192,13 @@ export default function SettingsPage() {
   };
 
   const handleSaveSubmissionReminders = async () => {
-    if (!submissionReminderChannelId.trim() || !submissionDeadline) {
-      toast.error("Channel and deadline required.", {
-        description: "Enter the Discord channel and submission deadline.",
+    if (
+      !submissionReminderChannelId.trim() ||
+      !submissionDeadline ||
+      !submissionReminderHours.trim()
+    ) {
+      toast.error("Missing fields.", {
+        description: "Enter the Discord channel, submission deadline, and reminder hours.",
         closeButton: true,
       });
       return;
@@ -202,16 +213,32 @@ export default function SettingsPage() {
       return;
     }
 
+    const hoursArray = submissionReminderHours
+      .split(",")
+      .map((h) => h.trim())
+      .filter((h) => h !== "")
+      .map(Number);
+
+    if (hoursArray.some(Number.isNaN) || hoursArray.some((h) => h <= 0)) {
+      toast.error("Invalid reminder hours.", {
+        description:
+          "Please enter a comma-separated list of positive integers for the reminder hours.",
+        closeButton: true,
+      });
+      return;
+    }
+
     try {
       setIsSavingSubmissionReminders(true);
       const res = await api.put<SubmissionReminderConfig>("/bot/submission-reminder-schedule", {
         channelId: submissionReminderChannelId.trim(),
         deadline: deadline.toISOString(),
+        reminderHours: hoursArray,
       });
       setSubmissionRemindersEnabled(res.data.enabled);
+      setSubmissionReminderHours(res.data.reminderHours.join(", "));
       toast.success("Automatic submission reminders enabled!", {
-        description:
-          "Contestants still missing songs will be pinged 24h, 12h, 6h, and 1h before the deadline.",
+        description: `Contestants still missing songs will be pinged at ${res.data.reminderHours.join("h, ")}h before the deadline.`,
         closeButton: true,
       });
     } catch (error: any) {
@@ -367,6 +394,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
+            {/* Judging Reminder Section */}
             <div className="bg-[#2B2D31] border border-[#1E1F22] rounded-xl p-5">
               <h3 className="text-white font-semibold mb-1 flex items-center gap-2">
                 <BellRing className="w-4 h-4 text-[#5865F2]" />
@@ -411,6 +439,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
+            {/* Submission Reminder Section */}
             <div className="bg-[#2B2D31] border border-[#1E1F22] rounded-xl p-5 xl:col-span-2">
               <div className="flex items-start justify-between gap-3 mb-1">
                 <h3 className="text-white font-semibold flex items-center gap-2">
@@ -428,11 +457,11 @@ export default function SettingsPage() {
                 </span>
               </div>
               <p className="text-xs text-[#80848E] mb-4">
-                Ping contestants who still owe songs 24h, 12h, 6h, and 1h before the active
+                Ping contestants who still owe songs at specific configured hours before the active
                 round&apos;s submission deadline.
               </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <input
                   type="text"
                   placeholder="Target Channel ID"
@@ -451,6 +480,18 @@ export default function SettingsPage() {
                     className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md pl-10 pr-3 py-2 outline-none focus:border-amber-500 text-sm transition-colors scheme-dark"
                   />
                 </div>
+
+                <div className="relative">
+                  <Hourglass className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#80848E] pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Reminder hours (e.g. 24, 12, 6, 1)"
+                    title="Comma-separated list of hours before deadline to send pings"
+                    value={submissionReminderHours}
+                    onChange={(e) => setSubmissionReminderHours(e.target.value)}
+                    className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md pl-10 pr-3 py-2 outline-none focus:border-amber-500 text-sm transition-colors"
+                  />
+                </div>
               </div>
 
               <div className="mt-3 flex flex-col sm:flex-row gap-3">
@@ -459,7 +500,8 @@ export default function SettingsPage() {
                   disabled={
                     isSavingSubmissionReminders ||
                     !submissionReminderChannelId.trim() ||
-                    !submissionDeadline
+                    !submissionDeadline ||
+                    !submissionReminderHours.trim()
                   }
                   className="flex-1 bg-amber-600 hover:bg-amber-500 text-white px-5 py-2 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >

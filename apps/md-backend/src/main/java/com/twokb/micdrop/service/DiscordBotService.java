@@ -77,8 +77,9 @@ public class DiscordBotService {
 		List<PendingJudge> pendingJudges = userRoundService.getUserRoundsByRoundId(activeRound.getIdRound())
 			.stream()
 			.filter(userRound -> userRound.getUserRole() == UserRoleType.JUDGE)
-			.map(userRound -> new PendingJudge(userRound.getUser(), submissionService
-				.countPendingJudgeSubmissions(activeRound.getIdRound(), userRound.getUser().getIdUser())))
+			.map(userRound -> new PendingJudge(userRound.getUser(),
+					submissionService.countPendingJudgeSubmissions(activeRound.getIdRound(),
+							userRound.getUser().getIdUser())))
 			.filter(judge -> judge.songCount() > 0)
 			.sorted(Comparator.comparing(judge -> judge.user().getUsername(), String.CASE_INSENSITIVE_ORDER))
 			.toList();
@@ -94,9 +95,9 @@ public class DiscordBotService {
 		message.append("**Round ")
 			.append(activeRound.getRoundNumber())
 			.append(" Judging Reminder**\n\n")
-			.append("Judges, you have <t:")
+			.append("Judges, the deadline to finish judging is <t:")
 			.append(deadlineEpoch)
-			.append(":R> left to finish judging.\n")
+			.append(":R>.\n")
 			.append("Deadline: <t:")
 			.append(deadlineEpoch)
 			.append(":F>\n\n")

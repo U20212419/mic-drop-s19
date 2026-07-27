@@ -65,9 +65,8 @@ class DiscordBotServiceTests {
 		when(systemSetting.getHostDiscordId()).thenReturn("host");
 		when(jda.getTextChannelById("channel")).thenReturn(textChannel);
 		when(roundService.getActiveRound()).thenReturn(round);
-		when(userRoundService.getUserRoundsByRoundId(20))
-			.thenReturn(List.of(judgeAssignment(firstJudge), judgeAssignment(secondJudge),
-					judgeAssignment(finishedJudge)));
+		when(userRoundService.getUserRoundsByRoundId(20)).thenReturn(
+				List.of(judgeAssignment(firstJudge), judgeAssignment(secondJudge), judgeAssignment(finishedJudge)));
 		when(submissionService.countPendingJudgeSubmissions(20, 1)).thenReturn(2L);
 		when(submissionService.countPendingJudgeSubmissions(20, 2)).thenReturn(1L);
 		when(submissionService.countPendingJudgeSubmissions(20, 3)).thenReturn(0L);

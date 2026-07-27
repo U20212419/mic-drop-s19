@@ -44,8 +44,8 @@ public class DiscordBotController {
 	@PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<DiscordJudgingReminderResponse> sendJudgingReminder(
 			@Valid @RequestBody DiscordJudgingReminderRequest request, Principal principal) {
-		return ResponseEntity.ok(
-				discordBotService.sendJudgingReminder(request.channelId(), request.deadline(), principal.getName()));
+		return ResponseEntity
+			.ok(discordBotService.sendJudgingReminder(request.channelId(), request.deadline(), principal.getName()));
 	}
 
 	@GetMapping("/submission-reminder-schedule")
@@ -59,7 +59,7 @@ public class DiscordBotController {
 	public ResponseEntity<DiscordSubmissionReminderConfig> configureSubmissionReminderSchedule(
 			@Valid @RequestBody DiscordSubmissionReminderRequest request, Principal principal) {
 		return ResponseEntity.ok(discordSubmissionReminderService.configure(request.channelId(), request.deadline(),
-				principal.getName()));
+				request.reminderHours(), principal.getName()));
 	}
 
 	@DeleteMapping("/submission-reminder-schedule")
