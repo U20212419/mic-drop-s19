@@ -314,26 +314,20 @@ public class UserRoundService {
 
 	@Transactional(readOnly = true)
 	public RoundAssignmentsResponse getRoundAssignments(Integer idRound) {
-		var round = roundService.getRound(idRound);
+		// Fetch all assignments for this round in a single DB query (prevents N+1 problem)
+        List<UserRound> allAssignments = getUserRoundsByRoundId(idRound);
 
-		List<DiscordUser> contestants = userRoundRepository.findUsersByRoundAndRole(idRound,
-				UserRoleType.CONTESTANT.name().toLowerCase());
-		List<DiscordUser> judges = userRoundRepository.findUsersByRoundAndRole(idRound,
-				UserRoleType.JUDGE.name().toLowerCase());
-
-		List<RoundAssignmentDTO> contestantDTOs = contestants.stream()
-			.map(user -> new RoundAssignmentDTO(user.getIdUser(), user.getUsername(),
-					getGroupNumberForUserInRound(user.getIdUser(), round.getRoundNumber())))
+		List<RoundAssignmentDTO> contestantDTOs = allAssignments.stream()
+			.filter(ur -> ur.getUserRole() == UserRoleType.CONTESTANT)
+			.map(ur -> new RoundAssignmentDTO(ur.getUser().getIdUser(), ur.getUser().getUsername(), ur.getGroupNumber()))
 			.toList();
 
-		List<RoundAssignmentDTO> judgeDTOs = judges.stream()
-			.map(user -> new RoundAssignmentDTO(user.getIdUser(), user.getUsername(),
-					getGroupNumberForUserInRound(user.getIdUser(), round.getRoundNumber())))
+		List<RoundAssignmentDTO> judgeDTOs = allAssignments.stream()
+			.filter(ur -> ur.getUserRole() == UserRoleType.JUDGE)
+			.map(ur -> new RoundAssignmentDTO(ur.getUser().getIdUser(), ur.getUser().getUsername(), ur.getGroupNumber()))
 			.toList();
 
-		RoundAssignmentsResponse assignments = new RoundAssignmentsResponse(contestantDTOs, judgeDTOs);
-
-		return assignments;
+		return new RoundAssignmentsResponse(contestantDTOs, judgeDTOs);
 	}
 
 	@Transactional(readOnly = true)
