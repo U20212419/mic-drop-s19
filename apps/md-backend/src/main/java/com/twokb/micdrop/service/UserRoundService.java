@@ -1,5 +1,7 @@
 package com.twokb.micdrop.service;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -97,7 +99,8 @@ public class UserRoundService {
 
 	@Transactional
 	private void assignUserToRound(Integer userId, Integer roundNumber, UserRoleType userRole) {
-		var id = new UserRoundId(userId, roundNumber);
+		var round = roundService.getRoundByNumber(roundNumber);
+		var id = new UserRoundId(userId, round.getIdRound());
 
 		if (userRoundRepository.existsById(id)) {
 			throw new IllegalArgumentException(
@@ -105,7 +108,6 @@ public class UserRoundService {
 		}
 
 		var user = discordUserService.getUserById(userId);
-		var round = roundService.getRoundByNumber(roundNumber);
 
 		var userRound = new UserRound();
 		userRound.setId(id);
@@ -135,7 +137,7 @@ public class UserRoundService {
 
 		var userRounds = users.stream().filter(user -> !assignedIds.contains(user.getIdUser())).map(user -> {
 			var userRound = new UserRound();
-			userRound.setId(new UserRoundId(user.getIdUser(), roundNumber));
+			userRound.setId(new UserRoundId(user.getIdUser(), round.getIdRound()));
 			userRound.setUser(user);
 			userRound.setRound(round);
 			userRound.setUserRole(userRole);
@@ -148,7 +150,8 @@ public class UserRoundService {
 
 	@Transactional
 	public void removeUserFromRound(Integer userId, Integer roundNumber) {
-		var id = new UserRoundId(userId, roundNumber);
+		var round = roundService.getRoundByNumber(roundNumber);
+		var id = new UserRoundId(userId, round.getIdRound());
 
 		if (!userRoundRepository.existsById(id)) {
 			throw new IllegalArgumentException(
@@ -279,28 +282,55 @@ public class UserRoundService {
 		return getRoundAssignments(idRound);
 	}
 
+	@Transactional
+	public RoundAssignmentsResponse randomlyAssignContestants(Integer idRound) {
+		Round round = roundService.getRound(idRound);
+
+		if (round.getActive()) {
+			throw new IllegalStateException(
+					"Cannot randomly assign contestants for an active round. Please deactivate it first.");
+		}
+
+		if (round.getGroupCount() == null || round.getGroupCount() < 1) {
+			throw new IllegalStateException("The round must have at least one group before assigning contestants.");
+		}
+
+		List<Integer> activeContestantIds = new ArrayList<>(discordUserService.getActiveUserIds());
+		if (activeContestantIds.isEmpty()) {
+			throw new IllegalStateException("There are no active contestants available to assign.");
+		}
+
+		Collections.shuffle(activeContestantIds);
+
+		List<UserAssignmentDTO> randomAssignments = new ArrayList<>(activeContestantIds.size());
+		for (int index = 0; index < activeContestantIds.size(); index++) {
+			int groupNumber = (index % round.getGroupCount()) + 1;
+			randomAssignments.add(new UserAssignmentDTO(activeContestantIds.get(index), groupNumber));
+		}
+
+		syncRole(idRound, round.getRoundNumber(), randomAssignments, UserRoleType.CONTESTANT);
+		return getRoundAssignments(idRound);
+	}
+
 	@Transactional(readOnly = true)
 	public RoundAssignmentsResponse getRoundAssignments(Integer idRound) {
-		var round = roundService.getRound(idRound);
+		// Fetch all assignments for this round in a single DB query (prevents N+1
+		// problem)
+		List<UserRound> allAssignments = getUserRoundsByRoundId(idRound);
 
-		List<DiscordUser> contestants = userRoundRepository.findUsersByRoundAndRole(idRound,
-				UserRoleType.CONTESTANT.name().toLowerCase());
-		List<DiscordUser> judges = userRoundRepository.findUsersByRoundAndRole(idRound,
-				UserRoleType.JUDGE.name().toLowerCase());
-
-		List<RoundAssignmentDTO> contestantDTOs = contestants.stream()
-			.map(user -> new RoundAssignmentDTO(user.getIdUser(), user.getUsername(),
-					getGroupNumberForUserInRound(user.getIdUser(), round.getRoundNumber())))
+		List<RoundAssignmentDTO> contestantDTOs = allAssignments.stream()
+			.filter(ur -> ur.getUserRole() == UserRoleType.CONTESTANT)
+			.map(ur -> new RoundAssignmentDTO(ur.getUser().getIdUser(), ur.getUser().getUsername(),
+					ur.getGroupNumber()))
 			.toList();
 
-		List<RoundAssignmentDTO> judgeDTOs = judges.stream()
-			.map(user -> new RoundAssignmentDTO(user.getIdUser(), user.getUsername(),
-					getGroupNumberForUserInRound(user.getIdUser(), round.getRoundNumber())))
+		List<RoundAssignmentDTO> judgeDTOs = allAssignments.stream()
+			.filter(ur -> ur.getUserRole() == UserRoleType.JUDGE)
+			.map(ur -> new RoundAssignmentDTO(ur.getUser().getIdUser(), ur.getUser().getUsername(),
+					ur.getGroupNumber()))
 			.toList();
 
-		RoundAssignmentsResponse assignments = new RoundAssignmentsResponse(contestantDTOs, judgeDTOs);
-
-		return assignments;
+		return new RoundAssignmentsResponse(contestantDTOs, judgeDTOs);
 	}
 
 	@Transactional(readOnly = true)

@@ -16,6 +16,7 @@ import {
   Loader2,
   UserPlus,
   RefreshCw,
+  Shuffle,
   Star,
   FileText,
 } from "lucide-react";
@@ -182,6 +183,23 @@ export default function RoundDetailPage() {
 
       toast.success("Auto-assignment completed successfully.", {
         description: `Contestants have been automatically assigned for round ${round?.roundNumber} based on groups from the previous round.`,
+        closeButton: true,
+      });
+    } catch (error: any) {
+      // Error handled by interceptor
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRandomAssign = async () => {
+    try {
+      setIsSaving(true);
+      const res = await api.post(`/rounds/${id}/randomly-assign-contestants`);
+      setSelectedContestants(res.data.contestants);
+
+      toast.success("Random assignment completed successfully.", {
+        description: `Active contestants were distributed randomly and evenly across the ${round?.groupCount} groups for round ${round?.roundNumber}.`,
         closeButton: true,
       });
     } catch (error: any) {
@@ -490,24 +508,46 @@ export default function RoundDetailPage() {
           <div className="space-y-6">
             {/* Global Smart Action Banner (Only for Contestants) */}
             {activeTab === "contestants" && (
-              <div className="bg-[#5865F2]/10 border border-[#5865F2]/30 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-[#DBDEE1] font-bold text-sm flex items-center gap-2">
-                    <RefreshCw className="w-4 h-4 text-[#5865F2]" />
-                    Smart Auto-Assign
-                  </h3>
-                  <p className="text-[#80848E] text-xs mt-1">
-                    Automatically populate this round by inheriting the exact group assignments from
-                    the previous round for all active contestants.
-                  </p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="bg-[#5865F2]/10 border border-[#5865F2]/30 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-[#DBDEE1] font-bold text-sm flex items-center gap-2">
+                      <Shuffle className="w-4 h-4 text-[#5865F2]" />
+                      Random Auto-Assign
+                    </h3>
+                    <p className="text-[#80848E] text-xs mt-1">
+                      Randomly distribute all active contestants as evenly as possible across this
+                      round&apos;s groups. Existing contestant groups will be replaced.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleRandomAssign}
+                    disabled={isSaving || round?.active}
+                    className="shrink-0 bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs font-bold px-4 py-2 rounded transition-colors uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Assign Randomly
+                  </button>
                 </div>
-                <button
-                  onClick={handleAutoAssign}
-                  disabled={isSaving}
-                  className="shrink-0 bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs font-bold px-4 py-2 rounded transition-colors uppercase tracking-wide"
-                >
-                  Execute Auto-Assign
-                </button>
+
+                <div className="bg-[#2B2D31] border border-[#35373C] rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-[#DBDEE1] font-bold text-sm flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4 text-[#80848E]" />
+                      Inherit Previous Groups
+                    </h3>
+                    <p className="text-[#80848E] text-xs mt-1">
+                      Populate this round using the previous round&apos;s group assignments for all
+                      active contestants.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleAutoAssign}
+                    disabled={isSaving || round?.active}
+                    className="shrink-0 bg-[#4E5058] hover:bg-[#5C5E66] text-white text-xs font-bold px-4 py-2 rounded transition-colors uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Inherit Groups
+                  </button>
+                </div>
               </div>
             )}
 

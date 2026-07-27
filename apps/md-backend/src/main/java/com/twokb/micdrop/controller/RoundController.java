@@ -91,6 +91,14 @@ public class RoundController {
 		return ResponseEntity.status(HttpStatus.OK).body(updatedAssignments);
 	}
 
+	@PostMapping("/{idRound}/randomly-assign-contestants")
+	@PreAuthorize("hasRole('ADMIN')")
+	public ResponseEntity<RoundAssignmentsResponse> randomlyAssignContestants(@PathVariable Integer idRound) {
+		RoundAssignmentsResponse updatedAssignments = userRoundService.randomlyAssignContestants(idRound);
+
+		return ResponseEntity.status(HttpStatus.OK).body(updatedAssignments);
+	}
+
 	@PutMapping("/{idRound}")
 	@PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<Round> updateRound(@PathVariable Integer idRound, @RequestBody UpdateRoundRequest request) {

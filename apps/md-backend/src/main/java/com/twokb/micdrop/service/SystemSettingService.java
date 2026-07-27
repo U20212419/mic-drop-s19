@@ -1,6 +1,7 @@
 package com.twokb.micdrop.service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
@@ -34,18 +35,32 @@ public class SystemSettingService {
 
 	@Transactional
 	public SystemSetting setSetting(String key, String value, String requesterDiscordId) {
-		String hostId = getHostDiscordId();
-
-		if (!requesterDiscordId.equals(hostId)) {
-			// Prevent non-host users from changing any settings
-			throw new IllegalStateException("Only the host can change system settings.");
-		}
+		requireHost(requesterDiscordId);
 
 		SystemSetting systemSetting = systemSettingRepository.findById(key)
 			.orElseThrow(() -> new IllegalArgumentException("Setting with key " + key + " not found."));
 
 		systemSetting.setSettingValue(value);
 		return systemSettingRepository.save(systemSetting);
+	}
+
+	@Transactional
+	public void upsertSettings(Map<String, String> settings, String requesterDiscordId) {
+		requireHost(requesterDiscordId);
+		settings.forEach(this::setInternalSetting);
+	}
+
+	@Transactional
+	public SystemSetting setInternalSetting(String key, String value) {
+		SystemSetting setting = systemSettingRepository.findById(key).orElseGet(() -> new SystemSetting(key, value));
+		setting.setSettingValue(value);
+		return systemSettingRepository.save(setting);
+	}
+
+	private void requireHost(String requesterDiscordId) {
+		if (!requesterDiscordId.equals(getHostDiscordId())) {
+			throw new IllegalStateException("Only the host can change system settings.");
+		}
 	}
 
 }

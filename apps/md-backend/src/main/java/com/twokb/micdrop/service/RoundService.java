@@ -50,6 +50,20 @@ public class RoundService {
 			.orElseThrow(() -> new IllegalArgumentException("Round number " + roundNumber + " not found."));
 	}
 
+	@Transactional(readOnly = true)
+	public Round getActiveRound() {
+		List<Round> activeRounds = roundRepository.findAllByActiveTrue();
+
+		if (activeRounds.isEmpty()) {
+			throw new IllegalStateException("There is no active round to send a judging reminder for.");
+		}
+		if (activeRounds.size() > 1) {
+			throw new IllegalStateException("More than one round is active. Please fix the round configuration first.");
+		}
+
+		return activeRounds.get(0);
+	}
+
 	@Transactional
 	public Round updateRound(Integer idRound, Integer roundNumber, Boolean active, Integer groupCount,
 			Boolean submissionsOpen, Integer eliminationAmount, Boolean specialRound) {
