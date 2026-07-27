@@ -314,17 +314,20 @@ public class UserRoundService {
 
 	@Transactional(readOnly = true)
 	public RoundAssignmentsResponse getRoundAssignments(Integer idRound) {
-		// Fetch all assignments for this round in a single DB query (prevents N+1 problem)
-        List<UserRound> allAssignments = getUserRoundsByRoundId(idRound);
+		// Fetch all assignments for this round in a single DB query (prevents N+1
+		// problem)
+		List<UserRound> allAssignments = getUserRoundsByRoundId(idRound);
 
 		List<RoundAssignmentDTO> contestantDTOs = allAssignments.stream()
 			.filter(ur -> ur.getUserRole() == UserRoleType.CONTESTANT)
-			.map(ur -> new RoundAssignmentDTO(ur.getUser().getIdUser(), ur.getUser().getUsername(), ur.getGroupNumber()))
+			.map(ur -> new RoundAssignmentDTO(ur.getUser().getIdUser(), ur.getUser().getUsername(),
+					ur.getGroupNumber()))
 			.toList();
 
 		List<RoundAssignmentDTO> judgeDTOs = allAssignments.stream()
 			.filter(ur -> ur.getUserRole() == UserRoleType.JUDGE)
-			.map(ur -> new RoundAssignmentDTO(ur.getUser().getIdUser(), ur.getUser().getUsername(), ur.getGroupNumber()))
+			.map(ur -> new RoundAssignmentDTO(ur.getUser().getIdUser(), ur.getUser().getUsername(),
+					ur.getGroupNumber()))
 			.toList();
 
 		return new RoundAssignmentsResponse(contestantDTOs, judgeDTOs);
