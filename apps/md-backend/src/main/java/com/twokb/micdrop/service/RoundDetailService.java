@@ -149,8 +149,11 @@ public class RoundDetailService {
 			}
 		}
 
-		// Assign ELIMINATED or ACTIVE to the valid contestants
-		int eliminateCount = Math.min(round.getEliminationAmount(), activeStats.size());
+		// Assign ELIMINATED or ACTIVE. DID_NOT_SUBMIT contestants consume the elimination slots.
+		long didNotSubmitCount = contestants.size() - activeStats.size();
+		int remainingEliminations = (int) Math.max(0, round.getEliminationAmount() - didNotSubmitCount);
+
+		int eliminateCount = Math.min(remainingEliminations, activeStats.size());
 
 		for (int i = 0; i < activeStats.size(); i++) {
 			DiscordUser contestant = activeStats.get(i).contestant;
@@ -219,7 +222,10 @@ public class RoundDetailService {
 
 			// Calculate standard deviation (first tie-breaking criteria)
 			double variance = subs.stream()
-				.mapToDouble(s -> s.getScore() != null ? Math.pow(s.getScore().doubleValue() - avgScore, 2) : 0.0)
+				.mapToDouble(s -> {
+					double score = s.getScore() != null ? s.getScore().doubleValue() : 0.0;
+					return Math.pow(score - avgScore, 2);
+				})
 				.average()
 				.orElse(0.0);
 
@@ -236,7 +242,7 @@ public class RoundDetailService {
 		}
 
 		// Sort by average score ascending, then std dev descending, then max submission
-		// time ascending
+		// time descending
 		activeStats.sort((a, b) -> {
 			int scoreCmp = Double.compare(a.avgScore(), b.avgScore());
 			if (scoreCmp != 0)
@@ -246,7 +252,7 @@ public class RoundDetailService {
 			if (stdDevCmp != 0)
 				return stdDevCmp;
 
-			return a.maxSubmittedAt.compareTo(b.maxSubmittedAt);
+			return b.maxSubmittedAt.compareTo(a.maxSubmittedAt);
 		});
 
 		return activeStats;
@@ -274,18 +280,19 @@ public class RoundDetailService {
 		// Get stats to find out who placed first
 		List<ContestantStat> activeStats = getGroupStats(idRound, contestants, judges);
 
-		// Grant 1st place bonus to the top contestant
+		// Grant 1st place bonus to the top contestant (last in the sorted list)
 		if (!activeStats.isEmpty()) {
-			DiscordUser firstPlace = activeStats.get(0).contestant();
-			UserRound ur = userRoundService.getUserRoundByRoundIdAndDiscordId(idRound, firstPlace.getDiscordId());
-			ur.setPlacedFirst(true);
+			DiscordUser firstPlace = activeStats.get(activeStats.size() - 1).contestant();
+			UserRound firstPlaceUr = groupUsers.stream()
+				.filter(ur -> ur.getUser().getIdUser().equals(firstPlace.getIdUser()))
+				.findFirst()
+				.orElseThrow(() -> new IllegalStateException("First place contestant UserRound info not found."));
+			firstPlaceUr.setPlacedFirst(true);
 		}
 
 		// Apply preliminary status to public status for all contestants in the group
 		for (DiscordUser contestant : contestants) {
-			if (contestant.getPreliminaryStatus() != null) {
-				contestant.setStatus(contestant.getPreliminaryStatus());
-			}
+			contestant.setStatus(contestant.getPreliminaryStatus());
 		}
 	}
 
