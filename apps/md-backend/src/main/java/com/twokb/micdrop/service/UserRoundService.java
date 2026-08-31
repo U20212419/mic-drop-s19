@@ -113,8 +113,20 @@ public class UserRoundService {
 		var round = roundService.getRoundByNumber(roundNumber);
 		var id = new UserRoundId(userId, round.getIdRound());
 
-		if (userRoundRepository.existsById(id)) {
+		var existingUserRound = userRoundRepository.findById(id);
+
+		if (existingUserRound.isPresent()) {
 			if (isRegistering) {
+				UserRound ur = existingUserRound.get();
+				// If the user is already assigned to the round but has no group number,
+				// set it to 1
+				if (ur.getGroupNumber() == null || ur.getGroupNumber() == 0) {
+					ur.setGroupNumber(1);
+					userRoundRepository.saveAndFlush(ur);
+					log.info(
+							"User with ID {} was already assigned to round {} but had no group number. Set group number to 1.",
+							userId, roundNumber);
+				}
 				return; // If the user already registered before, do nothing as they are
 						// trying to register again
 			}
@@ -133,7 +145,10 @@ public class UserRoundService {
 			userRound.setGroupNumber(1); // Default group number for registering users in
 											// round 1
 		}
+		log.info("Assigning user with ID {} to round {} as {}. Registering: {}", userId, roundNumber, userRole,
+				isRegistering);
 		userRoundRepository.save(userRound);
+		log.info("User with ID {} assigned to round {} as {} successfully.", userId, roundNumber, userRole);
 	}
 
 	@Transactional
