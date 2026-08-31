@@ -7,12 +7,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.twokb.micdrop.dto.RoundAssignmentDTO;
 import com.twokb.micdrop.dto.RoundAssignmentsResponse;
 import com.twokb.micdrop.dto.UserAssignmentDTO;
+import com.twokb.micdrop.event.ContestantRegisteredEvent;
+import com.twokb.micdrop.event.ContestantUnregisteredEvent;
 import com.twokb.micdrop.model.ContestantStatus;
 import com.twokb.micdrop.model.DiscordUser;
 import com.twokb.micdrop.model.Round;
@@ -34,6 +37,18 @@ public class UserRoundService {
 	private final DiscordUserService discordUserService;
 
 	private final RoundService roundService;
+
+	@Transactional
+	@EventListener
+	public void handleContestantRegistered(ContestantRegisteredEvent event) {
+		assignContestantToRound(event.getUserId(), 1, true);
+	}
+
+	@Transactional
+	@EventListener
+	public void handleContestantUnregistered(ContestantUnregisteredEvent event) {
+		removeUserFromRound(event.getUserId(), 1);
+	}
 
 	@Transactional
 	public void assignContestantToRound(Integer userId, Integer roundNumber) {

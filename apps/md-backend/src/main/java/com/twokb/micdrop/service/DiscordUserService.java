@@ -3,9 +3,12 @@ package com.twokb.micdrop.service;
 import java.util.List;
 import java.util.Set;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.twokb.micdrop.event.ContestantRegisteredEvent;
+import com.twokb.micdrop.event.ContestantUnregisteredEvent;
 import com.twokb.micdrop.model.ContestantStatus;
 import com.twokb.micdrop.model.DiscordUser;
 import com.twokb.micdrop.model.GlobalRoleType;
@@ -21,9 +24,9 @@ public class DiscordUserService {
 
 	private final SubmissionService submissionService;
 
-	private final UserRoundService userRoundService;
-
 	private final SystemSettingService systemSettingService;
+
+	private final ApplicationEventPublisher eventPublisher;
 
 	// Register a new user from the management page
 	@Transactional
@@ -56,7 +59,7 @@ public class DiscordUserService {
 					discordUserRepository.saveAndFlush(user);
 				}
 				// Assign contestant to round 1 if it exists
-				userRoundService.assignContestantToRound(user.getIdUser(), 1, true);
+				eventPublisher.publishEvent(new ContestantRegisteredEvent(user.getIdUser()));
 			}
 			return user;
 		}).orElseGet(() -> {
@@ -69,7 +72,7 @@ public class DiscordUserService {
 			user.setHost(false);
 			DiscordUser savedUser = discordUserRepository.saveAndFlush(user);
 			// Assign contestant to round 1 if it exists
-			userRoundService.assignContestantToRound(savedUser.getIdUser(), 1, true);
+			eventPublisher.publishEvent(new ContestantRegisteredEvent(savedUser.getIdUser()));
 			return savedUser;
 		});
 	}
@@ -87,7 +90,7 @@ public class DiscordUserService {
 			if (user.getGlobalRole() == GlobalRoleType.USER) {
 				user.setStatus(ContestantStatus.INACTIVE);
 				// Remove contestant from the round 1 if they were assigned
-				userRoundService.removeUserFromRound(user.getIdUser(), 1);
+				eventPublisher.publishEvent(new ContestantUnregisteredEvent(user.getIdUser()));
 			}
 			return user;
 		}).orElseThrow(() -> new IllegalArgumentException("User with Discord ID " + discordId + " not found.")); // User
