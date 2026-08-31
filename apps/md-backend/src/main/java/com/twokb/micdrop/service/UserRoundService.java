@@ -38,7 +38,18 @@ public class UserRoundService {
 	@Transactional
 	public void assignContestantToRound(Integer userId, Integer roundNumber) {
 		if (discordUserService.isUserActive(userId)) {
-			assignUserToRound(userId, roundNumber, UserRoleType.CONTESTANT);
+			assignUserToRound(userId, roundNumber, UserRoleType.CONTESTANT, false);
+		}
+		else {
+			throw new IllegalArgumentException("User with ID " + userId
+					+ " is not active and cannot be assigned as a contestant to round " + roundNumber + ".");
+		}
+	}
+
+	@Transactional
+	public void assignContestantToRound(Integer userId, Integer roundNumber, boolean isRegistering) {
+		if (discordUserService.isUserActive(userId)) {
+			assignUserToRound(userId, roundNumber, UserRoleType.CONTESTANT, isRegistering);
 		}
 		else {
 			throw new IllegalArgumentException("User with ID " + userId
@@ -59,7 +70,7 @@ public class UserRoundService {
 					+ ".");
 		}
 
-		assignUserToRound(userId, roundNumber, UserRoleType.JUDGE);
+		assignUserToRound(userId, roundNumber, UserRoleType.JUDGE, false);
 	}
 
 	@Transactional
@@ -98,11 +109,15 @@ public class UserRoundService {
 	}
 
 	@Transactional
-	private void assignUserToRound(Integer userId, Integer roundNumber, UserRoleType userRole) {
+	private void assignUserToRound(Integer userId, Integer roundNumber, UserRoleType userRole, boolean isRegistering) {
 		var round = roundService.getRoundByNumber(roundNumber);
 		var id = new UserRoundId(userId, round.getIdRound());
 
 		if (userRoundRepository.existsById(id)) {
+			if (isRegistering) {
+				return; // If the user already registered before, do nothing as they are
+						// trying to register again
+			}
 			throw new IllegalArgumentException(
 					"User with ID " + userId + " is already assigned to round " + roundNumber + ".");
 		}
@@ -114,6 +129,10 @@ public class UserRoundService {
 		userRound.setUser(user);
 		userRound.setRound(round);
 		userRound.setUserRole(userRole);
+		if (isRegistering) {
+			userRound.setGroupNumber(1); // Default group number for registering users in
+											// round 1
+		}
 		userRoundRepository.save(userRound);
 	}
 

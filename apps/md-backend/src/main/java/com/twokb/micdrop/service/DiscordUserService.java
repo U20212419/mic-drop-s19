@@ -53,9 +53,10 @@ public class DiscordUserService {
 				// Change contestant status to ACTIVE if they were INACTIVE
 				if (user.getStatus() == ContestantStatus.INACTIVE) {
 					user.setStatus(ContestantStatus.ACTIVE);
+					discordUserRepository.saveAndFlush(user);
 				}
 				// Assign contestant to round 1 if it exists
-				userRoundService.assignContestantToRound(user.getIdUser(), 1);
+				userRoundService.assignContestantToRound(user.getIdUser(), 1, true);
 			}
 			return user;
 		}).orElseGet(() -> {
@@ -68,7 +69,7 @@ public class DiscordUserService {
 			user.setHost(false);
 			DiscordUser savedUser = discordUserRepository.saveAndFlush(user);
 			// Assign contestant to round 1 if it exists
-			userRoundService.assignContestantToRound(savedUser.getIdUser(), 1);
+			userRoundService.assignContestantToRound(savedUser.getIdUser(), 1, true);
 			return savedUser;
 		});
 	}
