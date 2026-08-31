@@ -6,6 +6,8 @@ import com.twokb.micdrop.repository.SystemSettingRepository;
 import com.twokb.micdrop.service.DiscordUserService;
 
 import lombok.RequiredArgsConstructor;
+import net.dv8tion.jda.api.entities.Role;
+import net.dv8tion.jda.api.entities.UserSnowflake;
 import net.dv8tion.jda.api.events.message.react.MessageReactionAddEvent;
 import net.dv8tion.jda.api.events.message.react.MessageReactionRemoveEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
@@ -46,10 +48,11 @@ public class DiscordEventListener extends ListenerAdapter {
 			systemSettingRepository.findById("contestant_role_id").ifPresent(roleSettings -> {
 				String contestantRoleId = roleSettings.getSettingValue();
 
-				if (event.isFromGuild() && event.getMember() != null) {
-					event.getGuild()
-						.addRoleToMember(event.getMember(), event.getGuild().getRoleById(contestantRoleId))
-						.queue();
+				if (event.isFromGuild()) {
+					Role contestantRole = event.getGuild().getRoleById(contestantRoleId);
+					if (contestantRole != null) {
+						event.getGuild().addRoleToMember(UserSnowflake.fromId(discordId), contestantRole).queue();
+					}
 				}
 			});
 		});
@@ -82,10 +85,13 @@ public class DiscordEventListener extends ListenerAdapter {
 				systemSettingRepository.findById("contestant_role_id").ifPresent(roleSettings -> {
 					String contestantRoleId = roleSettings.getSettingValue();
 
-					if (event.isFromGuild() && event.getMember() != null) {
-						event.getGuild()
-							.removeRoleFromMember(event.getMember(), event.getGuild().getRoleById(contestantRoleId))
-							.queue();
+					if (event.isFromGuild()) {
+						Role contestantRole = event.getGuild().getRoleById(contestantRoleId);
+						if (contestantRole != null) {
+							event.getGuild()
+								.removeRoleFromMember(UserSnowflake.fromId(discordId), contestantRole)
+								.queue();
+						}
 					}
 				});
 
