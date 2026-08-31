@@ -66,9 +66,10 @@ public class DiscordUserService {
 			user.setStatus(ContestantStatus.ACTIVE);
 			user.setGlobalRole(GlobalRoleType.USER);
 			user.setHost(false);
+			DiscordUser savedUser = discordUserRepository.saveAndFlush(user);
 			// Assign contestant to round 1 if it exists
-			userRoundService.assignContestantToRound(user.getIdUser(), 1);
-			return discordUserRepository.save(user);
+			userRoundService.assignContestantToRound(savedUser.getIdUser(), 1);
+			return savedUser;
 		});
 	}
 
@@ -82,9 +83,11 @@ public class DiscordUserService {
 
 		// Mark contestant as INACTIVE instead of deleting
 		return discordUserRepository.findByDiscordId(discordId).map(user -> {
-			user.setStatus(ContestantStatus.INACTIVE);
-			// Remove contestant from the round 1 if they were assigned
-			userRoundService.removeUserFromRound(user.getIdUser(), 1);
+			if (user.getGlobalRole() == GlobalRoleType.USER) {
+				user.setStatus(ContestantStatus.INACTIVE);
+				// Remove contestant from the round 1 if they were assigned
+				userRoundService.removeUserFromRound(user.getIdUser(), 1);
+			}
 			return user;
 		}).orElseThrow(() -> new IllegalArgumentException("User with Discord ID " + discordId + " not found.")); // User
 																													// not
