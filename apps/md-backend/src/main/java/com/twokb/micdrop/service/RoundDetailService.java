@@ -149,7 +149,8 @@ public class RoundDetailService {
 			}
 		}
 
-		// Assign ELIMINATED or ACTIVE. DID_NOT_SUBMIT contestants consume the elimination slots.
+		// Assign ELIMINATED or ACTIVE. DID_NOT_SUBMIT contestants consume the elimination
+		// slots.
 		long didNotSubmitCount = contestants.size() - activeStats.size();
 		int remainingEliminations = (int) Math.max(0, round.getEliminationAmount() - didNotSubmitCount);
 
@@ -221,13 +222,10 @@ public class RoundDetailService {
 				.orElse(0.0);
 
 			// Calculate standard deviation (first tie-breaking criteria)
-			double variance = subs.stream()
-				.mapToDouble(s -> {
-					double score = s.getScore() != null ? s.getScore().doubleValue() : 0.0;
-					return Math.pow(score - avgScore, 2);
-				})
-				.average()
-				.orElse(0.0);
+			double variance = subs.stream().mapToDouble(s -> {
+				double score = s.getScore() != null ? s.getScore().doubleValue() : 0.0;
+				return Math.pow(score - avgScore, 2);
+			}).average().orElse(0.0);
 
 			double stdDev = Math.sqrt(variance);
 

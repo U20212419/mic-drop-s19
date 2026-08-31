@@ -21,6 +21,8 @@ public class DiscordUserService {
 
 	private final SubmissionService submissionService;
 
+	private final UserRoundService userRoundService;
+
 	private final SystemSettingService systemSettingService;
 
 	// Register a new user from the management page
@@ -46,9 +48,14 @@ public class DiscordUserService {
 	@Transactional
 	public DiscordUser registerContestant(String discordId, String username) {
 		return discordUserRepository.findByDiscordId(discordId).map(user -> {
-			// Change contestant status to ACTIVE if they were INACTIVE
-			if (user.getStatus() == ContestantStatus.INACTIVE) {
-				user.setStatus(ContestantStatus.ACTIVE);
+			// Only allow registering as contestant if the user is a regular USER
+			if (user.getGlobalRole() == GlobalRoleType.USER) {
+				// Change contestant status to ACTIVE if they were INACTIVE
+				if (user.getStatus() == ContestantStatus.INACTIVE) {
+					user.setStatus(ContestantStatus.ACTIVE);
+				}
+				// Assign contestant to round 1 if it exists
+				userRoundService.assignContestantToRound(user.getIdUser(), 1);
 			}
 			return user;
 		}).orElseGet(() -> {
@@ -59,6 +66,8 @@ public class DiscordUserService {
 			user.setStatus(ContestantStatus.ACTIVE);
 			user.setGlobalRole(GlobalRoleType.USER);
 			user.setHost(false);
+			// Assign contestant to round 1 if it exists
+			userRoundService.assignContestantToRound(user.getIdUser(), 1);
 			return discordUserRepository.save(user);
 		});
 	}
@@ -74,6 +83,8 @@ public class DiscordUserService {
 		// Mark contestant as INACTIVE instead of deleting
 		return discordUserRepository.findByDiscordId(discordId).map(user -> {
 			user.setStatus(ContestantStatus.INACTIVE);
+			// Remove contestant from the round 1 if they were assigned
+			userRoundService.removeUserFromRound(user.getIdUser(), 1);
 			return user;
 		}).orElseThrow(() -> new IllegalArgumentException("User with Discord ID " + discordId + " not found.")); // User
 																													// not
