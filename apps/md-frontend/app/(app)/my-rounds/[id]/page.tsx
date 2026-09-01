@@ -56,15 +56,53 @@ export default function RoundDetailPage() {
         const detailRes = await api.get(`/my-rounds/${id}/${endpoint}`);
 
         if (info.role === "CONTESTANT") {
-          setContestantData(detailRes.data);
+          let fetchedData = detailRes.data;
 
           const alreadySubmitted =
-            detailRes.data.judges.length > 0 &&
-            detailRes.data.judges.every((j: any) => j.subLink && j.subLink.trim() !== "");
+            fetchedData.judges.length > 0 &&
+            fetchedData.judges.every((j: any) => j.subLink && j.subLink.trim() !== "");
           setHasSubmitted(alreadySubmitted);
 
+          // Load links from cache if available
+          if (!alreadySubmitted) {
+            const cachedDraft = localStorage.getItem(`micdrop-round-${id}-draft`);
+            if (cachedDraft) {
+              try {
+                const parsedDraft = JSON.parse(cachedDraft);
+
+                // Verify if there are any saved data
+                const hasRealData =
+                  (parsedDraft.judges &&
+                    parsedDraft.judges.some((j: any) => j.subLink && j.subLink.trim() !== "")) ||
+                  (parsedDraft.selectedForCollection &&
+                    parsedDraft.selectedForCollection.length > 0);
+
+                if (hasRealData) {
+                  // Merge cached links with fresh API data
+                  fetchedData.judges = fetchedData.judges.map((j: any) => {
+                    const cachedJudge = parsedDraft.judges?.find(
+                      (cj: any) => cj.discordId === j.discordId,
+                    );
+                    return cachedJudge ? { ...j, subLink: cachedJudge.subLink || "" } : j;
+                  });
+
+                  // Restore selectedForCollection from cache if available
+                  if (parsedDraft.selectedForCollection) {
+                    setSelectedForCollection(parsedDraft.selectedForCollection);
+                  }
+
+                  toast.info("Draft recovered from your previous session.", { closeButton: true });
+                }
+              } catch (e) {
+                console.error("Failed to parse cached draft:", e);
+              }
+            }
+          }
+
+          setContestantData(fetchedData);
+
           // If it's a special round, fetch the user's collection
-          if (detailRes.data.specialRound) {
+          if (fetchedData.specialRound) {
             const colRes = await api.get("/my-rounds/collection");
             setCollection(colRes.data);
           }
@@ -105,6 +143,21 @@ export default function RoundDetailPage() {
 
     fetchRoundData();
   }, [id, router]);
+
+  // Auto save to cache
+  useEffect(() => {
+    // Only save if the user is a contestant, data exists, and hasn't finally submitted
+    if (role === "CONTESTANT" && contestantData?.judges && !hasSubmitted) {
+      const draft = {
+        judges: contestantData.judges.map((j: any) => ({
+          discordId: j.discordId,
+          subLink: j.subLink,
+        })),
+        selectedForCollection,
+      };
+      localStorage.setItem(`micdrop-round-${id}-draft`, JSON.stringify(draft));
+    }
+  }, [contestantData, selectedForCollection, role, hasSubmitted, id]);
 
   const toggleJudge = (discordId: string) => {
     setOpenJudges((prev) => ({ ...prev, [discordId]: !prev[discordId] }));
@@ -295,6 +348,10 @@ export default function RoundDetailPage() {
         })),
       };
       await api.post("/my-rounds/batch-submit", payload);
+
+      // Clear cache on success
+      localStorage.removeItem(`micdrop-round-${id}-draft`);
+
       toast.success("Links submitted successfully.", {
         closeButton: true,
       });
