@@ -343,7 +343,7 @@ export default function RoundDetailPage() {
         idRound: Number(id),
         submissions: contestantData.judges.map((j: any) => ({
           judgeDiscordId: j.discordId,
-          subLink: j.subLink.trim(),
+          subLink: formatExternalUrl(j.subLink),
           addToCollection: selectedForCollection.includes(j.discordId),
         })),
       };
@@ -394,6 +394,16 @@ export default function RoundDetailPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Helper function to ensure that external URLs are properly formatted with a protocol
+  const formatExternalUrl = (url: string) => {
+    if (!url) return "";
+    const trimmedUrl = url.trim();
+    if (trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://")) {
+      return trimmedUrl;
+    }
+    return `https://${trimmedUrl}`;
   };
 
   if (loading)
@@ -550,7 +560,7 @@ export default function RoundDetailPage() {
                         )}
                         {judge.subLink ? (
                           <a
-                            href={judge.subLink}
+                            href={formatExternalUrl(judge.subLink)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-[#5865F2] hover:underline text-xs font-bold flex items-center shrink-0"
@@ -749,7 +759,7 @@ export default function RoundDetailPage() {
                       <div className="mt-3 space-y-2">
                         {sub.subLink ? (
                           <a
-                            href={sub.subLink}
+                            href={formatExternalUrl(sub.subLink)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-[#5865F2] hover:underline text-sm font-medium flex items-center gap-2 w-fit"
