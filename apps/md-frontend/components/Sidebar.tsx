@@ -119,7 +119,11 @@ export function Sidebar() {
       {/* Sidebar toggle button */}
       <div className="md:hidden flex items-center justify-between bg-[#1E1F22] p-4 text-[#DBDEE1] w-full fixed top-0 left-0 z-40 border-b border-[#35373C]">
         <div className="flex items-center">
-          <Mic2 className="w-6 h-6 text-[#5865F2] mr-3" />
+          <img
+            src="/logo-season.svg"
+            alt="MicDrop Logo"
+            className="w-6 h-6 mr-3 rounded-md border-2 border-[#5865F2] object-cover"
+          />
           <span className="text-white font-bold text-sm tracking-wide">MicDrop</span>
           {userRole === "ADMIN" && (
             <span title="Admin mode" className="ml-4 flex items-center">
@@ -150,7 +154,11 @@ export function Sidebar() {
       >
         {/* Sidebar header */}
         <div className="h-16 flex items-center px-6 border-b border-[#1E1F22] shadow-sm">
-          <Mic2 className="w-6 h-6 text-[#5865F2] mr-3" />
+          <img
+            src="/logo-season.svg"
+            alt="MicDrop Logo"
+            className="w-6 h-6 mr-3 rounded-md border-2 border-[#5865F2] object-cover"
+          />
           <span className="text-white font-bold text-lg tracking-wide">MicDrop</span>
           {userRole === "ADMIN" && (
             <span title="Admin mode" className="ml-auto flex items-center">

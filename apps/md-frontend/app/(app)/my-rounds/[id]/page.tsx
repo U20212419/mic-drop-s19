@@ -56,15 +56,53 @@ export default function RoundDetailPage() {
         const detailRes = await api.get(`/my-rounds/${id}/${endpoint}`);
 
         if (info.role === "CONTESTANT") {
-          setContestantData(detailRes.data);
+          let fetchedData = detailRes.data;
 
           const alreadySubmitted =
-            detailRes.data.judges.length > 0 &&
-            detailRes.data.judges.every((j: any) => j.subLink && j.subLink.trim() !== "");
+            fetchedData.judges.length > 0 &&
+            fetchedData.judges.every((j: any) => j.subLink && j.subLink.trim() !== "");
           setHasSubmitted(alreadySubmitted);
 
+          // Load links from cache if available
+          if (!alreadySubmitted) {
+            const cachedDraft = localStorage.getItem(`micdrop-round-${id}-draft`);
+            if (cachedDraft) {
+              try {
+                const parsedDraft = JSON.parse(cachedDraft);
+
+                // Verify if there are any saved data
+                const hasRealData =
+                  (parsedDraft.judges &&
+                    parsedDraft.judges.some((j: any) => j.subLink && j.subLink.trim() !== "")) ||
+                  (parsedDraft.selectedForCollection &&
+                    parsedDraft.selectedForCollection.length > 0);
+
+                if (hasRealData) {
+                  // Merge cached links with fresh API data
+                  fetchedData.judges = fetchedData.judges.map((j: any) => {
+                    const cachedJudge = parsedDraft.judges?.find(
+                      (cj: any) => cj.discordId === j.discordId,
+                    );
+                    return cachedJudge ? { ...j, subLink: cachedJudge.subLink || "" } : j;
+                  });
+
+                  // Restore selectedForCollection from cache if available
+                  if (parsedDraft.selectedForCollection) {
+                    setSelectedForCollection(parsedDraft.selectedForCollection);
+                  }
+
+                  toast.info("Draft recovered from your previous session.", { closeButton: true });
+                }
+              } catch (e) {
+                console.error("Failed to parse cached draft:", e);
+              }
+            }
+          }
+
+          setContestantData(fetchedData);
+
           // If it's a special round, fetch the user's collection
-          if (detailRes.data.specialRound) {
+          if (fetchedData.specialRound) {
             const colRes = await api.get("/my-rounds/collection");
             setCollection(colRes.data);
           }
@@ -105,6 +143,21 @@ export default function RoundDetailPage() {
 
     fetchRoundData();
   }, [id, router]);
+
+  // Auto save to cache
+  useEffect(() => {
+    // Only save if the user is a contestant, data exists, and hasn't finally submitted
+    if (role === "CONTESTANT" && contestantData?.judges && !hasSubmitted) {
+      const draft = {
+        judges: contestantData.judges.map((j: any) => ({
+          discordId: j.discordId,
+          subLink: j.subLink,
+        })),
+        selectedForCollection,
+      };
+      localStorage.setItem(`micdrop-round-${id}-draft`, JSON.stringify(draft));
+    }
+  }, [contestantData, selectedForCollection, role, hasSubmitted, id]);
 
   const toggleJudge = (discordId: string) => {
     setOpenJudges((prev) => ({ ...prev, [discordId]: !prev[discordId] }));
@@ -290,11 +343,15 @@ export default function RoundDetailPage() {
         idRound: Number(id),
         submissions: contestantData.judges.map((j: any) => ({
           judgeDiscordId: j.discordId,
-          subLink: j.subLink.trim(),
+          subLink: formatExternalUrl(j.subLink),
           addToCollection: selectedForCollection.includes(j.discordId),
         })),
       };
       await api.post("/my-rounds/batch-submit", payload);
+
+      // Clear cache on success
+      localStorage.removeItem(`micdrop-round-${id}-draft`);
+
       toast.success("Links submitted successfully.", {
         closeButton: true,
       });
@@ -337,6 +394,16 @@ export default function RoundDetailPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Helper function to ensure that external URLs are properly formatted with a protocol
+  const formatExternalUrl = (url: string) => {
+    if (!url) return "";
+    const trimmedUrl = url.trim();
+    if (trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://")) {
+      return trimmedUrl;
+    }
+    return `https://${trimmedUrl}`;
   };
 
   if (loading)
@@ -493,7 +560,7 @@ export default function RoundDetailPage() {
                         )}
                         {judge.subLink ? (
                           <a
-                            href={judge.subLink}
+                            href={formatExternalUrl(judge.subLink)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-[#5865F2] hover:underline text-xs font-bold flex items-center shrink-0"
@@ -692,7 +759,7 @@ export default function RoundDetailPage() {
                       <div className="mt-3 space-y-2">
                         {sub.subLink ? (
                           <a
-                            href={sub.subLink}
+                            href={formatExternalUrl(sub.subLink)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-[#5865F2] hover:underline text-sm font-medium flex items-center gap-2 w-fit"
