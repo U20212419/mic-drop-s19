@@ -20,6 +20,8 @@ import {
   Lock,
   Save,
   List,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 export interface Round {
@@ -63,11 +65,19 @@ export default function RoundsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<FormDataPayload>(INITIAL_FORM_STATE);
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+
   useEffect(() => {
     if (authStatus === "authenticated") {
       fetchRounds();
     }
   }, [authStatus]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const fetchRounds = async () => {
     try {
@@ -83,6 +93,17 @@ export default function RoundsPage() {
       setIsLoading(false);
     }
   };
+
+  const filteredRounds = rounds.filter((round) =>
+    round.roundNumber.toString().includes(searchTerm),
+  );
+
+  const totalPages = Math.ceil(filteredRounds.length / ITEMS_PER_PAGE);
+
+  const currentRounds = filteredRounds.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE,
+  );
 
   const handleOpenCreate = () => {
     setFormData(INITIAL_FORM_STATE);
@@ -153,10 +174,6 @@ export default function RoundsPage() {
     }
   };
 
-  const filteredRounds = rounds.filter((round) =>
-    round.roundNumber.toString().includes(searchTerm),
-  );
-
   return (
     <div className="space-y-6 relative">
       {/* Header Section */}
@@ -192,41 +209,51 @@ export default function RoundsPage() {
       </div>
 
       {/* Data Table */}
-      <div className="bg-[#2B2D31] rounded-b-lg border border-t-0 border-[#1E1F22] overflow-x-auto min-h-75">
+      <div className="bg-[#2B2D31] border border-t-0 border-[#1E1F22] overflow-x-auto">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-64 text-[#80848E]">
             <Loader2 className="w-8 h-8 animate-spin text-[#5865F2] mb-4" />
             <p>Loading rounds...</p>
           </div>
         ) : (
-          <table className="w-full text-left text-sm text-[#DBDEE1]">
-            <thead className="text-xs text-[#80848E] uppercase bg-[#1E1F22]/50 border-b border-[#1E1F22]">
+          <table className="w-full text-left text-sm text-[#DBDEE1] block md:table">
+            <thead className="hidden md:table-header-group text-xs text-[#80848E] uppercase bg-[#1E1F22]/50 border-b border-[#1E1F22]">
               <tr>
-                <th className="px-6 py-4 font-semibold">Round Number</th>
-                <th className="px-6 py-4 font-semibold">Status</th>
-                <th className="px-6 py-4 font-semibold">Submissions</th>
+                <th className="px-6 py-4 font-semibold md:whitespace-nowrap">Round Number</th>
+                <th className="px-6 py-4 font-semibold md:whitespace-nowrap">Status</th>
+                <th className="px-6 py-4 font-semibold md:whitespace-nowrap">Submissions</th>
                 {(isAdmin || isStaff) && (
-                  <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                  <th className="px-6 py-4 font-semibold text-right md:whitespace-nowrap">
+                    Actions
+                  </th>
                 )}
               </tr>
             </thead>
-            <tbody>
-              {filteredRounds.length > 0 ? (
-                filteredRounds.map((round) => (
+            <tbody className="block md:table-row-group">
+              {currentRounds.length > 0 ? (
+                currentRounds.map((round) => (
                   <tr
                     key={round.idRound}
-                    className="border-b border-[#1E1F22] hover:bg-[#35373C]/50 transition-colors"
+                    className="block md:table-row border-b border-[#1E1F22] hover:bg-[#35373C]/50 transition-colors p-4 md:p-0"
                   >
                     {/* Round Number */}
-                    <td className="px-6 py-4 font-medium text-white flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-[#5865F2]/20 flex items-center justify-center text-[#5865F2]">
-                        <Trophy className="w-4 h-4 shrink-0" />
+                    <td className="flex justify-between items-center md:table-cell md:px-6 md:py-4 mb-3 md:mb-0 md:whitespace-nowrap">
+                      <span className="md:hidden text-xs font-semibold text-[#80848E] uppercase">
+                        Round
+                      </span>
+                      <div className="font-medium text-white flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-[#5865F2]/20 flex items-center justify-center text-[#5865F2]">
+                          <Trophy className="w-4 h-4 shrink-0" />
+                        </div>
+                        Round {round.roundNumber}
                       </div>
-                      Round {round.roundNumber}
                     </td>
 
                     {/* Active Status */}
-                    <td className="px-6 py-4">
+                    <td className="flex justify-between items-center md:table-cell md:px-6 md:py-4 mb-3 md:mb-0 md:whitespace-nowrap">
+                      <span className="md:hidden text-xs font-semibold text-[#80848E] uppercase">
+                        Status
+                      </span>
                       <span
                         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
                           round.active
@@ -246,7 +273,10 @@ export default function RoundsPage() {
                     </td>
 
                     {/* Submissions Status */}
-                    <td className="px-6 py-4">
+                    <td className="flex justify-between items-center md:table-cell md:px-6 md:py-4 mb-4 md:mb-0 md:whitespace-nowrap">
+                      <span className="md:hidden text-xs font-semibold text-[#80848E] uppercase">
+                        Submissions
+                      </span>
                       <span
                         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
                           round.submissionsOpen
@@ -259,44 +289,50 @@ export default function RoundsPage() {
                         ) : (
                           <Lock className="w-3 h-3 shrink-0" />
                         )}
-
                         <span className="mt-px leading-none">
-                          {round.submissionsOpen ? "Submissions Open" : "Submissions Closed"}
+                          {round.submissionsOpen ? "Open" : "Closed"}
                         </span>
                       </span>
                     </td>
 
                     {(isAdmin || isStaff) && (
-                      <td className="px-6 py-4 text-right space-x-3">
-                        <button
-                          onClick={() => router.push(`/management/rounds/${round.idRound}/detail`)}
-                          className="text-emerald-400 hover:text-emerald-500 font-medium transition-colors inline-flex items-center"
-                        >
-                          <List className="w-4 h-4 mr-1" /> Detail
-                        </button>
-                        {isAdmin && (
-                          <>
-                            <button
-                              onClick={() => router.push(`/management/rounds/${round.idRound}`)}
-                              className="text-[#5865F2] hover:text-[#4752C4] font-medium transition-colors inline-flex items-center"
-                            >
-                              <Edit className="w-4 h-4 mr-1" /> Configure
-                            </button>
-                            <button
-                              onClick={() => setRoundToDelete(round)}
-                              className="text-red-400 hover:text-red-500 font-medium transition-colors inline-flex items-center"
-                            >
-                              <Trash2 className="w-4 h-4 mr-1" /> Delete
-                            </button>
-                          </>
-                        )}
+                      <td className="flex justify-end md:table-cell md:px-6 md:py-4 border-t border-[#35373C] md:border-t-0 pt-3 md:pt-0">
+                        <div className="flex justify-end gap-3 w-full md:w-auto">
+                          <button
+                            onClick={() =>
+                              router.push(`/management/rounds/${round.idRound}/detail`)
+                            }
+                            className="text-emerald-400 hover:text-emerald-500 font-medium transition-colors inline-flex items-center text-sm"
+                          >
+                            <List className="w-4 h-4 mr-1" /> Detail
+                          </button>
+                          {isAdmin && (
+                            <>
+                              <button
+                                onClick={() => router.push(`/management/rounds/${round.idRound}`)}
+                                className="text-[#5865F2] hover:text-[#4752C4] font-medium transition-colors inline-flex items-center text-sm"
+                              >
+                                <Edit className="w-4 h-4 mr-1" /> Config
+                              </button>
+                              <button
+                                onClick={() => setRoundToDelete(round)}
+                                className="text-red-400 hover:text-red-500 font-medium transition-colors inline-flex items-center text-sm"
+                              >
+                                <Trash2 className="w-4 h-4 mr-1" /> Delete
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     )}
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={isAdmin ? 3 : 2} className="px-6 py-8 text-center text-[#80848E]">
+                  <td
+                    colSpan={isAdmin ? 4 : 3}
+                    className="px-6 py-8 text-center text-[#80848E] block md:table-cell"
+                  >
                     No rounds found.
                   </td>
                 </tr>
@@ -305,6 +341,41 @@ export default function RoundsPage() {
           </table>
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {!isLoading && filteredRounds.length > 0 && (
+        <div className="bg-[#1E1F22] p-4 rounded-b-lg border border-t-0 border-[#1E1F22] flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-sm text-[#80848E] text-center sm:text-left">
+            Showing{" "}
+            <span className="font-medium text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span>{" "}
+            to{" "}
+            <span className="font-medium text-white">
+              {Math.min(currentPage * ITEMS_PER_PAGE, filteredRounds.length)}
+            </span>{" "}
+            of <span className="font-medium text-white">{filteredRounds.length}</span> rounds
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="p-2 rounded-md bg-[#2B2D31] text-[#DBDEE1] border border-[#35373C] hover:bg-[#35373C] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <div className="text-sm font-medium text-[#DBDEE1] px-4">
+              Page {currentPage} of {totalPages}
+            </div>
+            <button
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-md bg-[#2B2D31] text-[#DBDEE1] border border-[#35373C] hover:bg-[#35373C] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Add Round Modal */}
       {isCreateModalOpen && (
@@ -381,12 +452,25 @@ export default function RoundsPage() {
               </div>
               <div>
                 <label className="flex items-center gap-3 bg-[#1E1F22] p-3 rounded-md border border-[#35373C] cursor-pointer group hover:border-[#4E5058] transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={formData.specialRound}
-                    onChange={(e) => setFormData({ ...formData, specialRound: e.target.checked })}
-                    className="w-5 h-5 rounded border-[#4E5058] bg-[#2B2D31] text-[#E67E22] focus:ring-[#E67E22] focus:ring-offset-[#1E1F22] cursor-pointer"
-                  />
+                  <div className="relative flex items-center justify-center w-5 h-5 shrink-0 bg-[#2B2D31] border border-[#4E5058] rounded group-hover:border-[#DBDEE1] transition-colors mt-0.5 sm:mt-0">
+                    <input
+                      type="checkbox"
+                      checked={formData.specialRound}
+                      onChange={(e) => setFormData({ ...formData, specialRound: e.target.checked })}
+                      className="peer opacity-0 absolute w-full h-full cursor-pointer"
+                    />
+                    <div className="hidden peer-checked:block text-[#5865F2]">
+                      <svg viewBox="0 0 14 14" fill="none" className="w-3.5 h-3.5">
+                        <path
+                          d="M3 8L6 11L11 3.5"
+                          strokeWidth={2}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          stroke="currentColor"
+                        ></path>
+                      </svg>
+                    </div>
+                  </div>
                   <div>
                     <p className="font-bold text-white text-sm group-hover:text-[#E67E22] transition-colors">
                       Special Round

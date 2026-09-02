@@ -259,59 +259,69 @@ export default function RoundAdminDetailPage() {
   return (
     <div className="space-y-6 pb-20">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.back()}
-            className="p-2 hover:bg-[#35373C] rounded-full text-[#80848E] hover:text-white transition-colors"
-          >
-            <ChevronLeft />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-              Round {round?.roundNumber} Submissions Detail
+      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+        <div className="flex flex-col w-full lg:w-auto">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => router.back()}
+              className="p-1.5 sm:p-2 -ml-1.5 sm:ml-0 hover:bg-[#35373C] rounded-full text-[#80848E] hover:text-white transition-colors shrink-0 flex items-center justify-center"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+
+            <h1 className="text-xl sm:text-2xl font-bold text-white flex flex-wrap items-center gap-2 leading-tight">
+              Round {round?.roundNumber} Submissions
               {round?.specialRound && (
-                <span className="bg-[#E67E22]/10 text-[#E67E22] border border-[#E67E22]/30 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
-                  <Star className="w-3 h-3" /> Special
+                <span className="bg-[#E67E22]/10 text-[#E67E22] border border-[#E67E22]/30 text-[10px] sm:text-xs font-black px-2 sm:px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                  <Star className="w-3 h-3 shrink-0" /> Special
                 </span>
               )}
-              {isAdmin && (
-                <button
-                  onClick={handleGenerateSlides}
-                  disabled={isGeneratingSlides}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-lg transition-colors font-medium text-sm disabled:opacity-50"
-                >
-                  {isGeneratingSlides ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <DownloadCloud className="w-4 h-4" />
-                  )}
-                  Generate Slides (ZIP)
-                </button>
-              )}
             </h1>
-            <p className="text-[#80848E] text-sm mt-1">Staff / Admin View</p>
           </div>
+          <p className="text-[#80848E] text-xs sm:text-sm mt-1 ml-8 sm:ml-12">Staff / Admin View</p>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={isSaving || Object.keys(editedSubs).length === 0}
-          className="min-w-47.5 justify-center tabular-nums bg-[#5865F2] hover:bg-[#4752C4] text-white px-6 py-2 rounded-md font-medium flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Save Changes {Object.keys(editedSubs).length > 0 && `(${Object.keys(editedSubs).length})`}
-        </button>
+
+        {/* Action Buttons Group (Generate Slides + Save Changes) */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-start lg:justify-end gap-3 w-full lg:w-auto shrink-0">
+          {isAdmin && (
+            <button
+              onClick={handleGenerateSlides}
+              disabled={isGeneratingSlides}
+              className="w-full sm:w-auto justify-center flex items-center gap-2 px-6 py-2.5 sm:py-2 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-md transition-colors font-medium text-sm disabled:opacity-50 shadow-md shrink-0"
+            >
+              {isGeneratingSlides ? (
+                <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+              ) : (
+                <DownloadCloud className="w-4 h-4 shrink-0" />
+              )}
+              Generate Slides <span className="hidden sm:inline">(ZIP)</span>
+            </button>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={isSaving || Object.keys(editedSubs).length === 0}
+            className="w-full sm:w-auto justify-center tabular-nums bg-[#5865F2] hover:bg-[#4752C4] text-white px-6 py-2.5 sm:py-2 rounded-md font-medium flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 shadow-md"
+          >
+            {isSaving ? (
+              <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+            ) : (
+              <Save className="w-4 h-4 shrink-0" />
+            )}
+            Save Changes{" "}
+            {Object.keys(editedSubs).length > 0 && `(${Object.keys(editedSubs).length})`}
+          </button>
+        </div>
       </div>
 
       {/* Controls Bar */}
-      <div className="bg-[#2B2D31] rounded-xl border border-[#1E1F22] p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-bold text-[#80848E] uppercase">Group:</label>
+      <div className="bg-[#2B2D31] rounded-xl border border-[#1E1F22] p-4 flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-4">
+        <div className="flex flex-wrap flex-col sm:flex-row items-stretch sm:items-center gap-4">
+          <div className="flex items-center justify-between sm:justify-start gap-2 bg-[#1E1F22] sm:bg-transparent p-2 sm:p-0 rounded-lg sm:rounded-none border border-[#35373C] sm:border-none">
+            <label className="text-sm font-bold text-[#80848E] uppercase shrink-0">Group:</label>
             <select
               value={selectedGroup}
               onChange={(e) => setSelectedGroup(Number(e.target.value))}
-              className="bg-[#1E1F22] text-white text-sm rounded border border-[#35373C] px-3 py-1.5 outline-none focus:border-[#5865F2]"
+              className="w-full sm:w-auto bg-[#1E1F22] text-white text-sm rounded border border-[#35373C] px-3 py-1.5 outline-none focus:border-[#5865F2]"
             >
               {Array.from({ length: round?.groupCount || 1 }).map((_, i) => (
                 <option key={i + 1} value={i + 1}>
@@ -321,50 +331,48 @@ export default function RoundAdminDetailPage() {
             </select>
           </div>
 
-          <div className="flex bg-[#1E1F22] rounded-lg p-1 border border-[#35373C]">
+          <div className="flex bg-[#1E1F22] rounded-lg p-1 border border-[#35373C] shrink-0 overflow-x-auto custom-scrollbar">
             <button
               onClick={() => setViewMode("contestant")}
-              className={`px-3 py-1 text-sm rounded-md transition-colors flex items-center gap-2 ${viewMode === "contestant" ? "bg-[#5865F2] text-white font-bold" : "text-[#80848E] hover:text-white"}`}
+              className={`flex-1 sm:flex-none justify-center px-3 py-1.5 sm:py-1 text-sm rounded-md transition-colors flex items-center gap-2 whitespace-nowrap ${viewMode === "contestant" ? "bg-[#5865F2] text-white font-bold" : "text-[#80848E] hover:text-white"}`}
             >
-              <Users className="w-4 h-4" /> By Contestant
+              <Users className="w-4 h-4 shrink-0" /> By Contestant
             </button>
             <button
               onClick={() => setViewMode("judge")}
-              className={`px-3 py-1 text-sm rounded-md transition-colors flex items-center gap-2 ${viewMode === "judge" ? "bg-[#5865F2] text-white font-bold" : "text-[#80848E] hover:text-white"}`}
+              className={`flex-1 sm:flex-none justify-center px-3 py-1.5 sm:py-1 text-sm rounded-md transition-colors flex items-center gap-2 whitespace-nowrap ${viewMode === "judge" ? "bg-[#5865F2] text-white font-bold" : "text-[#80848E] hover:text-white"}`}
             >
-              <Gavel className="w-4 h-4" /> By Judge
+              <Gavel className="w-4 h-4 shrink-0" /> By Judge
             </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Calculate Button */}
+        <div className="flex flex-wrap flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
           <button
             onClick={() => setIsCalculateModalOpen(true)}
             disabled={!canExecuteElimination || isCalculating}
-            className={`px-4 py-2 tabular-nums rounded-md text-sm font-bold flex items-center gap-2 transition-colors ${canExecuteElimination ? "bg-[#E67E22] hover:bg-[#D35400] text-white" : "bg-[#35373C] text-[#80848E] cursor-not-allowed"}`}
+            className={`w-full sm:w-auto justify-center px-4 py-2.5 sm:py-2 tabular-nums rounded-md text-sm font-bold flex items-center gap-2 transition-colors ${canExecuteElimination ? "bg-[#E67E22] hover:bg-[#D35400] text-white" : "bg-[#35373C] text-[#80848E] cursor-not-allowed"}`}
           >
             {isCalculating ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin shrink-0" />
             ) : (
-              <Calculator className="w-4 h-4" />
+              <Calculator className="w-4 h-4 shrink-0" />
             )}
-            Calculate Statuses (G{selectedGroup})
+            Calculate Statuses <span className="hidden sm:inline">(G{selectedGroup})</span>
           </button>
 
-          {/* Apply Button */}
           {isAdmin && (
             <button
               onClick={() => setIsApplyModalOpen(true)}
               disabled={!canExecuteElimination || isApplying}
-              className={`px-4 py-2 tabular-nums rounded-md text-sm font-bold flex items-center gap-2 transition-colors ${canExecuteElimination ? "bg-red-500 hover:bg-red-600 text-white" : "bg-[#35373C] text-[#80848E] cursor-not-allowed"}`}
+              className={`w-full sm:w-auto justify-center px-4 py-2.5 sm:py-2 tabular-nums rounded-md text-sm font-bold flex items-center gap-2 transition-colors ${canExecuteElimination ? "bg-red-500 hover:bg-red-600 text-white" : "bg-[#35373C] text-[#80848E] cursor-not-allowed"}`}
             >
               {isApplying ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin shrink-0" />
               ) : (
-                <Skull className="w-4 h-4" />
+                <Skull className="w-4 h-4 shrink-0" />
               )}
-              Apply Statuses (G{selectedGroup})
+              Apply Statuses <span className="hidden sm:inline">(G{selectedGroup})</span>
             </button>
           )}
         </div>
@@ -384,30 +392,31 @@ export default function RoundAdminDetailPage() {
               {/* Card Header */}
               <button
                 onClick={() => toggleGroup(group.name)}
-                className={`w-full px-5 py-4 flex justify-between items-center transition-colors ${
+                className={`w-full px-4 sm:px-5 py-4 flex justify-between items-center transition-colors gap-4 ${
                   hasMissingSubs
                     ? "bg-red-500/5 hover:bg-red-500/10"
                     : "bg-[#1E1F22]/30 hover:bg-[#1E1F22]/80"
                 } ${isExpanded ? "border-b border-[#1E1F22]" : ""}`}
               >
-                <div className="flex items-center gap-4">
-                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-left">
+                  <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
                     {viewMode === "contestant" ? (
-                      <Users className="w-5 h-5 text-[#5865F2]" />
+                      <Users className="w-5 h-5 text-[#5865F2] shrink-0" />
                     ) : (
-                      <Gavel className="w-5 h-5 text-yellow-500" />
+                      <Gavel className="w-5 h-5 text-yellow-500 shrink-0" />
                     )}
-                    {group.name}
+                    <span className="truncate">{group.name}</span>
                   </h2>
 
                   {/* Badges and counters */}
-                  <div className="flex items-center gap-2">
-                    <span className="bg-[#2B2D31] border border-[#35373C] text-[#80848E] text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="bg-[#2B2D31] border border-[#35373C] text-[#80848E] text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider shrink-0">
                       {group.subs.length} Track{group.subs.length !== 1 && "s"}
                     </span>
                     {hasMissingSubs && (
-                      <span className="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-1 rounded flex items-center gap-1 shadow-sm">
-                        <AlertCircle className="w-3 h-3" /> Missing Submissions
+                      <span className="bg-red-500/20 text-red-400 text-[10px] sm:text-xs font-bold px-2 py-1 rounded flex items-center gap-1 shadow-sm shrink-0">
+                        <AlertCircle className="w-3 h-3 shrink-0" />
+                        <span className="sm:inline">Missing Submissions</span>
                       </span>
                     )}
                   </div>
@@ -415,12 +424,12 @@ export default function RoundAdminDetailPage() {
 
                 {/* Expand/Collapse Icon */}
                 <div
-                  className={`p-1 rounded-full transition-all duration-200 ${isExpanded ? "bg-[#5865F2]/20 text-[#5865F2]" : "text-[#80848E]"}`}
+                  className={`p-1 rounded-full transition-all duration-200 shrink-0 ${isExpanded ? "bg-[#5865F2]/20 text-[#5865F2]" : "text-[#80848E]"}`}
                 >
                   {isExpanded ? (
-                    <ChevronUp className="w-5 h-5" />
+                    <ChevronUp className="w-5 h-5 shrink-0" />
                   ) : (
-                    <ChevronDown className="w-5 h-5" />
+                    <ChevronDown className="w-5 h-5 shrink-0" />
                   )}
                 </div>
               </button>

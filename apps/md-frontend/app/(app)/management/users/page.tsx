@@ -17,6 +17,8 @@ import {
   Trash2,
   Edit,
   Crown,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import api from "@/lib/axios";
 import { toast } from "sonner";
@@ -71,12 +73,20 @@ export default function UsersPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userToDelete, setUserToDelete] = useState<DiscordUser | null>(null);
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+
   // Fetch users on component mount
   useEffect(() => {
     if (authStatus === "authenticated") {
       fetchUsers();
     }
   }, [authStatus]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedRoles, selectedStatuses]);
 
   const fetchUsers = async () => {
     try {
@@ -98,6 +108,27 @@ export default function UsersPage() {
       setIsLoading(false);
     }
   };
+
+  // Filter logic
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      const matchesSearch =
+        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.discordId.includes(searchTerm);
+
+      const matchesRole = selectedRoles.includes(user.globalRole);
+      const matchesStatus = selectedStatuses.includes(user.status);
+
+      return matchesSearch && matchesRole && matchesStatus;
+    });
+  }, [users, searchTerm, selectedRoles, selectedStatuses]);
+
+  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
+
+  const currentUsers = filteredUsers.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE,
+  );
 
   const handleOpenCreate = () => {
     setEditingUserId(null);
@@ -199,20 +230,6 @@ export default function UsersPage() {
       setIsSubmitting(false);
     }
   };
-
-  // Filter logic
-  const filteredUsers = useMemo(() => {
-    return users.filter((user) => {
-      const matchesSearch =
-        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.discordId.includes(searchTerm);
-
-      const matchesRole = selectedRoles.includes(user.globalRole);
-      const matchesStatus = selectedStatuses.includes(user.status);
-
-      return matchesSearch && matchesRole && matchesStatus;
-    });
-  }, [users, searchTerm, selectedRoles, selectedStatuses]);
 
   return (
     <div className="space-y-6 relative">
@@ -317,43 +334,60 @@ export default function UsersPage() {
       </div>
 
       {/* Data Table */}
-      <div className="bg-[#2B2D31] rounded-b-lg border border-t-0 border-[#1E1F22] overflow-x-auto min-h-75">
+      <div className="bg-[#2B2D31] border border-t-0 border-[#1E1F22] overflow-x-auto">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-64 text-[#80848E]">
             <Loader2 className="w-8 h-8 animate-spin text-[#5865F2] mb-4" />
             <p>Loading users...</p>
           </div>
         ) : (
-          <table className="w-full text-left text-sm text-[#DBDEE1]">
-            <thead className="text-xs text-[#80848E] uppercase bg-[#1E1F22]/50 border-b border-[#1E1F22]">
+          <table className="w-full text-left text-sm text-[#DBDEE1] block md:table">
+            <thead className="hidden md:table-header-group text-xs text-[#80848E] uppercase bg-[#1E1F22]/50 border-b border-[#1E1F22]">
               <tr>
-                <th className="px-6 py-4 font-semibold">User</th>
-                <th className="px-6 py-4 font-semibold">Discord ID</th>
-                <th className="px-6 py-4 font-semibold">Global Role</th>
-                <th className="px-6 py-4 font-semibold">Status</th>
-                {isAdmin && <th className="px-6 py-4 font-semibold text-right">Actions</th>}
+                <th className="px-6 py-4 font-semibold md:whitespace-nowrap">User</th>
+                <th className="px-6 py-4 font-semibold md:whitespace-nowrap">Discord ID</th>
+                <th className="px-6 py-4 font-semibold md:whitespace-nowrap">Global Role</th>
+                <th className="px-6 py-4 font-semibold md:whitespace-nowrap">Status</th>
+                {isAdmin && (
+                  <th className="px-6 py-4 font-semibold text-right md:whitespace-nowrap">
+                    Actions
+                  </th>
+                )}
               </tr>
             </thead>
-            <tbody>
-              {filteredUsers.length > 0 ? (
-                filteredUsers.map((user) => (
+            <tbody className="block md:table-row-group">
+              {currentUsers.length > 0 ? (
+                currentUsers.map((user) => (
                   <tr
                     key={user.idUser}
-                    className="border-b border-[#1E1F22] hover:bg-[#35373C]/50 transition-colors"
+                    className="block md:table-row border-b border-[#1E1F22] hover:bg-[#35373C]/50 transition-colors p-4 md:p-0"
                   >
                     {/* Username */}
-                    <td className="px-6 py-4 font-medium text-white flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-[#5865F2]/20 flex items-center justify-center text-[#5865F2]">
-                        {user.username.charAt(0).toUpperCase()}
+                    <td className="flex justify-between items-center md:table-cell md:px-6 md:py-4 mb-3 md:mb-0 md:whitespace-nowrap">
+                      <span className="md:hidden text-xs font-semibold text-[#80848E] uppercase">
+                        User
+                      </span>
+                      <div className="font-medium text-white flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-[#5865F2]/20 flex items-center justify-center text-[#5865F2]">
+                          {user.username.charAt(0).toUpperCase()}
+                        </div>
+                        {user.username}
                       </div>
-                      {user.username}
                     </td>
 
                     {/* Discord ID */}
-                    <td className="px-6 py-4 text-[#80848E] font-mono text-xs">{user.discordId}</td>
+                    <td className="flex justify-between items-center md:table-cell md:px-6 md:py-4 mb-3 md:mb-0 md:whitespace-nowrap">
+                      <span className="md:hidden text-xs font-semibold text-[#80848E] uppercase">
+                        Discord ID
+                      </span>
+                      <span className="text-[#80848E] font-mono text-xs">{user.discordId}</span>
+                    </td>
 
                     {/* Global Role */}
-                    <td className="px-6 py-4">
+                    <td className="flex justify-between items-center md:table-cell md:px-6 md:py-4 mb-3 md:mb-0 md:whitespace-nowrap">
+                      <span className="md:hidden text-xs font-semibold text-[#80848E] uppercase">
+                        Role
+                      </span>
                       <span
                         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
                           user.host
@@ -374,7 +408,6 @@ export default function UsersPage() {
                         ) : (
                           <User className="w-3 h-3 shrink-0" />
                         )}
-
                         <span className="mt-px leading-none">
                           {user.host ? "HOST" : user.globalRole.split("_").join(" ")}
                         </span>
@@ -382,7 +415,10 @@ export default function UsersPage() {
                     </td>
 
                     {/* Status */}
-                    <td className="px-6 py-4">
+                    <td className="flex justify-between items-center md:table-cell md:px-6 md:py-4 mb-4 md:mb-0 md:whitespace-nowrap">
+                      <span className="md:hidden text-xs font-semibold text-[#80848E] uppercase">
+                        Status
+                      </span>
                       <span
                         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
                           user.status === "ACTIVE"
@@ -403,7 +439,6 @@ export default function UsersPage() {
                         ) : (
                           <XCircle className="w-3 h-3 shrink-0" />
                         )}
-
                         <span className="mt-px leading-none">
                           {user.status.split("_").join(" ")}
                         </span>
@@ -412,37 +447,42 @@ export default function UsersPage() {
 
                     {/* Actions */}
                     {isAdmin && (
-                      <td className="px-6 py-4 text-right space-x-3">
-                        {!user.host || currentUserId === user.discordId ? (
-                          <>
-                            <button
-                              onClick={() => handleOpenEdit(user)}
-                              className="text-[#5865F2] hover:text-[#4752C4] font-medium transition-colors inline-flex items-center"
-                            >
-                              <Edit className="w-4 h-4 mr-1" /> Edit
-                            </button>
-
-                            {!user.host && (
+                      <td className="flex justify-end md:table-cell md:px-6 md:py-4 border-t border-[#35373C] md:border-t-0 pt-3 md:pt-0 md:whitespace-nowrap">
+                        <div className="flex justify-end gap-3 w-full md:w-auto">
+                          {!user.host || currentUserId === user.discordId ? (
+                            <>
                               <button
-                                onClick={() => setUserToDelete(user)}
-                                className="text-red-400 hover:text-red-500 font-medium transition-colors inline-flex items-center"
+                                onClick={() => handleOpenEdit(user)}
+                                className="text-[#5865F2] hover:text-[#4752C4] font-medium transition-colors inline-flex items-center text-sm"
                               >
-                                <Trash2 className="w-4 h-4 mr-1" /> Delete
+                                <Edit className="w-4 h-4 mr-1" /> Edit
                               </button>
-                            )}
-                          </>
-                        ) : (
-                          <span className="text-xs font-bold text-[#4E5058] uppercase italic cursor-not-allowed">
-                            Protected
-                          </span>
-                        )}
+
+                              {!user.host && (
+                                <button
+                                  onClick={() => setUserToDelete(user)}
+                                  className="text-red-400 hover:text-red-500 font-medium transition-colors inline-flex items-center text-sm"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-1" /> Delete
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-xs font-bold text-[#4E5058] uppercase italic cursor-not-allowed">
+                              Protected
+                            </span>
+                          )}
+                        </div>
                       </td>
                     )}
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={isAdmin ? 5 : 4} className="px-6 py-8 text-center text-[#80848E]">
+                  <td
+                    colSpan={isAdmin ? 5 : 4}
+                    className="px-6 py-8 text-center text-[#80848E] block md:table-cell"
+                  >
                     No users found matching "{searchTerm}"
                   </td>
                 </tr>
@@ -451,6 +491,41 @@ export default function UsersPage() {
           </table>
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {!isLoading && filteredUsers.length > 0 && (
+        <div className="bg-[#1E1F22] p-4 rounded-b-lg border border-t-0 border-[#1E1F22] flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-sm text-[#80848E] text-center sm:text-left">
+            Showing{" "}
+            <span className="font-medium text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span>{" "}
+            to{" "}
+            <span className="font-medium text-white">
+              {Math.min(currentPage * ITEMS_PER_PAGE, filteredUsers.length)}
+            </span>{" "}
+            of <span className="font-medium text-white">{filteredUsers.length}</span> users
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="p-2 rounded-md bg-[#2B2D31] text-[#DBDEE1] border border-[#35373C] hover:bg-[#35373C] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <div className="text-sm font-medium text-[#DBDEE1] px-4">
+              Page {currentPage} of {totalPages}
+            </div>
+            <button
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-md bg-[#2B2D31] text-[#DBDEE1] border border-[#35373C] hover:bg-[#35373C] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Multipurpose Modal Overlay (Create / Edit) */}
       {isModalOpen && (
