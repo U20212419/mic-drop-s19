@@ -34,6 +34,16 @@ export default function CollectionPage() {
     fetchCollection();
   }, []);
 
+  // Helper function to ensure that external URLs are properly formatted with a protocol
+  const formatExternalUrl = (url: string) => {
+    if (!url) return "";
+    const trimmedUrl = url.trim();
+    if (trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://")) {
+      return trimmedUrl;
+    }
+    return `https://${trimmedUrl}`;
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-full min-h-[60vh]">
@@ -120,7 +130,7 @@ export default function CollectionPage() {
 
               <div className="pt-4 border-t border-[#1E1F22] flex items-center justify-between">
                 <a
-                  href={item.subLink}
+                  href={formatExternalUrl(item.subLink)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[#5865F2] hover:text-[#4752C4] hover:underline text-sm font-medium flex items-center gap-1.5 transition-colors"
