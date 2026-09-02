@@ -174,20 +174,20 @@ function JudgeAppForm() {
     <div className="min-h-screen bg-[#313338] py-12 px-4">
       <div className="max-w-2xl mx-auto bg-[#2B2D31] rounded-xl shadow-lg border border-[#1E1F22]">
         <div className="bg-[#1E1F22] p-6 border-b border-[#35373C]">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-                <Gavel className="w-6 h-6 text-[#5865F2]" />
-                {isEditMode ? "Update Your Application" : "Judge Application"}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="w-full sm:w-auto">
+              <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+                <Gavel className="w-6 h-6 text-[#5865F2] shrink-0" />
+                <span>{isEditMode ? "Update Your Application" : "Judge Application"}</span>
               </h1>
             </div>
 
             {/* Action Buttons Container */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto shrink-0">
               {session?.user?.status !== "INACTIVE" && (
                 <button
                   onClick={() => router.push("/")}
-                  className="flex items-center gap-2 text-xs font-bold bg-[#35373C] hover:bg-[#4E5058] text-[#DBDEE1] px-3 py-2 rounded transition-colors"
+                  className="flex flex-1 sm:flex-none justify-center items-center gap-2 text-xs font-bold bg-[#35373C] hover:bg-[#4E5058] text-[#DBDEE1] px-3 py-2 rounded transition-colors"
                   title="Return to Dashboard"
                 >
                   <Home className="w-4 h-4" />
@@ -197,7 +197,7 @@ function JudgeAppForm() {
 
               <button
                 onClick={handleSignOut}
-                className="flex items-center gap-2 text-xs font-bold bg-[#35373C] hover:bg-red-500/20 text-[#80848E] hover:text-red-400 px-3 py-2 rounded transition-colors shrink-0"
+                className="flex flex-1 sm:flex-none justify-center items-center gap-2 text-xs font-bold bg-[#35373C] hover:bg-red-500/20 text-[#80848E] hover:text-red-400 px-3 py-2 rounded transition-colors"
                 title="Sign Out"
               >
                 <LogOut className="w-4 h-4" />
@@ -294,8 +294,8 @@ function JudgeAppForm() {
               </select>
             </div>
 
-            <label className="flex items-center gap-3 cursor-pointer mt-2 group">
-              <div className="relative flex items-center justify-center w-5 h-5 bg-[#2B2D31] border border-[#4E5058] rounded group-hover:border-[#DBDEE1] transition-colors">
+            <label className="flex items-start sm:items-center gap-3 cursor-pointer mt-2 group">
+              <div className="relative flex items-center justify-center w-5 h-5 shrink-0 bg-[#2B2D31] border border-[#4E5058] rounded group-hover:border-[#DBDEE1] transition-colors mt-0.5 sm:mt-0">
                 <input
                   type="checkbox"
                   name="givingBonus"
@@ -315,7 +315,7 @@ function JudgeAppForm() {
                   </svg>
                 </div>
               </div>
-              <span className="text-sm text-[#DBDEE1] font-medium">
+              <span className="text-sm text-[#DBDEE1] font-medium leading-tight sm:leading-normal">
                 (Optional) Giving Bonus Points (+0.25) to tracks that you have not heard before.
               </span>
             </label>

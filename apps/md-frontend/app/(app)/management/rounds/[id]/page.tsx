@@ -320,19 +320,19 @@ export default function RoundDetailPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
           <button
             onClick={() => router.back()}
-            className="p-2 hover:bg-[#35373C] rounded-full text-[#80848E] hover:text-white transition-colors"
+            className="p-1.5 sm:p-2 -ml-1.5 sm:ml-0 hover:bg-[#35373C] rounded-full text-[#80848E] hover:text-white transition-colors shrink-0 flex items-center justify-center"
           >
-            <ChevronLeft />
+            <ChevronLeft className="w-6 h-6" />
           </button>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+          <h1 className="text-xl sm:text-2xl font-bold text-white flex flex-wrap items-center gap-2 leading-tight">
             Round {round?.roundNumber} Configuration
             {round?.specialRound && (
-              <span className="bg-[#E67E22]/10 text-[#E67E22] border border-[#E67E22]/30 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
-                <Star className="w-3 h-3" /> Special
+              <span className="bg-[#E67E22]/10 text-[#E67E22] border border-[#E67E22]/30 text-[10px] sm:text-xs font-black px-2 sm:px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                <Star className="w-3 h-3 shrink-0" /> Special
               </span>
             )}
           </h1>
@@ -340,31 +340,35 @@ export default function RoundDetailPage() {
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="bg-[#5865F2] hover:bg-[#4752C4] text-white px-6 py-2 rounded-md font-medium flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full sm:w-auto bg-[#5865F2] hover:bg-[#4752C4] text-white px-6 py-2.5 sm:py-2 rounded-md font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 shadow-md"
         >
-          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          {isSaving ? (
+            <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+          ) : (
+            <Save className="w-4 h-4 shrink-0" />
+          )}
           Save Changes
         </button>
       </div>
 
       {/* Tabs System */}
-      <div className="flex border-b border-[#1E1F22]">
+      <div className="flex overflow-x-auto custom-scrollbar border-b border-[#1E1F22]">
         <TabButton
           active={activeTab === "details"}
           onClick={() => setActiveTab("details")}
-          icon={<Settings className="w-4 h-4" />}
+          icon={<Settings className="w-4 h-4 shrink-0" />}
           label="Details"
         />
         <TabButton
           active={activeTab === "contestants"}
           onClick={() => setActiveTab("contestants")}
-          icon={<Users className="w-4 h-4" />}
+          icon={<Users className="w-4 h-4 shrink-0" />}
           label="Contestants"
         />
         <TabButton
           active={activeTab === "judges"}
           onClick={() => setActiveTab("judges")}
-          icon={<Gavel className="w-4 h-4" />}
+          icon={<Gavel className="w-4 h-4 shrink-0" />}
           label="Judges"
         />
       </div>
@@ -373,8 +377,8 @@ export default function RoundDetailPage() {
       <div className="bg-[#2B2D31] rounded-xl border border-[#1E1F22] p-6">
         {/* Details Tab */}
         {activeTab === "details" && round && (
-          <div className="max-w-md space-y-6">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="max-w-xl space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-[#80848E] uppercase mb-2">
                   Round Number
@@ -383,7 +387,7 @@ export default function RoundDetailPage() {
                   type="number"
                   min="1"
                   value={round.roundNumber}
-                  disabled={round.active} // Prevent changing round number if the round is active
+                  disabled={round.active}
                   onChange={(e) =>
                     setRound({ ...round, roundNumber: Math.max(1, Number(e.target.value)) })
                   }
@@ -402,7 +406,7 @@ export default function RoundDetailPage() {
                   type="number"
                   min="1"
                   value={round.groupCount}
-                  disabled={round.active} // Prevent changing group count if the round is active
+                  disabled={round.active}
                   onChange={(e) =>
                     setRound({ ...round, groupCount: Math.max(1, Number(e.target.value)) })
                   }
@@ -413,7 +417,7 @@ export default function RoundDetailPage() {
                   }
                 />
               </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label className="block text-xs font-bold text-[#80848E] uppercase mb-2">
                   Elimination Amount
                 </label>
@@ -434,23 +438,23 @@ export default function RoundDetailPage() {
                           : undefined,
                     })
                   }
-                  className="w-full bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none focus:border-[#5865F2]"
+                  className="w-full sm:w-1/2 bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none focus:border-[#5865F2]"
                 />
               </div>
             </div>
 
             <div className="space-y-3">
               {/* Active Toggle */}
-              <div className="flex items-center justify-between p-4 bg-[#1E1F22] rounded-lg border border-[#35373C]">
-                <div>
+              <div className="flex items-start sm:items-center justify-between gap-4 p-4 bg-[#1E1F22] rounded-lg border border-[#35373C]">
+                <div className="flex-1">
                   <p className="text-white font-medium">Active Round</p>
-                  <p className="text-[#80848E] text-sm">
+                  <p className="text-[#80848E] text-xs sm:text-sm mt-1 sm:mt-0 leading-snug">
                     Setting this to true will deactivate any other active round.
                   </p>
                 </div>
                 <button
                   onClick={handleActiveToggle}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${round.active ? "bg-[#5865F2]" : "bg-[#4E5058]"}`}
+                  className={`shrink-0 mt-1 sm:mt-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${round.active ? "bg-[#5865F2]" : "bg-[#4E5058]"}`}
                 >
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${round.active ? "translate-x-6" : "translate-x-1"}`}
@@ -460,17 +464,17 @@ export default function RoundDetailPage() {
 
               {/* Submissions Open Toggle */}
               <div
-                className={`flex items-center justify-between p-4 bg-[#1E1F22] rounded-lg border border-[#35373C] transition-opacity ${!round.active ? "opacity-50" : ""}`}
+                className={`flex items-start sm:items-center justify-between gap-4 p-4 bg-[#1E1F22] rounded-lg border border-[#35373C] transition-opacity ${!round.active ? "opacity-50" : ""}`}
               >
-                <div>
+                <div className="flex-1">
                   <p className="text-white font-medium">Submissions Open</p>
-                  <p className="text-[#80848E] text-sm">
+                  <p className="text-[#80848E] text-xs sm:text-sm mt-1 sm:mt-0 leading-snug">
                     Allows contestants to submit their tracks.
                   </p>
                 </div>
                 <button
                   onClick={handleSubmissionsToggle}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${round.submissionsOpen ? "bg-[#5865F2]" : "bg-[#4E5058]"} ${!round.active && !round.submissionsOpen ? "cursor-not-allowed" : ""}`}
+                  className={`shrink-0 mt-1 sm:mt-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${round.submissionsOpen ? "bg-[#5865F2]" : "bg-[#4E5058]"} ${!round.active && !round.submissionsOpen ? "cursor-not-allowed" : ""}`}
                 >
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${round.submissionsOpen ? "translate-x-6" : "translate-x-1"}`}
@@ -480,19 +484,19 @@ export default function RoundDetailPage() {
 
               {/* Special Round Toggle */}
               <div
-                className={`flex items-center justify-between p-4 bg-[#1E1F22] rounded-lg border border-[#35373C] transition-opacity ${round.submissionsOpen ? "opacity-50" : ""}`}
+                className={`flex items-start sm:items-center justify-between gap-4 p-4 bg-[#1E1F22] rounded-lg border border-[#35373C] transition-opacity ${round.submissionsOpen ? "opacity-50" : ""}`}
               >
-                <div>
+                <div className="flex-1">
                   <p className="text-white font-medium flex items-center gap-2">
-                    Special Round <Star className="w-4 h-4 text-[#E67E22]" />
+                    Special Round <Star className="w-4 h-4 text-[#E67E22] shrink-0" />
                   </p>
-                  <p className="text-[#80848E] text-sm">
+                  <p className="text-[#80848E] text-xs sm:text-sm mt-1 sm:mt-0 leading-snug">
                     Forces contestants to select tracks from their Collection.
                   </p>
                 </div>
                 <button
                   onClick={handleSpecialRoundToggle}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${round.specialRound ? "bg-[#E67E22]" : "bg-[#4E5058]"} ${round.submissionsOpen ? "cursor-not-allowed" : ""}`}
+                  className={`shrink-0 mt-1 sm:mt-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${round.specialRound ? "bg-[#E67E22]" : "bg-[#4E5058]"} ${round.submissionsOpen ? "cursor-not-allowed" : ""}`}
                 >
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${round.specialRound ? "translate-x-6" : "translate-x-1"}`}
@@ -552,29 +556,31 @@ export default function RoundDetailPage() {
             )}
 
             {/* Manual Assignment: Target Group */}
-            <div className="flex items-center gap-3 p-4 bg-[#1E1F22] rounded-lg border border-[#35373C]">
-              <label className="text-sm font-bold text-white">
-                Manual Assignment - Target Group:
-              </label>
-              <select
-                value={currentGroupSelection}
-                onChange={(e) => setCurrentGroupSelection(Number(e.target.value))}
-                className="bg-[#2B2D31] text-white text-sm rounded border border-[#35373C] px-3 py-1.5 outline-none focus:border-[#5865F2]"
-              >
-                {Array.from({ length: round?.groupCount || 1 }).map((_, i) => (
-                  <option key={i + 1} value={i + 1}>
-                    Group {i + 1}
-                  </option>
-                ))}
-              </select>
-              <span className="text-xs text-[#80848E] ml-2 hidden sm:inline">
+            <div className="flex flex-col gap-3 p-4 bg-[#1E1F22] rounded-lg border border-[#35373C]">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <label className="text-sm font-bold text-white shrink-0">
+                  Manual Assignment - Target Group:
+                </label>
+                <select
+                  value={currentGroupSelection}
+                  onChange={(e) => setCurrentGroupSelection(Number(e.target.value))}
+                  className="w-full sm:w-auto bg-[#2B2D31] text-white text-sm rounded border border-[#35373C] px-3 py-2 sm:py-1.5 outline-none focus:border-[#5865F2]"
+                >
+                  {Array.from({ length: round?.groupCount || 1 }).map((_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                      Group {i + 1}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <span className="text-xs text-[#80848E] leading-relaxed">
                 Users selected below will be added to this specific group.
               </span>
             </div>
 
             {/* Tag Cloud (Selected Users) */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-[#80848E] uppercase">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 sm:gap-4 text-xs font-bold text-[#80848E] uppercase">
                 <label>
                   Selected {activeTab === "contestants" ? "Contestants" : "Judges"} - Group{" "}
                   {currentGroupSelection}
@@ -618,7 +624,7 @@ export default function RoundDetailPage() {
 
             {/* Selection List */}
             <div className="space-y-4">
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#80848E]" />
                   <input
@@ -630,12 +636,12 @@ export default function RoundDetailPage() {
                         ? setContestantSearch(e.target.value)
                         : setJudgeSearch(e.target.value)
                     }
-                    className="w-full bg-[#1E1F22] border-none text-white rounded-md pl-10 pr-4 py-2 outline-none focus:ring-1 focus:ring-[#5865F2]"
+                    className="w-full bg-[#1E1F22] border-none text-white rounded-md pl-10 pr-4 py-2.5 sm:py-2 outline-none focus:ring-1 focus:ring-[#5865F2]"
                   />
                 </div>
                 <button
                   onClick={() => handleSelectAllFiltered(activeTab === "contestants")}
-                  className="text-sm text-[#5865F2] hover:underline flex items-center gap-1 font-medium"
+                  className="w-full sm:w-auto text-sm bg-[#35373C] sm:bg-transparent text-[#DBDEE1] sm:text-[#5865F2] hover:bg-[#4E5058] sm:hover:bg-transparent sm:hover:underline py-2.5 sm:py-0 rounded-md sm:rounded-none flex items-center justify-center gap-2 font-medium transition-colors shrink-0"
                 >
                   <CheckSquare className="w-4 h-4" /> Select All Filtered (to G
                   {currentGroupSelection})
@@ -787,7 +793,7 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-all relative ${
+      className={`flex items-center gap-2 px-4 sm:px-6 py-4 text-sm font-medium transition-all relative whitespace-nowrap shrink-0 ${
         active ? "text-white" : "text-[#80848E] hover:text-[#DBDEE1]"
       }`}
     >

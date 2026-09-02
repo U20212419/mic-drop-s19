@@ -603,12 +603,25 @@ export default function RoundDetailPage() {
                         {/* Collection Checkbox */}
                         {contestantData.judges.length > 3 && (
                           <label className="flex items-center gap-2 cursor-pointer w-fit group">
-                            <input
-                              type="checkbox"
-                              checked={selectedForCollection.includes(judge.discordId)}
-                              onChange={() => handleCollectionToggle(judge.discordId)}
-                              className="w-4 h-4 rounded border-[#35373C] bg-[#1E1F22] text-[#5865F2] focus:ring-[#5865F2] focus:ring-offset-[#2B2D31] cursor-pointer"
-                            />
+                            <div className="relative flex items-center justify-center w-5 h-5 shrink-0 bg-[#2B2D31] border border-[#4E5058] rounded group-hover:border-[#DBDEE1] transition-colors mt-0.5 sm:mt-0">
+                              <input
+                                type="checkbox"
+                                checked={selectedForCollection.includes(judge.discordId)}
+                                onChange={() => handleCollectionToggle(judge.discordId)}
+                                className="peer opacity-0 absolute w-full h-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                              />
+                              <div className="hidden peer-checked:block text-[#5865F2]">
+                                <svg viewBox="0 0 14 14" fill="none" className="w-3.5 h-3.5">
+                                  <path
+                                    d="M3 8L6 11L11 3.5"
+                                    strokeWidth={2}
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    stroke="currentColor"
+                                  ></path>
+                                </svg>
+                              </div>
+                            </div>
                             <span className="text-sm font-medium text-[#80848E] group-hover:text-[#DBDEE1] transition-colors">
                               Add this track to my Collection
                             </span>
@@ -805,13 +818,28 @@ export default function RoundDetailPage() {
                                 : "text-[#80848E] cursor-pointer"
                             }`}
                           >
-                            <input
-                              type="checkbox"
-                              className="w-4 h-4 accent-[#5865F2] rounded cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                              checked={sub.hasBonus || false}
-                              disabled={!sub.score || parseFloat(sub.score) >= 9}
-                              onChange={(e) => handleBonusToggle(sub, e.target.checked)}
-                            />
+                            <div className="relative flex items-center justify-center w-5 h-5 shrink-0 bg-[#2B2D31] border border-[#4E5058] rounded group-hover:border-[#DBDEE1] transition-colors mt-0.5 sm:mt-0">
+                              <input
+                                type="checkbox"
+                                checked={
+                                  (sub.hasBonus && sub.score && parseFloat(sub.score) < 9) || false
+                                }
+                                disabled={!sub.score || parseFloat(sub.score) >= 9}
+                                onChange={(e) => handleBonusToggle(sub, e.target.checked)}
+                                className="peer opacity-0 absolute w-full h-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                              />
+                              <div className="hidden peer-checked:block text-[#5865F2]">
+                                <svg viewBox="0 0 14 14" fill="none" className="w-3.5 h-3.5">
+                                  <path
+                                    d="M3 8L6 11L11 3.5"
+                                    strokeWidth={2}
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    stroke="currentColor"
+                                  ></path>
+                                </svg>
+                              </div>
+                            </div>
                             Bonus (+0.25)
                           </label>
                         </div>

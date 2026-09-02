@@ -34,6 +34,16 @@ export default function CollectionPage() {
     fetchCollection();
   }, []);
 
+  // Helper function to ensure that external URLs are properly formatted with a protocol
+  const formatExternalUrl = (url: string) => {
+    if (!url) return "";
+    const trimmedUrl = url.trim();
+    if (trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://")) {
+      return trimmedUrl;
+    }
+    return `https://${trimmedUrl}`;
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-full min-h-[60vh]">
@@ -92,14 +102,18 @@ export default function CollectionPage() {
               className="bg-[#2B2D31] rounded-xl border border-[#1E1F22] p-5 flex flex-col justify-between hover:border-[#35373C] transition-colors group"
             >
               <div className="flex items-start justify-between gap-4 mb-4">
-                <div className="space-y-1.5 overflow-hidden">
-                  <h3 className="text-lg font-bold text-white flex items-center gap-2 truncate">
-                    <Music className="w-4 h-4 text-[#5865F2] shrink-0" />
-                    <span className="truncate">{item.title || "Pending Review..."}</span>
+                <div className="space-y-1.5 flex-1 min-w-0 pr-2">
+                  <h3 className="text-lg font-bold text-white flex items-start gap-2">
+                    <Music className="w-4 h-4 text-[#5865F2] shrink-0 mt-1.5" />
+                    <span className="line-clamp-2 wrap-break-word leading-tight">
+                      {item.title || "Pending Review..."}
+                    </span>
                   </h3>
-                  <p className="text-[#80848E] text-sm flex items-center gap-2 truncate">
-                    <Mic2 className="w-4 h-4 shrink-0" />
-                    <span className="truncate">{item.artist || "Unknown Artist"}</span>
+                  <p className="text-[#80848E] text-sm flex items-start gap-2">
+                    <Mic2 className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span className="line-clamp-2 wrap-break-word leading-tight">
+                      {item.artist || "Unknown Artist"}
+                    </span>
                   </p>
                 </div>
 
@@ -116,7 +130,7 @@ export default function CollectionPage() {
 
               <div className="pt-4 border-t border-[#1E1F22] flex items-center justify-between">
                 <a
-                  href={item.subLink}
+                  href={formatExternalUrl(item.subLink)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[#5865F2] hover:text-[#4752C4] hover:underline text-sm font-medium flex items-center gap-1.5 transition-colors"
