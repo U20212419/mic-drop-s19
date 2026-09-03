@@ -171,7 +171,9 @@ VALUES ('signup_message_id', 'N/A'),
 ('submission_reminder_deadline', 'N/A'),
 ('submission_reminder_enabled', 'false'),
 ('submission_reminder_state', ''),
-('submission_reminder_hours', '24,12,6,1');
+('submission_reminder_hours', '24,12,6,1'),
+('eliminated_role_id', ''),
+('guild_id', '');
 
 -- -----------------------------------------------------
 -- Table `refresh_tokens`
