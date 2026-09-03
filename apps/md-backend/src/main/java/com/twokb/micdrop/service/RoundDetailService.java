@@ -23,10 +23,18 @@ import com.twokb.micdrop.model.UserRoleType;
 import com.twokb.micdrop.model.UserRound;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Role;
+import net.dv8tion.jda.api.entities.UserSnowflake;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class RoundDetailService {
+
+	private final JDA jda;
 
 	private final CollectionItemService collectionItemService;
 
@@ -37,6 +45,8 @@ public class RoundDetailService {
 	private final SubmissionService submissionService;
 
 	private final RoundService roundService;
+
+	private final SystemSettingService systemSettingService;
 
 	record ContestantStat(DiscordUser contestant, double avgScore, double stdDev, Instant maxSubmittedAt) {
 	}
@@ -288,9 +298,45 @@ public class RoundDetailService {
 			firstPlaceUr.setPlacedFirst(true);
 		}
 
+		String eliminatedRoleId = systemSettingService.getSetting("eliminated_role_id").orElse("");
+		String ytsRoleId = systemSettingService.getSetting("yts_role_id").orElse("");
+
+		String guildId = systemSettingService.getSetting("guild_id").orElse("");
+		Guild guild = guildId.isEmpty() ? null : jda.getGuildById(guildId);
+
+		Role eliminatedRole = (guild != null && !eliminatedRoleId.isEmpty()) ? guild.getRoleById(eliminatedRoleId)
+				: null;
+		Role ytsRole = (guild != null && !ytsRoleId.isEmpty()) ? guild.getRoleById(ytsRoleId) : null;
+
 		// Apply preliminary status to public status for all contestants in the group
 		for (DiscordUser contestant : contestants) {
 			contestant.setStatus(contestant.getPreliminaryStatus());
+
+			// Discord role sync
+			if (guild != null) {
+				String discordId = contestant.getDiscordId();
+				UserSnowflake snowflake = UserSnowflake.fromId(discordId);
+
+				try {
+					// Remove YTS role for everyone
+					if (ytsRole != null) {
+						guild.removeRoleFromMember(snowflake, ytsRole).queue(success -> {
+						}, error -> log.warn("Failed to remove YTS role from user {}: {}", discordId,
+								error.getMessage()));
+					}
+
+					// Add eliminated role for eliminated contestants
+					if (eliminatedRole != null && (contestant.getStatus() == ContestantStatus.ELIMINATED
+							|| contestant.getStatus() == ContestantStatus.DID_NOT_SUBMIT)) {
+						guild.addRoleToMember(snowflake, eliminatedRole).queue(success -> {
+						}, error -> log.warn("Failed to add eliminated role to user {}: {}", discordId,
+								error.getMessage()));
+					}
+				}
+				catch (Exception e) {
+					log.error("Error while syncing Discord roles for user {}: {}", discordId, e.getMessage());
+				}
+			}
 		}
 	}
 
