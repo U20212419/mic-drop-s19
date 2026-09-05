@@ -104,34 +104,44 @@ public class SlideGeneratorService {
 			// Generate PPTX and PNG in memory
 			ByteArrayOutputStream zipBaos = new ByteArrayOutputStream();
 			try (ZipOutputStream zos = new ZipOutputStream(zipBaos)) {
+				// Choose the master template based on the number of judges
+				String suffix = sortedJudges.size() == 4 ? "_4j.pptx" : "_3j.pptx";
+				String masterTemplateName = "master_templates" + suffix;
 
-				for (int i = 0; i < stats.size(); i++) {
-					var stat = stats.get(i);
-					String rank = stat.contestant().getPreliminaryStatus() == ContestantStatus.DID_NOT_SUBMIT ? "DNS"
-							: String.valueOf(i + 1);
+				// Load the master template
+				try (InputStream is = new ClassPathResource("templates/" + masterTemplateName).getInputStream();
+						XMLSlideShow combinedPpt = new XMLSlideShow(is)) {
+					int baseTemplateCount = combinedPpt.getSlides().size();
 
-					// Get the submissions for the contestant
-					List<Submission> subs = submissionService.getByRoundIdAndContestantIdAndJudgeIds(idRound,
-							stat.contestant().getIdUser(), sortedJudges.stream().map(DiscordUser::getIdUser).toList());
+					for (int i = 0; i < stats.size(); i++) {
+						var stat = stats.get(i);
+						String rank = stat.contestant().getPreliminaryStatus() == ContestantStatus.DID_NOT_SUBMIT
+								? "DNS" : String.valueOf(i + 1);
 
-					// Establish the template
-					String templateName = getTemplateName(rank, sortedJudges.size(),
-							stat.contestant().getPreliminaryStatus());
-					String safeUsername = stat.contestant().getUsername().replaceAll("[^a-zA-Z0-9.-]", "_");
-					String filePrefix = rank != "DNS"
-							? String.format("Rank_%02d_%s", Integer.parseInt(rank), safeUsername)
-							: String.format("DNS_%s", safeUsername);
+						// Get the submissions for the contestant
+						List<Submission> subs = submissionService.getByRoundIdAndContestantIdAndJudgeIds(idRound,
+								stat.contestant().getIdUser(),
+								sortedJudges.stream().map(DiscordUser::getIdUser).toList());
 
-					try (InputStream is = new ClassPathResource("templates/" + templateName).getInputStream();
-							XMLSlideShow templatePpt = new XMLSlideShow(is)) {
+						String safeUsername = stat.contestant().getUsername().replaceAll("[^a-zA-Z0-9.-]", "_");
+						String filePrefix = rank.equals("DNS") ? String.format("DNS_%s", safeUsername)
+								: String.format("Rank_%02d_%s", Integer.parseInt(rank), safeUsername);
 
-						XSLFSlide slide = templatePpt.getSlides().get(0);
+						// Choose what slide template to use based on rank and preliminary
+						// status
+						int templateIndex = getTemplateSlideIndex(rank, stat.contestant().getPreliminaryStatus());
+						XSLFSlide templateSlide = combinedPpt.getSlides().get(templateIndex);
 
-						// Replace placeholders in the slide with actual data
-						replacePlaceholders(templatePpt, slide, rank, stat, sortedJudges, subs);
+						// Clone the template slide to keep the layout and background
+						// intact
+						XSLFSlide newSlide = combinedPpt.createSlide(templateSlide.getSlideLayout());
+						newSlide.importContent(templateSlide);
+
+						// Replace placeholders in the new slide
+						replacePlaceholders(combinedPpt, newSlide, rank, stat, sortedJudges, subs);
 
 						// Convert the slide to PNG
-						Dimension pgSize = templatePpt.getPageSize();
+						Dimension pgSize = combinedPpt.getPageSize();
 						BufferedImage img = new BufferedImage(pgSize.width, pgSize.height, BufferedImage.TYPE_INT_ARGB);
 						Graphics2D graphics = img.createGraphics();
 
@@ -142,18 +152,24 @@ public class SlideGeneratorService {
 						graphics.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS,
 								RenderingHints.VALUE_FRACTIONALMETRICS_ON);
 
-						slide.draw(graphics);
+						newSlide.draw(graphics);
 
 						// Add the PNG to the ZIP
 						zos.putNextEntry(new ZipEntry(filePrefix + ".png"));
 						ImageIO.write(img, "png", zos);
 						zos.closeEntry();
-
-						// Export the PPTX directly
-						zos.putNextEntry(new ZipEntry(filePrefix + ".pptx"));
-						templatePpt.write(zos);
-						zos.closeEntry();
 					}
+
+					// Delete the original template slides from the combined PPTX to keep
+					// only the generated slides
+					for (int i = baseTemplateCount - 1; i >= 0; i--) {
+						combinedPpt.removeSlide(i);
+					}
+
+					String combinedFileName = String.format("Round_%d_Group_%d_Slides.pptx", idRound, groupNumber);
+					zos.putNextEntry(new ZipEntry(combinedFileName));
+					combinedPpt.write(zos);
+					zos.closeEntry();
 				}
 			}
 
@@ -223,37 +239,18 @@ public class SlideGeneratorService {
 				}
 
 				if (changed) {
-					// Recover the original text formatting before setting the new text
-					Double originalFontSize = null;
-					String originalFontFamily = null;
-					PaintStyle originalFontColor = null;
-					boolean isBold = false;
-					boolean isItalic = false;
-
-					if (!textShape.getTextParagraphs().isEmpty()
-							&& !textShape.getTextParagraphs().get(0).getTextRuns().isEmpty()) {
-						XSLFTextRun firstRun = textShape.getTextParagraphs().get(0).getTextRuns().get(0);
-						originalFontSize = firstRun.getFontSize();
-						originalFontFamily = firstRun.getFontFamily();
-						originalFontColor = firstRun.getFontColor();
-						isBold = firstRun.isBold();
-						isItalic = firstRun.isItalic();
-					}
-
-					// Set the new text
-					textShape.setText(text);
-
-					// Restore the original text formatting
+					// Clear existing text runs and set the new text
+					// This preserves the original formatting
+					boolean isFirstRun = true;
 					for (XSLFTextParagraph p : textShape.getTextParagraphs()) {
 						for (XSLFTextRun r : p.getTextRuns()) {
-							if (originalFontSize != null)
-								r.setFontSize(originalFontSize);
-							if (originalFontFamily != null)
-								r.setFontFamily(originalFontFamily);
-							if (originalFontColor != null)
-								r.setFontColor(originalFontColor);
-							r.setBold(isBold);
-							r.setItalic(isItalic);
+							if (isFirstRun) {
+								r.setText(text);
+								isFirstRun = false;
+							}
+							else {
+								r.setText("");
+							}
 						}
 					}
 				}
@@ -361,24 +358,20 @@ public class SlideGeneratorService {
 		}
 	}
 
-	private String getTemplateName(String rank, int numJudges, ContestantStatus preliminaryStatus) {
-		String suffix = numJudges == 4 ? "_4j.pptx" : "_3j.pptx";
-
+	private int getTemplateSlideIndex(String rank, ContestantStatus preliminaryStatus) {
 		// If the contestant is eliminated or did not submit, use the eliminated template
 		// This ensures that eliminated contestants always use the eliminated template,
 		// regardless of rank
 		if (preliminaryStatus == ContestantStatus.DID_NOT_SUBMIT || preliminaryStatus == ContestantStatus.ELIMINATED) {
-			return "eliminated" + suffix;
+			return 4;
 		}
 
-		String prefix = switch (rank) {
-			case "1" -> "1st_place";
-			case "2" -> "2nd_place";
-			case "3" -> "3rd_place";
-			default -> "other_place";
+		return switch (rank) {
+			case "1" -> 0; // 1st place
+			case "2" -> 1; // 2nd place
+			case "3" -> 2; // 3rd place
+			default -> 3; // Other place
 		};
-
-		return prefix + suffix;
 	}
 
 }
