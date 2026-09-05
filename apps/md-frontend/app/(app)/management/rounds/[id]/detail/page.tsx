@@ -204,6 +204,9 @@ export default function RoundAdminDetailPage() {
 
       // Fetch the file as a blob
       const response = await api.get(`/rounds/${id}/slides/download`, {
+        params: {
+          groupNumber: selectedGroup,
+        },
         responseType: "blob",
       });
 

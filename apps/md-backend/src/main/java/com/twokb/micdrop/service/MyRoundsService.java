@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -58,6 +60,11 @@ public class MyRoundsService {
 	public ContestantRoundDetailDTO getContestantDetail(Integer idRound, String discordId) {
 		UserRound myUr = userRoundService.getUserRoundByRoundIdAndDiscordId(idRound, discordId);
 
+		Round round = myUr.getRound();
+		if (!round.getActive()) {
+			throw new IllegalStateException("This round is not currently active.");
+		}
+
 		List<UserRound> judgeUrs = userRoundService.getUsersByRoundIdAndRoleAndGroupNumber(idRound,
 				myUr.getGroupNumber(), UserRoleType.JUDGE.name().toLowerCase());
 
@@ -88,14 +95,17 @@ public class MyRoundsService {
 
 		UserRound myUr = userRoundService.getUserRoundByRoundIdAndDiscordId(idRound, discordId);
 
+		Round round = myUr.getRound();
+		if (!round.getActive()) {
+			throw new IllegalStateException("This round is not currently active.");
+		}
+
 		List<Submission> subs = submissionService.getJudgeSubmissionsOrderedAsc(idRound, judgeUser.getIdUser());
 
 		List<SubmissionJudgeDTO> subDtos = subs.stream()
 			.map(s -> new SubmissionJudgeDTO(s.getIdSubmission(), s.getSubLink(), s.getScore(), s.getReview(),
 					s.getArtist(), s.getTitle()))
 			.toList();
-
-		Round round = myUr.getRound();
 
 		JudgeApp app = judgeUser.getJudgeApp();
 		Boolean givingBonus = (app == null) ? false : app.getGivingBonus();
@@ -108,6 +118,9 @@ public class MyRoundsService {
 	public void submitLinks(BatchSubmissionRequest request, String contestantDiscordId) {
 		Round round = roundService.getRound(request.idRound());
 
+		if (!round.getActive()) {
+			throw new IllegalStateException("This round is not currently active.");
+		}
 		if (!round.getSubmissionsOpen()) {
 			throw new IllegalStateException("The submission period for this round is not currently open.");
 		}
@@ -117,6 +130,32 @@ public class MyRoundsService {
 				userRoundService.getUserRoundByRoundIdAndDiscordId(request.idRound(), contestantDiscordId)
 					.getGroupNumber(),
 				UserRoleType.JUDGE.name().toLowerCase());
+
+		// Validate that all submitted judges are actually assigned to the contestant's
+		// group
+		Set<String> expectedJudgeIds = judges.stream()
+			.map(jur -> jur.getUser().getDiscordId())
+			.collect(Collectors.toSet());
+
+		Set<String> submittedJudgeIds = request.submissions()
+			.stream()
+			.map(SubmitLinkRequest::judgeDiscordId)
+			.collect(Collectors.toSet());
+
+		if (submittedJudgeIds.size() != expectedJudgeIds.size() || !expectedJudgeIds.containsAll(submittedJudgeIds)) {
+			throw new IllegalStateException(
+					"One or more submitted judges are not assigned to your group for this round.");
+		}
+
+		for (UserRound judgeUr : judges) {
+			Optional<Submission> existingSub = submissionService.getByRoundIdAndContestantIdAndJudgeId(
+					request.idRound(), contestant.getIdUser(), judgeUr.getUser().getIdUser());
+
+			if (existingSub.isPresent() && existingSub.get().getSubLink() != null
+					&& !existingSub.get().getSubLink().isBlank()) {
+				throw new IllegalStateException("You have already submitted in this round. You cannot submit again.");
+			}
+		}
 
 		boolean isSpecialRound = round.getSpecialRound() != null && round.getSpecialRound();
 
@@ -160,6 +199,7 @@ public class MyRoundsService {
 				});
 
 			sub.setSubLink(slr.subLink());
+			sub.setSubmittedAt(Instant.now());
 			submissionService.saveSubmission(sub);
 		}
 	}

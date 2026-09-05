@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.twokb.micdrop.dto.CreateRoundRequest;
@@ -25,6 +24,7 @@ import com.twokb.micdrop.dto.UserAssignmentDTO;
 import com.twokb.micdrop.dto.myRounds.AdminBatchUpdateRequest;
 import com.twokb.micdrop.dto.myRounds.AdminSubmissionDTO;
 import com.twokb.micdrop.dto.myRounds.ChangeStatusesRequest;
+import com.twokb.micdrop.dto.myRounds.DownloadSlidesRequest;
 import com.twokb.micdrop.model.Round;
 import com.twokb.micdrop.service.RoundDetailService;
 import com.twokb.micdrop.service.RoundService;
@@ -149,8 +149,8 @@ public class RoundController {
 
 	@GetMapping("/{idRound}/slides/download")
 	@PreAuthorize("hasRole('ADMIN')")
-	public ResponseEntity<byte[]> downloadSlidesZip(@PathVariable Integer idRound,
-			@RequestParam(defaultValue = "1") Integer groupNumber) {
+	public ResponseEntity<byte[]> downloadSlidesZip(@PathVariable Integer idRound, DownloadSlidesRequest request) {
+		Integer groupNumber = request.groupNumber();
 		byte[] zipData = slideGeneratorService.generateRoundSlidesZip(idRound, groupNumber);
 
 		HttpHeaders headers = new HttpHeaders();
