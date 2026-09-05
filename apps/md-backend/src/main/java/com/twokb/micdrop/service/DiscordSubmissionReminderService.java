@@ -2,6 +2,7 @@ package com.twokb.micdrop.service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -125,7 +126,7 @@ public class DiscordSubmissionReminderService {
 
 	void sendDueReminder(Instant now) {
 		DiscordSubmissionReminderConfig config = getConfig();
-		if (!config.enabled() || config.deadline() == null || !config.deadline().isAfter(now)) {
+		if (!config.enabled() || config.deadline() == null) {
 			return;
 		}
 
@@ -135,10 +136,14 @@ public class DiscordSubmissionReminderService {
 		}
 
 		long secondsRemaining = Duration.between(now, config.deadline()).getSeconds();
-		List<Double> dueHours = config.reminderHours()
-			.stream()
-			.filter(hours -> secondsRemaining <= (long) (hours * 3600))
-			.toList();
+		boolean isDeadlineReached = secondsRemaining <= 0;
+		List<Double> dueHours = new ArrayList<>(
+				config.reminderHours().stream().filter(hours -> secondsRemaining <= (long) (hours * 3600)).toList());
+
+		if (isDeadlineReached) {
+			dueHours.add(0.0); // Add a 0-hour threshold to sync YTS role at the deadline
+		}
+
 		if (dueHours.isEmpty()) {
 			return;
 		}
@@ -165,7 +170,9 @@ public class DiscordSubmissionReminderService {
 		// Sync YTS role for all contestants
 		syncYetToSubmitRole(channel, allAssignments, pendingContestants);
 
-		if (pendingContestants.isEmpty()) {
+		// If everyone submitted or if the current threshold is 0 (deadline reached),
+		// don't send a reminder message
+		if (pendingContestants.isEmpty() || currentThreshold == 0.0) {
 			saveState(statePrefix, sentHours);
 			return;
 		}
