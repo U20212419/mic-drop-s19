@@ -40,8 +40,8 @@ export default function RoundDetailPage() {
         const res = await api.get("/my-rounds");
         const info = res.data.find((r: any) => r.idRound === Number(id));
 
-        // If not found, redirect and stop execution
-        if (!info) {
+        // If not found or not active, redirect and stop execution
+        if (!info || !info.active) {
           toast.error("Round not found or you don't have access to it.", {
             closeButton: true,
           });
