@@ -131,16 +131,36 @@ public class DiscordSubmissionReminderService {
 		}
 
 		Round activeRound = roundService.getActiveRound();
-		if (!Boolean.TRUE.equals(activeRound.getSubmissionsOpen())) {
+		if (activeRound == null) {
 			return;
 		}
 
 		long secondsRemaining = Duration.between(now, config.deadline()).getSeconds();
 		boolean isDeadlineReached = secondsRemaining <= 0;
-		List<Double> dueHours = new ArrayList<>(
-				config.reminderHours().stream().filter(hours -> secondsRemaining <= (long) (hours * 3600)).toList());
+		boolean submissionsOpen = Boolean.TRUE.equals(activeRound.getSubmissionsOpen());
 
-		if (isDeadlineReached) {
+		// If submissions are closed, we only want to process the deadline, not at any
+		// other thresholds
+		String statePrefix = activeRound.getIdRound() + "|" + config.deadline().getEpochSecond() + "|";
+		Set<Double> sentHours = parseSentHours(statePrefix);
+
+		boolean deadlineProcessed = sentHours.contains(0.0);
+
+		if (!submissionsOpen && deadlineProcessed) {
+			return; // If submissions are closed and the deadline has already been
+					// processed, do not send any more reminders
+		}
+
+		List<Double> dueHours = new ArrayList<>();
+
+		if (submissionsOpen) {
+			dueHours.addAll(config.reminderHours()
+				.stream()
+				.filter(hours -> secondsRemaining <= (long) (hours * 3600))
+				.toList());
+		}
+
+		if (isDeadlineReached && !deadlineProcessed) {
 			dueHours.add(0.0); // Add a 0-hour threshold to sync YTS role at the deadline
 		}
 
@@ -148,8 +168,6 @@ public class DiscordSubmissionReminderService {
 			return;
 		}
 
-		String statePrefix = activeRound.getIdRound() + "|" + config.deadline().getEpochSecond() + "|";
-		Set<Double> sentHours = parseSentHours(statePrefix);
 		List<Double> unsentDueHours = dueHours.stream().filter(hours -> !sentHours.contains(hours)).toList();
 		if (unsentDueHours.isEmpty()) {
 			return;
