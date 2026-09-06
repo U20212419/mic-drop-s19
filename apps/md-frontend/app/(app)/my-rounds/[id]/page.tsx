@@ -34,6 +34,9 @@ export default function RoundDetailPage() {
   const [collection, setCollection] = useState<any[]>([]);
   const [selectedForCollection, setSelectedForCollection] = useState<string[]>([]);
 
+  const [hideJudged, setHideJudged] = useState(false);
+  const [persistedSubmissions, setPersistedSubmissions] = useState<any[]>([]);
+
   useEffect(() => {
     const fetchRoundData = async () => {
       try {
@@ -133,6 +136,7 @@ export default function RoundDetailPage() {
             ...detailRes.data,
             submissions: parsedSubmissions,
           });
+          setPersistedSubmissions(parsedSubmissions);
         }
       } catch (error: any) {
         // Error handled by interceptor
@@ -386,6 +390,7 @@ export default function RoundDetailPage() {
         }),
       };
       await api.put("/my-rounds/batch-score", payload);
+      setPersistedSubmissions(judgeData.submissions); // Update persisted submissions after successful save
       toast.success("Scores saved successfully.", {
         closeButton: true,
       });
@@ -405,6 +410,24 @@ export default function RoundDetailPage() {
     }
     return `https://${trimmedUrl}`;
   };
+
+  // Filter out judged submissions if the toggle is enabled
+  const filteredSubmissions = judgeData?.submissions?.filter((sub: any) => {
+    if (!hideJudged) return true;
+
+    const persistedSub = persistedSubmissions.find(
+      (ps: any) => ps.idSubmission === sub.idSubmission,
+    );
+
+    if (!persistedSub) return true;
+
+    const isScoreEmpty =
+      persistedSub.score === "" || persistedSub.score === null || persistedSub.score === undefined;
+
+    const isReviewEmpty = !persistedSub.review || persistedSub.review.trim() === "";
+
+    return isScoreEmpty || isReviewEmpty;
+  });
 
   if (loading)
     return (
@@ -736,143 +759,185 @@ export default function RoundDetailPage() {
             </p>
           </div>
 
+          <div className="flex justify-end mb-2">
+            <label className="flex items-center gap-3 cursor-pointer group select-none">
+              <span className="text-sm font-bold text-[#80848E] group-hover:text-[#DBDEE1] transition-colors uppercase tracking-wide">
+                Hide judged tracks
+              </span>
+              <div className="relative flex items-center">
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={hideJudged}
+                  onChange={(e) => setHideJudged(e.target.checked)}
+                />
+                <div
+                  className={`block w-11 h-6 rounded-full transition-colors ${
+                    hideJudged ? "bg-[#5865F2]" : "bg-[#4E5058]"
+                  }`}
+                ></div>
+                <div
+                  className={`absolute left-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                    hideJudged ? "translate-x-5" : ""
+                  }`}
+                ></div>
+              </div>
+            </label>
+          </div>
+
           {judgeData.submissions.length === 0 ? (
             <div className="text-center py-12 bg-[#2B2D31] rounded-xl border border-[#1E1F22]">
               <p className="text-[#80848E]">No submissions have been assigned to you yet.</p>
             </div>
+          ) : filteredSubmissions.length === 0 && hideJudged ? (
+            <div className="text-center py-12 bg-[#2B2D31] rounded-xl border border-[#1E1F22] flex flex-col items-center gap-3">
+              <CheckCircle2 className="w-12 h-12 text-emerald-500 opacity-80" />
+              <p className="text-[#DBDEE1] font-medium text-lg">You're all caught up!</p>
+              <p className="text-[#80848E] text-sm">
+                All currently assigned submissions have been judged.
+              </p>
+            </div>
           ) : (
             <div className="space-y-4">
-              {judgeData.submissions.map((sub: any, idx: number) => (
-                <div
-                  key={sub.idSubmission}
-                  className="bg-[#2B2D31] rounded-xl border border-[#1E1F22] p-5 flex flex-col gap-5"
-                >
-                  {/* Track info and score input */}
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-[#5865F2]/20 text-[#5865F2] text-xs font-bold px-2 py-1 rounded">
-                          Track #{idx + 1}
+              {filteredSubmissions.map((sub: any) => {
+                // Find the index of the submission in the original array to maintain order
+                const originalIndex = judgeData.submissions.findIndex(
+                  (s: any) => s.idSubmission === sub.idSubmission,
+                );
+
+                return (
+                  <div
+                    key={sub.idSubmission}
+                    className="bg-[#2B2D31] rounded-xl border border-[#1E1F22] p-5 flex flex-col gap-5"
+                  >
+                    {/* Track info and score input */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-[#5865F2]/20 text-[#5865F2] text-xs font-bold px-2 py-1 rounded">
+                            Track #{originalIndex + 1}
+                          </div>
+                        </div>
+
+                        {/* Display the track artist and title if available, otherwise show the link */}
+                        <div className="mt-3 space-y-2">
+                          {sub.artist && sub.title ? (
+                            <p className="text-white font-medium">
+                              {sub.artist} - {sub.title}
+                            </p>
+                          ) : (
+                            <span className="text-[#80848E] text-sm italic">
+                              No artist or title available.
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="mt-3 space-y-2">
+                          {sub.subLink ? (
+                            <a
+                              href={formatExternalUrl(sub.subLink)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#5865F2] hover:underline text-sm font-medium flex items-center gap-2 w-fit"
+                            >
+                              <LinkIcon className="w-4 h-4" /> Listen to Track
+                            </a>
+                          ) : (
+                            <span className="text-[#80848E] text-sm italic">
+                              No link submitted yet.
+                            </span>
+                          )}
                         </div>
                       </div>
 
-                      {/* Display the track artist and title if available, otherwise show the link */}
-                      <div className="mt-3 space-y-2">
-                        {sub.artist && sub.title ? (
-                          <p className="text-white font-medium">
-                            {sub.artist} - {sub.title}
-                          </p>
-                        ) : (
-                          <span className="text-[#80848E] text-sm italic">
-                            No artist or title available.
-                          </span>
-                        )}
-                      </div>
+                      <div className="flex flex-col sm:flex-row items-center gap-4 bg-[#1E1F22] p-4 rounded-lg border border-[#35373C] shrink-0">
+                        {/* Score Input Block */}
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-yellow-400/20 flex items-center justify-center">
+                            <Star className="w-4 h-4 text-yellow-400" />
+                          </div>
+                          <div className="flex flex-col">
+                            <label className="text-[10px] text-[#80848E] font-bold uppercase mb-1">
+                              Score (0-10)
+                            </label>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={sub.score ?? ""}
+                              onChange={(e) => handleScoreChange(sub, e)}
+                              className="w-24 bg-[#2B2D31] border border-[#4E5058] text-white rounded px-3 py-2 outline-none focus:border-[#5865F2] font-mono text-center"
+                              placeholder="--"
+                            />
+                          </div>
+                        </div>
 
-                      <div className="mt-3 space-y-2">
-                        {sub.subLink ? (
-                          <a
-                            href={formatExternalUrl(sub.subLink)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[#5865F2] hover:underline text-sm font-medium flex items-center gap-2 w-fit"
-                          >
-                            <LinkIcon className="w-4 h-4" /> Listen to Track
-                          </a>
-                        ) : (
-                          <span className="text-[#80848E] text-sm italic">
-                            No link submitted yet.
-                          </span>
+                        {/* Bonus Points Checkbox */}
+                        {judgeData.givingBonus && (
+                          <div className="flex items-center sm:border-l border-[#35373C] sm:pl-4">
+                            <label
+                              className={`flex items-center gap-2 text-sm font-medium select-none ${
+                                sub.score && parseFloat(sub.score) >= 9
+                                  ? "text-[#4E5058] cursor-not-allowed"
+                                  : "text-[#80848E] cursor-pointer"
+                              }`}
+                            >
+                              <div className="relative flex items-center justify-center w-5 h-5 shrink-0 bg-[#2B2D31] border border-[#4E5058] rounded group-hover:border-[#DBDEE1] transition-colors mt-0.5 sm:mt-0">
+                                <input
+                                  type="checkbox"
+                                  checked={
+                                    (sub.hasBonus && sub.score && parseFloat(sub.score) < 9) ||
+                                    false
+                                  }
+                                  disabled={!sub.score || parseFloat(sub.score) >= 9}
+                                  onChange={(e) => handleBonusToggle(sub, e.target.checked)}
+                                  className="peer opacity-0 absolute w-full h-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                                />
+                                <div className="hidden peer-checked:block text-[#5865F2]">
+                                  <svg viewBox="0 0 14 14" fill="none" className="w-3.5 h-3.5">
+                                    <path
+                                      d="M3 8L6 11L11 3.5"
+                                      strokeWidth={2}
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      stroke="currentColor"
+                                    ></path>
+                                  </svg>
+                                </div>
+                              </div>
+                              Bonus (+0.25)
+                            </label>
+                          </div>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-center gap-4 bg-[#1E1F22] p-4 rounded-lg border border-[#35373C] shrink-0">
-                      {/* Score Input Block */}
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-yellow-400/20 flex items-center justify-center">
-                          <Star className="w-4 h-4 text-yellow-400" />
-                        </div>
-                        <div className="flex flex-col">
-                          <label className="text-[10px] text-[#80848E] font-bold uppercase mb-1">
-                            Score (0-10)
-                          </label>
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            value={sub.score ?? ""}
-                            onChange={(e) => handleScoreChange(sub, e)}
-                            className="w-24 bg-[#2B2D31] border border-[#4E5058] text-white rounded px-3 py-2 outline-none focus:border-[#5865F2] font-mono text-center"
-                            placeholder="--"
-                          />
-                        </div>
-                      </div>
+                    {/* Review textarea */}
+                    <div className="border-t border-[#1E1F22] pt-4 mt-2">
+                      <FormTextarea
+                        name={`review-${sub.idSubmission}`}
+                        label={`Review for Track #${originalIndex + 1}`}
+                        sublabel="Explain why you gave this score."
+                        value={sub.review || ""}
+                        onChange={(e) => handleReviewChange(sub, e)}
+                        placeholder="Write your review here..."
+                        required={false}
+                      />
 
-                      {/* Bonus Points Checkbox */}
-                      {judgeData.givingBonus && (
-                        <div className="flex items-center sm:border-l border-[#35373C] sm:pl-4">
-                          <label
-                            className={`flex items-center gap-2 text-sm font-medium select-none ${
-                              sub.score && parseFloat(sub.score) >= 9
-                                ? "text-[#4E5058] cursor-not-allowed"
-                                : "text-[#80848E] cursor-pointer"
-                            }`}
+                      {/* Visual Indicator of the appended string (Immutable UI representation) */}
+                      {sub.hasBonus && (
+                        <div className="mt-3 flex justify-end">
+                          <span
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-[#5865F2] bg-[#5865F2]/10 px-2.5 py-1.5 rounded-md border border-[#5865F2]/20 select-none cursor-default"
+                            title="This tag will be automatically appended to your review upon saving."
                           >
-                            <div className="relative flex items-center justify-center w-5 h-5 shrink-0 bg-[#2B2D31] border border-[#4E5058] rounded group-hover:border-[#DBDEE1] transition-colors mt-0.5 sm:mt-0">
-                              <input
-                                type="checkbox"
-                                checked={
-                                  (sub.hasBonus && sub.score && parseFloat(sub.score) < 9) || false
-                                }
-                                disabled={!sub.score || parseFloat(sub.score) >= 9}
-                                onChange={(e) => handleBonusToggle(sub, e.target.checked)}
-                                className="peer opacity-0 absolute w-full h-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                              />
-                              <div className="hidden peer-checked:block text-[#5865F2]">
-                                <svg viewBox="0 0 14 14" fill="none" className="w-3.5 h-3.5">
-                                  <path
-                                    d="M3 8L6 11L11 3.5"
-                                    strokeWidth={2}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    stroke="currentColor"
-                                  ></path>
-                                </svg>
-                              </div>
-                            </div>
-                            Bonus (+0.25)
-                          </label>
+                            <Lock className="w-3 h-3" /> (+0.25) appended to review
+                          </span>
                         </div>
                       )}
                     </div>
                   </div>
-
-                  {/* Review textarea */}
-                  <div className="border-t border-[#1E1F22] pt-4 mt-2">
-                    <FormTextarea
-                      name={`review-${sub.idSubmission}`}
-                      label={`Review for Track #${idx + 1}`}
-                      sublabel="Explain why you gave this score."
-                      value={sub.review || ""}
-                      onChange={(e) => handleReviewChange(sub, e)}
-                      placeholder="Write your review here..."
-                      required={false}
-                    />
-
-                    {/* Visual Indicator of the appended string (Immutable UI representation) */}
-                    {sub.hasBonus && (
-                      <div className="mt-3 flex justify-end">
-                        <span
-                          className="inline-flex items-center gap-1.5 text-xs font-bold text-[#5865F2] bg-[#5865F2]/10 px-2.5 py-1.5 rounded-md border border-[#5865F2]/20 select-none cursor-default"
-                          title="This tag will be automatically appended to your review upon saving."
-                        >
-                          <Lock className="w-3 h-3" /> (+0.25) appended to review
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
 
               <div className="pt-6 flex justify-end">
                 <button
