@@ -306,14 +306,14 @@ export default function RoundsPage() {
                           >
                             <List className="w-4 h-4 mr-1" /> Detail
                           </button>
+                          <button
+                            onClick={() => router.push(`/management/rounds/${round.idRound}`)}
+                            className="text-[#5865F2] hover:text-[#4752C4] font-medium transition-colors inline-flex items-center text-sm"
+                          >
+                            <Edit className="w-4 h-4 mr-1" /> Config
+                          </button>
                           {isAdmin && (
                             <>
-                              <button
-                                onClick={() => router.push(`/management/rounds/${round.idRound}`)}
-                                className="text-[#5865F2] hover:text-[#4752C4] font-medium transition-colors inline-flex items-center text-sm"
-                              >
-                                <Edit className="w-4 h-4 mr-1" /> Config
-                              </button>
                               <button
                                 onClick={() => setRoundToDelete(round)}
                                 className="text-red-400 hover:text-red-500 font-medium transition-colors inline-flex items-center text-sm"
