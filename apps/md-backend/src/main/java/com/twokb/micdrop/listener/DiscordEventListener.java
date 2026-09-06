@@ -82,19 +82,35 @@ public class DiscordEventListener extends ListenerAdapter {
 			try {
 				discordUserService.unregisterContestant(discordId);
 
-				systemSettingRepository.findById("contestant_role_id").ifPresent(roleSettings -> {
-					String contestantRoleId = roleSettings.getSettingValue();
+				if (event.isFromGuild()) {
+					UserSnowflake userSnowflake = UserSnowflake.fromId(discordId);
 
-					if (event.isFromGuild()) {
+					systemSettingRepository.findById("contestant_role_id").ifPresent(roleSettings -> {
+						String contestantRoleId = roleSettings.getSettingValue();
+
+						if (contestantRoleId == null || contestantRoleId.isBlank()) {
+							return;
+						}
+
 						Role contestantRole = event.getGuild().getRoleById(contestantRoleId);
 						if (contestantRole != null) {
-							event.getGuild()
-								.removeRoleFromMember(UserSnowflake.fromId(discordId), contestantRole)
-								.queue();
+							event.getGuild().removeRoleFromMember(userSnowflake, contestantRole).queue();
 						}
-					}
-				});
+					});
 
+					systemSettingRepository.findById("yts_role_id").ifPresent(roleSettings -> {
+						String ytsRoleId = roleSettings.getSettingValue();
+
+						if (ytsRoleId == null || ytsRoleId.isBlank()) {
+							return;
+						}
+
+						Role ytsRole = event.getGuild().getRoleById(ytsRoleId);
+						if (ytsRole != null) {
+							event.getGuild().removeRoleFromMember(userSnowflake, ytsRole).queue();
+						}
+					});
+				}
 			}
 			catch (IllegalArgumentException ex) {
 				// User has submissions and cannot be unregistered, ignore the reaction
