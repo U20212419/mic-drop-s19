@@ -39,7 +39,7 @@ public class JudgeAppController {
 	}
 
 	@GetMapping("/user/{discordId}")
-	@PreAuthorize("isAuthenticated()")
+	@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
 	public ResponseEntity<JudgeAppDTO> getJudgeAppByUser(@PathVariable String discordId) {
 		JudgeAppDTO judgeApp = judgeAppService.getJudgeAppByDiscordId(discordId);
 		return ResponseEntity.ok(judgeApp);

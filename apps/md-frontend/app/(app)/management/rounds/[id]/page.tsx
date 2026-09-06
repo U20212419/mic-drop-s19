@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import api from "@/lib/axios";
 import {
@@ -45,6 +46,10 @@ export default function RoundDetailPage() {
   const { id } = useParams();
   const router = useRouter();
 
+  const { data: session } = useSession();
+  const userRole = (session?.user as any)?.role || "USER";
+  const isAdmin = userRole === "ADMIN";
+
   // UI state
   const [activeTab, setActiveTab] = useState<"details" | "contestants" | "judges">("details");
   const [isLoading, setIsLoading] = useState(true);
@@ -58,7 +63,7 @@ export default function RoundDetailPage() {
   const [selectedContestants, setSelectedContestants] = useState<DiscordUser[]>([]);
   const [selectedJudges, setSelectedJudges] = useState<DiscordUser[]>([]);
 
-  // The group the admin is currently assigning users to
+  // The group the admin/staff is currently viewing/assigning users to
   const [currentGroupSelection, setCurrentGroupSelection] = useState<number>(1);
 
   // Search filters
@@ -146,6 +151,7 @@ export default function RoundDetailPage() {
   }, [selectedJudges, currentGroupSelection]);
 
   const handleToggleUser = (user: DiscordUser, isContestant: boolean) => {
+    if (!isAdmin) return;
     const newUser = { ...user, groupNumber: currentGroupSelection };
     if (isContestant) {
       setSelectedContestants((prev) => [...prev, newUser]);
@@ -155,6 +161,7 @@ export default function RoundDetailPage() {
   };
 
   const handleRemoveUser = (idUser: number, isContestant: boolean) => {
+    if (!isAdmin) return;
     if (isContestant) {
       setSelectedContestants((prev) => prev.filter((c) => c.idUser !== idUser));
     } else {
@@ -163,6 +170,7 @@ export default function RoundDetailPage() {
   };
 
   const handleSelectAllFiltered = (isContestant: boolean) => {
+    if (!isAdmin) return;
     const usersToAdd = isContestant ? availableContestants : availableJudges;
     const usersWithGroups = usersToAdd.map((u) => ({ ...u, groupNumber: currentGroupSelection }));
 
@@ -176,6 +184,7 @@ export default function RoundDetailPage() {
   };
 
   const handleAutoAssign = async () => {
+    if (!isAdmin) return;
     try {
       setIsSaving(true);
       const res = await api.post(`/rounds/${id}/auto-assign-contestants`);
@@ -193,6 +202,7 @@ export default function RoundDetailPage() {
   };
 
   const handleRandomAssign = async () => {
+    if (!isAdmin) return;
     try {
       setIsSaving(true);
       const res = await api.post(`/rounds/${id}/randomly-assign-contestants`);
@@ -210,18 +220,18 @@ export default function RoundDetailPage() {
   };
 
   const handleActiveToggle = () => {
-    if (!round) return;
+    if (!round || !isAdmin) return;
     const willBeActive = !round.active;
 
     setRound({
       ...round,
       active: willBeActive,
-      submissionsOpen: willBeActive ? round.submissionsOpen : false, // If deactivating, also close submissions
+      submissionsOpen: willBeActive ? round.submissionsOpen : false,
     });
   };
 
   const handleSubmissionsToggle = () => {
-    if (!round) return;
+    if (!round || !isAdmin) return;
 
     if (!round.active && !round.submissionsOpen) {
       toast.error("Cannot open submissions for an inactive round.", {
@@ -238,7 +248,7 @@ export default function RoundDetailPage() {
   };
 
   const handleSpecialRoundToggle = () => {
-    if (!round) return;
+    if (!round || !isAdmin) return;
 
     // Prevent changing roundd type if submissions are open
     if (round.submissionsOpen) {
@@ -256,6 +266,7 @@ export default function RoundDetailPage() {
   };
 
   const handleSave = async () => {
+    if (!isAdmin) return;
     try {
       setIsSaving(true);
       if (activeTab === "details") {
@@ -298,8 +309,10 @@ export default function RoundDetailPage() {
     setIsJudgeAppModalOpen(true);
     setSelectedJudgeApp(null); // Reset previous app data
 
+    const fullUser = allUsers.find((u) => u.idUser === user.idUser) || user;
+
     try {
-      const res = await api.get(`/judge-apps/user/${user.discordId}`);
+      const res = await api.get(`/judge-apps/user/${fullUser.discordId}`);
       if (res.status === 200 && res.data) {
         setSelectedJudgeApp(res.data);
       }
@@ -335,20 +348,29 @@ export default function RoundDetailPage() {
                 <Star className="w-3 h-3 shrink-0" /> Special
               </span>
             )}
+            {!isAdmin && (
+              <span className="bg-[#35373C] text-[#DBDEE1] text-[10px] sm:text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wider">
+                Read Only
+              </span>
+            )}
           </h1>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="w-full sm:w-auto bg-[#5865F2] hover:bg-[#4752C4] text-white px-6 py-2.5 sm:py-2 rounded-md font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 shadow-md"
-        >
-          {isSaving ? (
-            <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-          ) : (
-            <Save className="w-4 h-4 shrink-0" />
-          )}
-          Save Changes
-        </button>
+
+        {/* Only ADMINs see the save button */}
+        {isAdmin && (
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="w-full sm:w-auto bg-[#5865F2] hover:bg-[#4752C4] text-white px-6 py-2.5 sm:py-2 rounded-md font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 shadow-md"
+          >
+            {isSaving ? (
+              <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+            ) : (
+              <Save className="w-4 h-4 shrink-0" />
+            )}
+            Save Changes
+          </button>
+        )}
       </div>
 
       {/* Tabs System */}
@@ -387,13 +409,13 @@ export default function RoundDetailPage() {
                   type="number"
                   min="1"
                   value={round.roundNumber}
-                  disabled={round.active}
+                  disabled={!isAdmin || round.active}
                   onChange={(e) =>
                     setRound({ ...round, roundNumber: Math.max(1, Number(e.target.value)) })
                   }
                   className={
-                    round.active
-                      ? "w-full bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none focus:border-[#5865F2] opacity-50 cursor-not-allowed"
+                    !isAdmin || round.active
+                      ? "w-full bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none opacity-50 cursor-not-allowed"
                       : "w-full bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none focus:border-[#5865F2]"
                   }
                 />
@@ -406,13 +428,13 @@ export default function RoundDetailPage() {
                   type="number"
                   min="1"
                   value={round.groupCount}
-                  disabled={round.active}
+                  disabled={!isAdmin || round.active}
                   onChange={(e) =>
                     setRound({ ...round, groupCount: Math.max(1, Number(e.target.value)) })
                   }
                   className={
-                    round.active
-                      ? "w-full bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none focus:border-[#5865F2] opacity-50 cursor-not-allowed"
+                    !isAdmin || round.active
+                      ? "w-full bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none opacity-50 cursor-not-allowed"
                       : "w-full bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none focus:border-[#5865F2]"
                   }
                 />
@@ -424,6 +446,7 @@ export default function RoundDetailPage() {
                 <input
                   type="number"
                   min="0"
+                  disabled={!isAdmin}
                   value={
                     round.eliminationAmount || round.eliminationAmount === 0
                       ? round.eliminationAmount.toString()
@@ -438,7 +461,7 @@ export default function RoundDetailPage() {
                           : undefined,
                     })
                   }
-                  className="w-full sm:w-1/2 bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none focus:border-[#5865F2]"
+                  className={`w-full sm:w-1/2 bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none ${!isAdmin ? "opacity-50 cursor-not-allowed" : "focus:border-[#5865F2]"}`}
                 />
               </div>
             </div>
@@ -454,7 +477,8 @@ export default function RoundDetailPage() {
                 </div>
                 <button
                   onClick={handleActiveToggle}
-                  className={`shrink-0 mt-1 sm:mt-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${round.active ? "bg-[#5865F2]" : "bg-[#4E5058]"}`}
+                  disabled={!isAdmin}
+                  className={`shrink-0 mt-1 sm:mt-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${!isAdmin ? "cursor-not-allowed opacity-50" : ""} ${round.active ? "bg-[#5865F2]" : "bg-[#4E5058]"}`}
                 >
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${round.active ? "translate-x-6" : "translate-x-1"}`}
@@ -474,7 +498,8 @@ export default function RoundDetailPage() {
                 </div>
                 <button
                   onClick={handleSubmissionsToggle}
-                  className={`shrink-0 mt-1 sm:mt-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${round.submissionsOpen ? "bg-[#5865F2]" : "bg-[#4E5058]"} ${!round.active && !round.submissionsOpen ? "cursor-not-allowed" : ""}`}
+                  disabled={!isAdmin || (!round.active && !round.submissionsOpen)}
+                  className={`shrink-0 mt-1 sm:mt-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${!isAdmin || (!round.active && !round.submissionsOpen) ? "cursor-not-allowed opacity-50" : ""} ${round.submissionsOpen ? "bg-[#5865F2]" : "bg-[#4E5058]"}`}
                 >
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${round.submissionsOpen ? "translate-x-6" : "translate-x-1"}`}
@@ -496,7 +521,8 @@ export default function RoundDetailPage() {
                 </div>
                 <button
                   onClick={handleSpecialRoundToggle}
-                  className={`shrink-0 mt-1 sm:mt-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${round.specialRound ? "bg-[#E67E22]" : "bg-[#4E5058]"} ${round.submissionsOpen ? "cursor-not-allowed" : ""}`}
+                  disabled={!isAdmin || round.submissionsOpen}
+                  className={`shrink-0 mt-1 sm:mt-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${!isAdmin || round.submissionsOpen ? "cursor-not-allowed opacity-50" : ""} ${round.specialRound ? "bg-[#E67E22]" : "bg-[#4E5058]"}`}
                 >
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${round.specialRound ? "translate-x-6" : "translate-x-1"}`}
@@ -510,8 +536,8 @@ export default function RoundDetailPage() {
         {/* CONTESTANTS / JUDGES TAB (Dynamic Layout) */}
         {(activeTab === "contestants" || activeTab === "judges") && (
           <div className="space-y-6">
-            {/* Global Smart Action Banner (Only for Contestants) */}
-            {activeTab === "contestants" && (
+            {/* Global Smart Action Banner (Only for ADMIN in Contestants tab) */}
+            {isAdmin && activeTab === "contestants" && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="bg-[#5865F2]/10 border border-[#5865F2]/30 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
@@ -555,11 +581,11 @@ export default function RoundDetailPage() {
               </div>
             )}
 
-            {/* Manual Assignment: Target Group */}
+            {/* Target Group View / Selector */}
             <div className="flex flex-col gap-3 p-4 bg-[#1E1F22] rounded-lg border border-[#35373C]">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                 <label className="text-sm font-bold text-white shrink-0">
-                  Manual Assignment - Target Group:
+                  {isAdmin ? "Manual Assignment - Target Group:" : "Filter View by Group:"}
                 </label>
                 <select
                   value={currentGroupSelection}
@@ -573,16 +599,19 @@ export default function RoundDetailPage() {
                   ))}
                 </select>
               </div>
-              <span className="text-xs text-[#80848E] leading-relaxed">
-                Users selected below will be added to this specific group.
-              </span>
+              {isAdmin && (
+                <span className="text-xs text-[#80848E] leading-relaxed">
+                  Users selected below will be added to this specific group.
+                </span>
+              )}
             </div>
 
             {/* Tag Cloud (Selected Users) */}
             <div className="space-y-2">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 sm:gap-4 text-xs font-bold text-[#80848E] uppercase">
                 <label>
-                  Selected {activeTab === "contestants" ? "Contestants" : "Judges"} - Group{" "}
+                  {isAdmin ? "Selected " : "Assigned "}
+                  {activeTab === "contestants" ? "Contestants" : "Judges"} - Group{" "}
                   {currentGroupSelection}
                 </label>
                 <span>
@@ -598,20 +627,41 @@ export default function RoundDetailPage() {
 
               <div className="flex flex-wrap gap-2 p-3 min-h-12 bg-[#1E1F22] rounded-lg border border-[#1E1F22]">
                 {(activeTab === "contestants" ? currentGroupContestants : currentGroupJudges).map(
-                  (user) => (
-                    <span
-                      key={user.idUser}
-                      className="inline-flex items-center bg-[#35373C] text-[#DBDEE1] pl-2 pr-1 py-1 rounded text-sm gap-2"
-                    >
-                      {user.username}
-                      <button
-                        onClick={() => handleRemoveUser(user.idUser, activeTab === "contestants")}
-                        className="hover:text-red-400 hover:bg-red-400/10 rounded p-0.5 transition-colors"
+                  (user) => {
+                    const hasTrailingIcons = isAdmin || activeTab === "judges";
+
+                    return (
+                      <span
+                        key={user.idUser}
+                        className={`inline-flex items-center bg-[#35373C] text-[#DBDEE1] py-1 rounded text-sm gap-2 pl-2 ${
+                          hasTrailingIcons ? "pr-1" : "pr-2"
+                        }`}
                       >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ),
+                        {user.username}
+
+                        {activeTab === "judges" && (
+                          <button
+                            onClick={(e) => handleViewJudgeApp(e, user)}
+                            className="hover:text-[#5865F2] hover:bg-[#5865F2]/20 rounded p-1 transition-colors ml-1"
+                            title="View Judge App"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
+                        {isAdmin && (
+                          <button
+                            onClick={() =>
+                              handleRemoveUser(user.idUser, activeTab === "contestants")
+                            }
+                            className="hover:text-red-400 hover:bg-red-400/10 rounded p-0.5 transition-colors"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </span>
+                    );
+                  },
                 )}
                 {(activeTab === "contestants" ? currentGroupContestants : currentGroupJudges)
                   .length === 0 && (
@@ -622,8 +672,8 @@ export default function RoundDetailPage() {
               </div>
             </div>
 
-            {/* Selection List */}
-            <div className="space-y-4">
+            {/* Selection List (Visible to all, but actions restricted to ADMINs) */}
+            <div className="space-y-4 pt-4 border-t border-[#35373C]">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#80848E]" />
@@ -639,13 +689,17 @@ export default function RoundDetailPage() {
                     className="w-full bg-[#1E1F22] border-none text-white rounded-md pl-10 pr-4 py-2.5 sm:py-2 outline-none focus:ring-1 focus:ring-[#5865F2]"
                   />
                 </div>
-                <button
-                  onClick={() => handleSelectAllFiltered(activeTab === "contestants")}
-                  className="w-full sm:w-auto text-sm bg-[#35373C] sm:bg-transparent text-[#DBDEE1] sm:text-[#5865F2] hover:bg-[#4E5058] sm:hover:bg-transparent sm:hover:underline py-2.5 sm:py-0 rounded-md sm:rounded-none flex items-center justify-center gap-2 font-medium transition-colors shrink-0"
-                >
-                  <CheckSquare className="w-4 h-4" /> Select All Filtered (to G
-                  {currentGroupSelection})
-                </button>
+
+                {/* Only ADMINs can select all filtered users */}
+                {isAdmin && (
+                  <button
+                    onClick={() => handleSelectAllFiltered(activeTab === "contestants")}
+                    className="w-full sm:w-auto text-sm bg-[#35373C] sm:bg-transparent text-[#DBDEE1] sm:text-[#5865F2] hover:bg-[#4E5058] sm:hover:bg-transparent sm:hover:underline py-2.5 sm:py-0 rounded-md sm:rounded-none flex items-center justify-center gap-2 font-medium transition-colors shrink-0"
+                  >
+                    <CheckSquare className="w-4 h-4" /> Select All Filtered (to G
+                    {currentGroupSelection})
+                  </button>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-100 overflow-y-auto pr-2 custom-scrollbar">
@@ -653,8 +707,10 @@ export default function RoundDetailPage() {
                   (user) => (
                     <div
                       key={user.idUser}
-                      onClick={() => handleToggleUser(user, activeTab === "contestants")}
-                      className="flex items-center justify-between p-3 bg-[#232428] hover:bg-[#35373C] border border-[#1E1F22] rounded-lg cursor-pointer transition-colors group"
+                      onClick={() => isAdmin && handleToggleUser(user, activeTab === "contestants")}
+                      className={`flex items-center justify-between p-3 bg-[#232428] border border-[#1E1F22] rounded-lg transition-colors group ${
+                        isAdmin ? "hover:bg-[#35373C] cursor-pointer" : "cursor-default"
+                      }`}
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-[#5865F2]/20 flex items-center justify-center text-[#5865F2] text-xs font-bold">
@@ -667,13 +723,16 @@ export default function RoundDetailPage() {
                         {activeTab === "judges" && (
                           <button
                             onClick={(e) => handleViewJudgeApp(e, user)}
-                            className="p-1.5 text-[#80848E] hover:text-[#DBDEE1] hover:bg-[#4E5058] rounded transition-colors"
+                            className="p-1.5 text-[#80848E] hover:text-[#DBDEE1] hover:bg-[#4E5058] rounded transition-colors relative z-10"
                             title="View Judge App"
                           >
                             <FileText className="w-4 h-4" />
                           </button>
                         )}
-                        <UserPlus className="w-4 h-4 text-[#4E5058] group-hover:text-[#5865F2] transition-colors" />
+                        {/* Only ADMINs see the "Add" icon */}
+                        {isAdmin && (
+                          <UserPlus className="w-4 h-4 text-[#4E5058] group-hover:text-[#5865F2] transition-colors" />
+                        )}
                       </div>
                     </div>
                   ),
