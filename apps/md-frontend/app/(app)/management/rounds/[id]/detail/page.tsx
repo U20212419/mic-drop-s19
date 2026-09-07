@@ -397,19 +397,21 @@ export default function RoundAdminDetailPage() {
             return hasTrack && (isMissingScore || isMissingReview);
           }).length;
 
+          const isAlert = hasMissingSubs || (viewMode === "judge" && missingJudgementsCount > 0);
+
           return (
             <div
               key={group.name}
-              className={`bg-[#2B2D31] rounded-xl border ${hasMissingSubs || (viewMode === "judge" && missingJudgementsCount > 0) ? "border-red-500/50" : "border-[#1E1F22]"} overflow-hidden`}
+              className={`bg-[#2B2D31] rounded-xl border ${isAlert ? "border-red-500/50" : "border-[#1E1F22]"} overflow-hidden`}
             >
               {/* Card Header */}
               <button
                 onClick={() => toggleGroup(group.name)}
                 className={`w-full px-4 sm:px-5 py-4 flex justify-between items-center transition-colors gap-4 ${
-                  hasMissingSubs || (viewMode === "judge" && missingJudgementsCount > 0)
+                  isAlert
                     ? "bg-red-500/5 hover:bg-red-500/10"
                     : "bg-[#1E1F22]/30 hover:bg-[#1E1F22]/80"
-                } ${isExpanded ? "border-b border-[#1E1F22]" : ""}`}
+                }`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-left">
                   <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
@@ -458,7 +460,9 @@ export default function RoundAdminDetailPage() {
 
               {/* Submissions List */}
               {isExpanded && (
-                <div className="p-5 space-y-6">
+                <div
+                  className={`p-5 space-y-6 border-t ${isAlert ? "border-red-500/50" : "border-[#1E1F22]"}`}
+                >
                   {group.subs.map((sub) => (
                     <div
                       key={sub.idSubmission}
