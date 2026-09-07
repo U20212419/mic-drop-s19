@@ -1,6 +1,7 @@
 package com.twokb.micdrop.service;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -26,17 +27,25 @@ import com.twokb.micdrop.repository.UserRoundRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Role;
+import net.dv8tion.jda.api.entities.UserSnowflake;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class UserRoundService {
 
+	private final JDA jda;
+
 	private final UserRoundRepository userRoundRepository;
 
 	private final DiscordUserService discordUserService;
 
 	private final RoundService roundService;
+
+	private final SystemSettingService systemSettingService;
 
 	@Transactional
 	@EventListener
@@ -266,11 +275,16 @@ public class UserRoundService {
 			.toList();
 
 		// Perform deletions
-		toDelete.forEach(ur -> removeUserFromRound(ur.getUser().getIdUser(), roundNumber));
+		toDelete.forEach(ur -> {
+			removeUserFromRound(ur.getUser().getIdUser(), roundNumber);
+			updateDiscordGroupRole(ur.getUser(), null); // Remove Discord role for the
+														// user
+		});
 
 		// Perform updates
 		toUpdate.forEach(ur -> {
 			ur.setGroupNumber(targetMap.get(ur.getUser().getIdUser()));
+			updateDiscordGroupRole(ur.getUser(), targetMap.get(ur.getUser().getIdUser()));
 		});
 
 		// Perform additions
@@ -280,6 +294,13 @@ public class UserRoundService {
 			}
 			else if (userRole == UserRoleType.JUDGE) {
 				assignJudgesToRound(toAdd, roundNumber);
+			}
+
+			// Sync roles for new additions
+			List<Integer> addedUserIds = toAdd.stream().map(UserAssignmentDTO::idUser).toList();
+			List<DiscordUser> addedUsers = discordUserService.getAllUsersById(addedUserIds);
+			for (DiscordUser addedUser : addedUsers) {
+				updateDiscordGroupRole(addedUser, targetMap.get(addedUser.getIdUser()));
 			}
 		}
 	}
@@ -291,7 +312,7 @@ public class UserRoundService {
 			.orElse(1); // Default to group 1 if not assigned to any group
 	}
 
-	@Transactional
+	@Transactional(readOnly = true)
 	public RoundAssignmentsResponse autoAssignContestants(Integer idRound) {
 		var currentRound = roundService.getRound(idRound);
 
@@ -316,22 +337,18 @@ public class UserRoundService {
 			.findById_RoundIdAndId_UserIdIn(previousRound.getIdRound(), previousRoundActiveContestantIds);
 
 		// Map them to the current round
-		List<UserRound> newAssignments = previousAssignments.stream().map(prev -> {
-			var ur = new UserRound();
-			ur.setId(new UserRoundId(prev.getId().getUserId(), idRound));
-			ur.setUser(prev.getUser());
-			ur.setRound(currentRound);
-			ur.setUserRole(UserRoleType.CONTESTANT);
-			// Keep the same group number as the previous round
-			ur.setGroupNumber(prev.getGroupNumber());
-			return ur;
-		}).toList();
+		List<RoundAssignmentDTO> newContestantDTOs = previousAssignments.stream()
+			.map(prev -> new RoundAssignmentDTO(prev.getUser().getIdUser(), prev.getUser().getUsername(),
+					prev.getGroupNumber()))
+			.toList();
 
-		userRoundRepository.saveAll(newAssignments);
-		return getRoundAssignments(idRound);
+		// Fetch current judges to preserve them in the frontend preview
+		List<RoundAssignmentDTO> currentJudgeDTOs = getRoundAssignments(idRound).judges();
+
+		return new RoundAssignmentsResponse(newContestantDTOs, currentJudgeDTOs);
 	}
 
-	@Transactional
+	@Transactional(readOnly = true)
 	public RoundAssignmentsResponse randomlyAssignContestants(Integer idRound) {
 		Round round = roundService.getRound(idRound);
 
@@ -351,14 +368,74 @@ public class UserRoundService {
 
 		Collections.shuffle(activeContestantIds);
 
-		List<UserAssignmentDTO> randomAssignments = new ArrayList<>(activeContestantIds.size());
+		// Retrieve usernames to populate the preview DTOs properly
+		List<DiscordUser> activeUsers = discordUserService.getAllUsersById(activeContestantIds);
+		Map<Integer, String> usernameMap = activeUsers.stream()
+			.collect(Collectors.toMap(DiscordUser::getIdUser, DiscordUser::getUsername));
+
+		List<RoundAssignmentDTO> newContestantDTOs = new ArrayList<>(activeContestantIds.size());
 		for (int index = 0; index < activeContestantIds.size(); index++) {
 			int groupNumber = (index % round.getGroupCount()) + 1;
-			randomAssignments.add(new UserAssignmentDTO(activeContestantIds.get(index), groupNumber));
+			Integer userId = activeContestantIds.get(index);
+			newContestantDTOs.add(new RoundAssignmentDTO(userId, usernameMap.get(userId), groupNumber));
 		}
 
-		syncRole(idRound, round.getRoundNumber(), randomAssignments, UserRoleType.CONTESTANT);
-		return getRoundAssignments(idRound);
+		// Fetch current judges to preserve them in the frontend preview
+		List<RoundAssignmentDTO> currentJudgeDTOs = getRoundAssignments(idRound).judges();
+
+		return new RoundAssignmentsResponse(newContestantDTOs, currentJudgeDTOs);
+	}
+
+	private void updateDiscordGroupRole(DiscordUser user, Integer targetGroup) {
+		String guildId = systemSettingService.getSetting("guild_id").orElse("");
+		Guild guild = guildId.isEmpty() ? null : jda.getGuildById(guildId);
+
+		if (guild == null) {
+			throw new IllegalStateException("Guild with ID " + guildId + " not found.");
+		}
+
+		String rolesStr = systemSettingService.getSetting("group_roles_ids").orElse(null);
+		if (rolesStr == null || rolesStr.isBlank()) {
+			throw new IllegalStateException("Group roles are not configured in the system settings.");
+		}
+
+		List<String> roleIds = Arrays.asList(rolesStr.split(","));
+		List<Role> roles = new ArrayList<>();
+
+		for (String roleId : roleIds) {
+			String trimmedRoleId = roleId.trim();
+			Role role = guild.getRoleById(trimmedRoleId);
+
+			if (role == null) {
+				throw new IllegalArgumentException("Role with ID " + trimmedRoleId + " not found in the guild.");
+			}
+
+			roles.add(role);
+		}
+
+		Role targetRole = null;
+
+		if (targetGroup != null) {
+			if (targetGroup > 0 && targetGroup <= roles.size()) {
+				targetRole = roles.get(targetGroup - 1);
+			}
+			else {
+				throw new IllegalArgumentException(
+						"Invalid target group number: " + targetGroup + " for user " + user.getUsername() + ".");
+			}
+		}
+
+		UserSnowflake userSnowflake = UserSnowflake.fromId(user.getDiscordId());
+
+		// Remove any existing group roles first to avoid multiple roles
+		for (Role role : roles) {
+			guild.removeRoleFromMember(userSnowflake, role).queue();
+		}
+
+		// Assign the new group role
+		if (targetRole != null) {
+			guild.addRoleToMember(userSnowflake, targetRole).queue();
+		}
 	}
 
 	@Transactional(readOnly = true)
