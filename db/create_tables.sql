@@ -173,7 +173,8 @@ VALUES ('signup_message_id', 'N/A'),
 ('submission_reminder_state', ''),
 ('submission_reminder_hours', '24,12,6,1'),
 ('eliminated_role_id', ''),
-('guild_id', '');
+('guild_id', ''),
+('group_roles_ids', '');
 
 -- -----------------------------------------------------
 -- Table `refresh_tokens`
