@@ -1,5 +1,6 @@
 package com.twokb.micdrop.service;
 
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -59,6 +60,14 @@ public class SlideGeneratorService {
 	private final UserRoundService userRoundService;
 
 	private final SubmissionService submissionService;
+
+	private static final Color COLOR_GOLD = new Color(255, 223, 102);
+
+	private static final Color COLOR_GREEN = new Color(119, 221, 119);
+
+	private static final Color COLOR_RED = new Color(255, 105, 97);
+
+	private static final Color COLOR_WHITE = Color.WHITE;
 
 	public byte[] generateRoundSlidesZip(Integer idRound, Integer groupNumber) {
 		try {
@@ -223,6 +232,7 @@ public class SlideGeneratorService {
 			if (shape instanceof XSLFTextShape textShape) {
 				String text = textShape.getText();
 				boolean changed = false;
+				boolean isScoreField = false;
 
 				// Identify if the shape is the avatar placeholder
 				if ("{avatar}".equals(text.trim())) {
@@ -235,10 +245,19 @@ public class SlideGeneratorService {
 					if (text.contains(entry.getKey())) {
 						text = text.replace(entry.getKey(), entry.getValue());
 						changed = true;
+
+						if (entry.getKey().startsWith("{score") || entry.getKey().equals("{avg}")) {
+							isScoreField = true;
+						}
 					}
 				}
 
 				if (changed) {
+					Color specialColor = null;
+					if (isScoreField) {
+						specialColor = getScoreColor(text);
+					}
+
 					// Clear existing text runs and set the new text
 					// This preserves the original formatting
 					boolean isFirstRun = true;
@@ -246,6 +265,12 @@ public class SlideGeneratorService {
 						for (XSLFTextRun r : p.getTextRuns()) {
 							if (isFirstRun) {
 								r.setText(text);
+
+								// Apply color
+								if (specialColor != null) {
+									r.setFontColor(specialColor);
+								}
+
 								isFirstRun = false;
 							}
 							else {
@@ -372,6 +397,38 @@ public class SlideGeneratorService {
 			case "3" -> 2; // 3rd place
 			default -> 3; // Other place
 		};
+	}
+
+	private Color getScoreColor(String scoreText) {
+		if (scoreText == null || scoreText.trim().isEmpty()) {
+			return COLOR_WHITE;
+		}
+
+		String text = scoreText.trim().toUpperCase();
+
+		if (text.equals("N/A")) {
+			return COLOR_RED;
+		}
+
+		try {
+			double score = Double.parseDouble(text);
+
+			if (score == 10.0) {
+				return COLOR_GOLD;
+			}
+			else if (score >= 9.0) {
+				return COLOR_GREEN;
+			}
+			else if (score > 3.0) {
+				return COLOR_WHITE;
+			}
+			else {
+				return COLOR_RED;
+			}
+		}
+		catch (NumberFormatException e) {
+			return COLOR_WHITE; // Default color for unrecognized score formats
+		}
 	}
 
 }
