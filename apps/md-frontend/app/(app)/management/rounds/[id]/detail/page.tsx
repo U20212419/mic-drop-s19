@@ -384,19 +384,29 @@ export default function RoundAdminDetailPage() {
       {/* Main Content */}
       <div className="space-y-8">
         {groupedData.map((group) => {
-          const hasMissingSubs = viewMode === "contestant" && group.subs.some((s) => !s.subLink);
+          const hasMissingSubs =
+            viewMode === "contestant" &&
+            group.subs.some((s) => !s.subLink || s.subLink.trim() === "");
           const isExpanded = expandedGroups[group.name] ?? false;
+
+          const missingJudgementsCount = group.subs.filter((sub) => {
+            const hasTrack = sub.subLink && sub.subLink.trim() !== "";
+            const isMissingScore =
+              sub.score === null || sub.score === undefined || String(sub.score) === "";
+            const isMissingReview = !sub.review || sub.review.trim() === "";
+            return hasTrack && (isMissingScore || isMissingReview);
+          }).length;
 
           return (
             <div
               key={group.name}
-              className={`bg-[#2B2D31] rounded-xl border ${hasMissingSubs ? "border-red-500/50" : "border-[#1E1F22]"} overflow-hidden`}
+              className={`bg-[#2B2D31] rounded-xl border ${hasMissingSubs || (viewMode === "judge" && missingJudgementsCount > 0) ? "border-red-500/50" : "border-[#1E1F22]"} overflow-hidden`}
             >
               {/* Card Header */}
               <button
                 onClick={() => toggleGroup(group.name)}
                 className={`w-full px-4 sm:px-5 py-4 flex justify-between items-center transition-colors gap-4 ${
-                  hasMissingSubs
+                  hasMissingSubs || (viewMode === "judge" && missingJudgementsCount > 0)
                     ? "bg-red-500/5 hover:bg-red-500/10"
                     : "bg-[#1E1F22]/30 hover:bg-[#1E1F22]/80"
                 } ${isExpanded ? "border-b border-[#1E1F22]" : ""}`}
@@ -420,6 +430,15 @@ export default function RoundAdminDetailPage() {
                       <span className="bg-red-500/20 text-red-400 text-[10px] sm:text-xs font-bold px-2 py-1 rounded flex items-center gap-1 shadow-sm shrink-0">
                         <AlertCircle className="w-3 h-3 shrink-0" />
                         <span className="sm:inline">Missing Submissions</span>
+                      </span>
+                    )}
+                    {viewMode === "judge" && missingJudgementsCount > 0 && (
+                      <span className="bg-red-500/20 text-red-400 text-[10px] sm:text-xs font-bold px-2 py-1 rounded flex items-center gap-1 shadow-sm shrink-0">
+                        <AlertCircle className="w-3 h-3 shrink-0" />
+                        <span className="sm:inline">
+                          Missing {missingJudgementsCount} Judgement
+                          {missingJudgementsCount !== 1 ? "s" : ""}
+                        </span>
                       </span>
                     )}
                   </div>
