@@ -145,9 +145,7 @@ export default function RoundDetailPage() {
   }, [selectedContestants, currentGroupSelection]);
 
   const currentGroupJudges = useMemo(() => {
-    return selectedJudges
-      .filter((j) => (j.groupNumber || 1) === currentGroupSelection)
-      .sort((a, b) => a.username.localeCompare(b.username));
+    return selectedJudges.filter((j) => (j.groupNumber || 1) === currentGroupSelection);
   }, [selectedJudges, currentGroupSelection]);
 
   const handleToggleUser = (user: DiscordUser, isContestant: boolean) => {
@@ -158,6 +156,38 @@ export default function RoundDetailPage() {
     } else {
       setSelectedJudges((prev) => [...prev, newUser]);
     }
+  };
+
+  const moveUserOrder = (idUser: number, direction: -1 | 1, isContestant: boolean) => {
+    if (!isAdmin) return;
+
+    const setter = isContestant ? setSelectedContestants : setSelectedJudges;
+
+    setter((prev) => {
+      // Filter the users that aren't in the current group to know the relative index
+      const groupUsers = prev.filter((u) => (u.groupNumber || 1) === currentGroupSelection);
+      const currentIndexInGroup = groupUsers.findIndex((u) => u.idUser === idUser);
+
+      if (currentIndexInGroup < 0) return prev;
+      const targetIndexInGroup = currentIndexInGroup + direction;
+
+      // Avoid overflowing the bounds of the group
+      if (targetIndexInGroup < 0 || targetIndexInGroup >= groupUsers.length) return prev;
+
+      const targetIdUser = groupUsers[targetIndexInGroup].idUser;
+
+      // Find the absolute indexes in the original array
+      const absoluteCurrentIndex = prev.findIndex((u) => u.idUser === idUser);
+      const absoluteTargetIndex = prev.findIndex((u) => u.idUser === targetIdUser);
+
+      // Swap positions
+      const newArr = [...prev];
+      const temp = newArr[absoluteCurrentIndex];
+      newArr[absoluteCurrentIndex] = newArr[absoluteTargetIndex];
+      newArr[absoluteTargetIndex] = temp;
+
+      return newArr;
+    });
   };
 
   const handleRemoveUser = (idUser: number, isContestant: boolean) => {
@@ -627,7 +657,7 @@ export default function RoundDetailPage() {
 
               <div className="flex flex-wrap gap-2 p-3 min-h-12 bg-[#1E1F22] rounded-lg border border-[#1E1F22]">
                 {(activeTab === "contestants" ? currentGroupContestants : currentGroupJudges).map(
-                  (user) => {
+                  (user, index, array) => {
                     const hasTrailingIcons = isAdmin || activeTab === "judges";
 
                     return (
@@ -637,6 +667,32 @@ export default function RoundDetailPage() {
                           hasTrailingIcons ? "pr-1" : "pr-2"
                         }`}
                       >
+                        {isAdmin && activeTab === "judges" && (
+                          <div className="flex items-center gap-0.5 mr-1 border-r border-[#4E5058] pr-1.5">
+                            <button
+                              onClick={() => moveUserOrder(user.idUser, -1, false)}
+                              disabled={index === 0}
+                              className="text-[#80848E] hover:text-[#DBDEE1] disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              <ChevronLeft className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => moveUserOrder(user.idUser, 1, false)}
+                              disabled={index === array.length - 1}
+                              className="text-[#80848E] hover:text-[#DBDEE1] disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              {/* Reutilizando ChevronLeft invertido para la derecha */}
+                              <ChevronLeft className="w-3.5 h-3.5 rotate-180" />
+                            </button>
+                          </div>
+                        )}
+
+                        {activeTab === "judges" && (
+                          <span className="text-[10px] bg-[#1E1F22] text-[#80848E] px-1.5 py-0.5 rounded font-mono">
+                            {index + 1}
+                          </span>
+                        )}
+
                         {user.username}
 
                         {activeTab === "judges" && (

@@ -303,6 +303,24 @@ public class UserRoundService {
 				updateDiscordGroupRole(addedUser, targetMap.get(addedUser.getIdUser()));
 			}
 		}
+
+		// Assign an order to the judge. The order of the array targetAssignments
+		// determines the order of the judges.
+		if (userRole == UserRoleType.JUDGE) {
+			Map<Integer, List<UserAssignmentDTO>> judgesByGroup = targetAssignments.stream()
+				.collect(Collectors.groupingBy(UserAssignmentDTO::groupNumber));
+
+			for (List<UserAssignmentDTO> groupJudges : judgesByGroup.values()) {
+				for (int i = 0; i < groupJudges.size(); i++) {
+					UserAssignmentDTO dto = groupJudges.get(i);
+					UserRound ur = userRoundRepository.findById(new UserRoundId(dto.idUser(), idRound)).orElse(null);
+					if (ur != null) {
+						ur.setSortOrder(i);
+						userRoundRepository.save(ur);
+					}
+				}
+			}
+		}
 	}
 
 	@Transactional(readOnly = true)
