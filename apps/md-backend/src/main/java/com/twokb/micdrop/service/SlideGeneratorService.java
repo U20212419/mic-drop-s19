@@ -84,15 +84,14 @@ public class SlideGeneratorService {
 				throw new IllegalStateException("Statuses must be calculated before generating slides.");
 			}
 
-			List<DiscordUser> judges = userRoundService
+			// Order judges by field sortOrder to ensure judge X is always the same person
+			// and is in a specific order
+			List<DiscordUser> sortedJudges = userRoundService
 				.getUsersByRoundIdAndRoleAndGroupNumber(idRound, groupNumber, UserRoleType.JUDGE.name().toLowerCase())
 				.stream()
+				.sorted(Comparator.comparing(ur -> ur.getSortOrder() == null ? 999 : ur.getSortOrder()))
 				.map(UserRound::getUser)
 				.toList();
-
-			// Order judges by ID to ensure judge X is always the same person
-			List<DiscordUser> sortedJudges = new ArrayList<>(judges);
-			sortedJudges.sort(Comparator.comparing(DiscordUser::getIdUser));
 
 			// Calculate stats for each contestant
 			List<ContestantStat> stats = roundDetailService.getGroupStats(idRound, contestants, sortedJudges);

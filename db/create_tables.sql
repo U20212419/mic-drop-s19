@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS user_round (
 	group_number INTEGER NOT NULL,
 	placed_first BOOLEAN NOT NULL DEFAULT FALSE,
 	bonus_claimed BOOLEAN NOT NULL DEFAULT FALSE,
+	sort_order INTEGER NULL,
 	PRIMARY KEY (discord_user_id_user, round_id_round),
 	CONSTRAINT fk_user_round_discord_user
 		FOREIGN KEY (discord_user_id_user)
@@ -173,7 +174,8 @@ VALUES ('signup_message_id', 'N/A'),
 ('submission_reminder_state', ''),
 ('submission_reminder_hours', '24,12,6,1'),
 ('eliminated_role_id', ''),
-('guild_id', '');
+('guild_id', ''),
+('group_roles_ids', '');
 
 -- -----------------------------------------------------
 -- Table `refresh_tokens`

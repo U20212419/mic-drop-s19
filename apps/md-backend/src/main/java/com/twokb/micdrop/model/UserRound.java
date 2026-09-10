@@ -41,4 +41,7 @@ public class UserRound {
 	@Column(name = "bonus_claimed", nullable = false)
 	private Boolean bonusClaimed = false;
 
+	@Column(name = "sort_order")
+	private Integer sortOrder;
+
 }
