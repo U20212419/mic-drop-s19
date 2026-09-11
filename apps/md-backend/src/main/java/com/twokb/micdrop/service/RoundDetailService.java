@@ -270,10 +270,11 @@ public class RoundDetailService {
 	public void applyStatuses(Integer idRound, Integer groupNumber) {
 		List<UserRound> groupUsers = userRoundService.getUsersByRoundIdAndGroupNumber(idRound, groupNumber);
 
-		List<DiscordUser> contestants = groupUsers.stream()
+		List<UserRound> contestantUserRounds = groupUsers.stream()
 			.filter(ur -> ur.getUserRole() == UserRoleType.CONTESTANT)
-			.map(UserRound::getUser)
 			.toList();
+
+		List<DiscordUser> contestants = contestantUserRounds.stream().map(UserRound::getUser).toList();
 
 		// Ensure preliminaryStatus are set for every contestant
 		if (contestants.stream().anyMatch(c -> c.getPreliminaryStatus() == null)) {
@@ -288,14 +289,24 @@ public class RoundDetailService {
 		// Get stats to find out who placed first
 		List<ContestantStat> activeStats = getGroupStats(idRound, contestants, judges);
 
-		// Grant 1st place bonus to the top contestant (last in the sorted list)
+		// Grant 1st place bonus to the top contestant (last in the sorted list) and
+		// remove it from all others
 		if (!activeStats.isEmpty()) {
 			DiscordUser firstPlace = activeStats.get(activeStats.size() - 1).contestant();
-			UserRound firstPlaceUr = groupUsers.stream()
-				.filter(ur -> ur.getUser().getIdUser().equals(firstPlace.getIdUser()))
-				.findFirst()
-				.orElseThrow(() -> new IllegalStateException("First place contestant UserRound info not found."));
-			firstPlaceUr.setPlacedFirst(true);
+
+			boolean firstPlaceFound = false;
+			for (UserRound ur : contestantUserRounds) {
+				if (ur.getUser().getIdUser().equals(firstPlace.getIdUser())) {
+					ur.setPlacedFirst(true);
+					firstPlaceFound = true;
+				}
+				else {
+					ur.setPlacedFirst(false);
+				}
+			}
+			if (!firstPlaceFound) {
+				throw new IllegalStateException("First place contestant UserRound info not found.");
+			}
 		}
 
 		String eliminatedRoleId = systemSettingService.getSetting("eliminated_role_id").orElse("");
