@@ -40,6 +40,11 @@ public class SubmissionService {
 	}
 
 	@Transactional(readOnly = true)
+	public List<Submission> getSubmissionsByRoundIdAndContestantIds(Integer idRound, List<Integer> idContestants) {
+		return submissionRepository.findByIdRoundAndIdContestantIn(idRound, idContestants);
+	}
+
+	@Transactional(readOnly = true)
 	public boolean hasSubmissions(String discordId) {
 		return submissionRepository.existsByContestant_User_DiscordId(discordId);
 	}

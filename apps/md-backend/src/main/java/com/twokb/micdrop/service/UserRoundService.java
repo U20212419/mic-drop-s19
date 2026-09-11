@@ -12,6 +12,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.twokb.micdrop.dto.PendingBonusDTO;
 import com.twokb.micdrop.dto.RoundAssignmentDTO;
 import com.twokb.micdrop.dto.RoundAssignmentsResponse;
 import com.twokb.micdrop.dto.UserAssignmentDTO;
@@ -503,6 +504,12 @@ public class UserRoundService {
 	@Transactional(readOnly = true)
 	public List<UserRound> getUsersByRoundIdAndGroupNumber(Integer idRound, Integer groupNumber) {
 		return userRoundRepository.findById_RoundIdAndGroupNumber(idRound, groupNumber);
+	}
+
+	@Transactional(readOnly = true)
+	public List<UserRound> getRoundsAbleToClaimBonus(String discordId) {
+		return userRoundRepository.findByUser_DiscordIdAndUserRoleAndPlacedFirstTrueAndBonusClaimedFalse(discordId,
+				"contestant");
 	}
 
 }

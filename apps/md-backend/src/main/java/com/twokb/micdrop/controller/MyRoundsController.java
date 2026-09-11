@@ -13,7 +13,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.twokb.micdrop.dto.ClaimableSongDTO;
 import com.twokb.micdrop.dto.CollectionItemResponse;
+import com.twokb.micdrop.dto.PendingBonusDTO;
 import com.twokb.micdrop.dto.myRounds.BatchScoreRequest;
 import com.twokb.micdrop.dto.myRounds.BatchSubmissionRequest;
 import com.twokb.micdrop.dto.myRounds.ContestantRoundDetailDTO;
@@ -75,6 +77,19 @@ public class MyRoundsController {
 			Principal principal) {
 		myRoundsService.claimFirstPlaceBonus(idRound, principal.getName(), subLink);
 		return ResponseEntity.ok().build();
+	}
+
+	@GetMapping("/pending-bonuses")
+	@PreAuthorize("isAuthenticated()")
+	public ResponseEntity<List<PendingBonusDTO>> getPendingBonuses(Principal principal) {
+		return ResponseEntity.ok(myRoundsService.getPendingBonuses(principal.getName()));
+	}
+
+	@GetMapping("/{idRound}/claimable-songs")
+	@PreAuthorize("isAuthenticated()")
+	public ResponseEntity<List<ClaimableSongDTO>> getClaimableSongs(@PathVariable Integer idRound,
+			Principal principal) {
+		return ResponseEntity.ok(myRoundsService.getClaimableSongs(idRound, principal.getName()));
 	}
 
 }

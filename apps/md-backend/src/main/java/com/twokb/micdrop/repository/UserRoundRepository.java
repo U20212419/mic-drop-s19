@@ -77,4 +77,15 @@ public interface UserRoundRepository extends JpaRepository<UserRound, UserRoundI
 
 	List<UserRound> findById_RoundIdAndGroupNumber(Integer idRound, Integer groupNumber);
 
+	@Query(value = """
+			SELECT ur.* FROM user_round ur
+			JOIN discord_user du ON du.id_user = ur.discord_user_id_user
+			WHERE du.discord_id = :discordId
+			AND ur.user_role = CAST(:userRoleStr AS user_role_type)
+			AND ur.placed_first = true
+			AND ur.bonus_claimed = false
+			""", nativeQuery = true)
+	List<UserRound> findByUser_DiscordIdAndUserRoleAndPlacedFirstTrueAndBonusClaimedFalse(
+			@Param("discordId") String discordId, @Param("userRoleStr") String userRoleStr);
+
 }
