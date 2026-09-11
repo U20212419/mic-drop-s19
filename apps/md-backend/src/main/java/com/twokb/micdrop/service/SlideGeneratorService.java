@@ -13,13 +13,14 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
@@ -27,7 +28,6 @@ import java.util.zip.ZipOutputStream;
 
 import javax.imageio.ImageIO;
 
-import org.apache.poi.sl.usermodel.PaintStyle;
 import org.apache.poi.sl.usermodel.PictureData;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.apache.poi.xslf.usermodel.XSLFPictureData;
@@ -109,6 +109,26 @@ public class SlideGeneratorService {
 
 			stats.addAll(didNotSubmitStats);
 
+			List<Integer> contestantIds = contestants.stream().map(DiscordUser::getIdUser).toList();
+			List<Submission> allGroupSubmissions = submissionService.getSubmissionsByRoundIdAndContestantIds(idRound,
+					contestantIds);
+
+			Map<Integer, List<Submission>> subsByContestant = allGroupSubmissions.stream()
+				.collect(Collectors.groupingBy(s -> s.getContestant().getId().getUserId()));
+
+			// Download and process avatars concurrently to improve performance
+			Map<Integer, byte[]> avatarCache = new ConcurrentHashMap<>();
+			List<java.util.concurrent.CompletableFuture<Void>> avatarTasks = stats.stream()
+				.map(stat -> java.util.concurrent.CompletableFuture.runAsync(() -> {
+					byte[] avatarBytes = getCircularAvatarBytes(stat.contestant());
+					if (avatarBytes != null) {
+						avatarCache.put(stat.contestant().getIdUser(), avatarBytes);
+					}
+				}))
+				.toList();
+
+			CompletableFuture.allOf(avatarTasks.toArray(new java.util.concurrent.CompletableFuture[0])).join();
+
 			// Generate PPTX and PNG in memory
 			ByteArrayOutputStream zipBaos = new ByteArrayOutputStream();
 			try (ZipOutputStream zos = new ZipOutputStream(zipBaos)) {
@@ -127,9 +147,12 @@ public class SlideGeneratorService {
 								? "DNS" : String.valueOf(i + 1);
 
 						// Get the submissions for the contestant
-						List<Submission> subs = submissionService.getByRoundIdAndContestantIdAndJudgeIds(idRound,
-								stat.contestant().getIdUser(),
-								sortedJudges.stream().map(DiscordUser::getIdUser).toList());
+						List<Integer> judgeIds = sortedJudges.stream().map(DiscordUser::getIdUser).toList();
+						List<Submission> subs = subsByContestant
+							.getOrDefault(stat.contestant().getIdUser(), Collections.emptyList())
+							.stream()
+							.filter(s -> judgeIds.contains(s.getIdJudge()))
+							.toList();
 
 						String safeUsername = stat.contestant().getUsername().replaceAll("[^a-zA-Z0-9.-]", "_");
 						String filePrefix = rank.equals("DNS") ? String.format("DNS_%s", safeUsername)
@@ -146,7 +169,7 @@ public class SlideGeneratorService {
 						newSlide.importContent(templateSlide);
 
 						// Replace placeholders in the new slide
-						replacePlaceholders(combinedPpt, newSlide, rank, stat, sortedJudges, subs);
+						replacePlaceholders(combinedPpt, newSlide, rank, stat, sortedJudges, subs, avatarCache);
 
 						// Convert the slide to PNG
 						Dimension pgSize = combinedPpt.getPageSize();
@@ -192,7 +215,7 @@ public class SlideGeneratorService {
 	}
 
 	private void replacePlaceholders(XMLSlideShow ppt, XSLFSlide slide, String rank, ContestantStat stat,
-			List<DiscordUser> judges, List<Submission> subs) {
+			List<DiscordUser> judges, List<Submission> subs, Map<Integer, byte[]> avatarCache) {
 		Map<String, String> rep = new HashMap<>();
 		rep.put(rank != "DNS" ? "{p}" : "#{p}", rank);
 		rep.put("{name}", stat.contestant().getUsername());
@@ -284,7 +307,7 @@ public class SlideGeneratorService {
 		// Process the avatar replacement outside the text replacement loop to avoid
 		// concurrent modification issues
 		if (avatarPlaceholder != null && avatarAnchor != null) {
-			byte[] circularAvatarBytes = getCircularAvatarBytes(stat.contestant());
+			byte[] circularAvatarBytes = avatarCache.get(stat.contestant().getIdUser());
 			if (circularAvatarBytes != null) {
 				// Add the image to the slide
 				XSLFPictureData pictureData = ppt.addPicture(circularAvatarBytes, PictureData.PictureType.PNG);

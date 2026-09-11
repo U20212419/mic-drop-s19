@@ -208,6 +208,7 @@ export default function RoundAdminDetailPage() {
           groupNumber: selectedGroup,
         },
         responseType: "blob",
+        timeout: 180000, // 3 minutes timeout for heavy workloads
       });
 
       // Create a temporary URL for the blob and trigger the download
