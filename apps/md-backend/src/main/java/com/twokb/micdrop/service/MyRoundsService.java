@@ -11,8 +11,10 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.twokb.micdrop.dto.ClaimableSongDTO;
 import com.twokb.micdrop.dto.CollectionItemResponse;
 import com.twokb.micdrop.dto.JudgeAppDTO;
+import com.twokb.micdrop.dto.PendingBonusDTO;
 import com.twokb.micdrop.dto.myRounds.BatchScoreRequest;
 import com.twokb.micdrop.dto.myRounds.BatchSubmissionRequest;
 import com.twokb.micdrop.dto.myRounds.ContestantRoundDetailDTO;
@@ -265,9 +267,13 @@ public class MyRoundsService {
 		DiscordUser contestant = discordUserService.getUserByDiscordId(discordId);
 		UserRound ur = userRoundService.getUserRoundByRoundIdAndDiscordId(idRound, discordId);
 
-		if (!ur.getPlacedFirst() || ur.getBonusClaimed()) {
+		if (!ur.getPlacedFirst()) {
 			throw new IllegalStateException(
-					"You are not eligible to claim the first place bonus for this round or have already claimed it.");
+					"You did not place first in this round and cannot claim the first place bonus.");
+		}
+
+		if (ur.getBonusClaimed()) {
+			throw new IllegalStateException("You have already claimed the first place bonus for this round.");
 		}
 
 		// Get the data for the song to be added to the collection
@@ -278,6 +284,52 @@ public class MyRoundsService {
 		collectionItemService.addToCollection(contestant, subLink, ref.getTitle(), ref.getArtist());
 
 		ur.setBonusClaimed(true);
+	}
+
+	@Transactional(readOnly = true)
+	public List<PendingBonusDTO> getPendingBonuses(String discordId) {
+		Round activeRound;
+		try {
+			activeRound = roundService.getActiveRound();
+		}
+		catch (IllegalStateException e) {
+			return List.of(); // If there isn't an active round, bonuses can't be claimed
+		}
+
+		int activeNum = activeRound.getRoundNumber();
+
+		// Search all the active rounds where the user placed first and hasn't claimed the
+		// bonus yet
+		return userRoundService.getRoundsAbleToClaimBonus(discordId).stream().filter(ur -> {
+			int wonRoundNum = ur.getRound().getRoundNumber();
+			// Claimable if the contestant won in the current round or the immediately
+			// previous round
+			return wonRoundNum == activeNum || wonRoundNum == (activeNum - 1);
+		}).map(ur -> new PendingBonusDTO(ur.getId().getRoundId(), ur.getRound().getRoundNumber())).toList();
+	}
+
+	@Transactional(readOnly = true)
+	public List<ClaimableSongDTO> getClaimableSongs(Integer idRound, String discordId) {
+		UserRound ur = userRoundService.getUserRoundByRoundIdAndDiscordId(idRound, discordId);
+		Integer groupNumber = ur.getGroupNumber();
+
+		List<Integer> groupContestantIds = userRoundService
+			.getUsersByRoundIdAndRoleAndGroupNumber(idRound, groupNumber, "contestant")
+			.stream()
+			.map(u -> u.getUser().getIdUser())
+			.toList();
+
+		List<Submission> groupSubmissions = submissionService.getSubmissionsByRoundIdAndContestantIds(idRound,
+				groupContestantIds);
+
+		// Exclude the songs that the contestant submitted themselves
+		return groupSubmissions.stream()
+			.filter(sub -> !sub.getContestant().getUser().getDiscordId().equals(discordId))
+			.map(sub -> new ClaimableSongDTO(sub.getSubLink(),
+					sub.getTitle() != null ? sub.getTitle() : "Unknown Title",
+					sub.getArtist() != null ? sub.getArtist() : "Unknown Artist",
+					sub.getContestant().getUser().getUsername()))
+			.toList();
 	}
 
 }

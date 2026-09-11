@@ -41,4 +41,6 @@ public interface SubmissionRepository extends JpaRepository<Submission, Integer>
 
 	Optional<Submission> findFirstBySubLink(String subLink);
 
+	List<Submission> findByIdRoundAndIdContestantIn(Integer idRound, List<Integer> idContestants);
+
 }
