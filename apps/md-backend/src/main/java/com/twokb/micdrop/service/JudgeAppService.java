@@ -9,6 +9,7 @@ import com.twokb.micdrop.dto.JudgeAppDTO;
 import com.twokb.micdrop.exception.NotFoundException;
 import com.twokb.micdrop.model.DiscordUser;
 import com.twokb.micdrop.model.JudgeApp;
+import com.twokb.micdrop.model.UserRoleType;
 import com.twokb.micdrop.repository.JudgeAppRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,10 @@ import lombok.RequiredArgsConstructor;
 public class JudgeAppService {
 
 	private final DiscordUserService discordUserService;
+
+	private final RoundService roundService;
+
+	private final UserRoundService userRoundService;
 
 	private final JudgeAppRepository judgeAppRepository;
 
@@ -39,6 +44,33 @@ public class JudgeAppService {
 		JudgeApp app = user.getJudgeApp();
 		if (app == null) {
 			app = new JudgeApp();
+		}
+		else {
+			// Don't allow updates if the user is assigned to the current active round
+			try {
+				var activeRound = roundService.getActiveRound();
+
+				try {
+					var userRound = userRoundService.getUserRoundByRoundIdAndDiscordId(activeRound.getIdRound(),
+							discordId);
+
+					if (userRound.getUserRole() == UserRoleType.JUDGE) {
+						throw new IllegalStateException(
+								"Cannot update judge application while assigned as a judge to the current active round.");
+					}
+				}
+				catch (IllegalArgumentException e) {
+					// If the user is not assigned to the active round, we can proceed
+					// with the update
+				}
+			}
+			catch (IllegalStateException e) {
+				// If there is no active round, we can proceed with the update
+				if (e.getMessage()
+					.equals("Cannot update judge application while assigned as a judge to the current active round.")) {
+					throw e;
+				}
+			}
 		}
 
 		app.setFavArtists(dto.favArtists());
