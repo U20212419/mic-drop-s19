@@ -21,6 +21,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
@@ -118,23 +120,30 @@ public class SlideGeneratorService {
 
 			// Download and process avatars concurrently to improve performance
 			Map<Integer, byte[]> avatarCache = new ConcurrentHashMap<>();
+			ExecutorService avatarExecutor = Executors.newFixedThreadPool(30);
 			List<java.util.concurrent.CompletableFuture<Void>> avatarTasks = stats.stream()
 				.map(stat -> java.util.concurrent.CompletableFuture.runAsync(() -> {
 					byte[] avatarBytes = getCircularAvatarBytes(stat.contestant());
 					if (avatarBytes != null) {
 						avatarCache.put(stat.contestant().getIdUser(), avatarBytes);
 					}
-				}))
+				}, avatarExecutor))
 				.toList();
 
-			CompletableFuture.allOf(avatarTasks.toArray(new java.util.concurrent.CompletableFuture[0])).join();
+			log.info("Downloading and processing avatars for {} contestants concurrently.", stats.size());
+			CompletableFuture.allOf(avatarTasks.toArray(new CompletableFuture[0])).join();
+			avatarExecutor.shutdown();
+			log.info("Completed downloading and processing avatars for all contestants.");
 
 			// Generate PPTX and PNG in memory
 			ByteArrayOutputStream zipBaos = new ByteArrayOutputStream();
 			try (ZipOutputStream zos = new ZipOutputStream(zipBaos)) {
 				// Choose the master template based on the number of judges
 				String suffix = sortedJudges.size() == 4 ? "_4j.pptx" : "_3j.pptx";
-				String masterTemplateName = "master_templates" + suffix;
+				String masterTemplateName = "master_templates" + suffix;´
+
+				// Force font fallback to SansSerif to avoid missing font issues in Apache POI
+				System.setProperty("org.apache.poi.sl.draw.font.fallback", "SansSerif");
 
 				// Load the master template
 				try (InputStream is = new ClassPathResource("templates/" + masterTemplateName).getInputStream();
@@ -179,10 +188,12 @@ public class SlideGeneratorService {
 						graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 						graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 						graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
-								RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB);
-						graphics.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS,
-								RenderingHints.VALUE_FRACTIONALMETRICS_ON);
+								RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
+						if ((i + 1) % 10 == 0 || i == 0) {
+							log.info("Processing slide {} of {} ({}%)", i + 1, stats.size(),
+									((i + 1) * 100) / stats.size());
+						}
 						newSlide.draw(graphics);
 
 						// Add the PNG to the ZIP
@@ -190,6 +201,8 @@ public class SlideGeneratorService {
 						ImageIO.write(img, "png", zos);
 						zos.closeEntry();
 					}
+
+					log.info("Completed generating slides for all contestants. Total slides: {}", stats.size());
 
 					// Delete the original template slides from the combined PPTX to keep
 					// only the generated slides
@@ -400,7 +413,7 @@ public class SlideGeneratorService {
 			return baos.toByteArray();
 		}
 		catch (Exception e) {
-			log.error("Failed to load or process avatar for user: " + user.getIdUser(), e);
+			log.warn("Could not process avatar for user {}: {}", user.getIdUser(), e.getMessage());
 			return null;
 		}
 	}
