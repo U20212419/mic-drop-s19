@@ -140,9 +140,10 @@ public class SlideGeneratorService {
 			try (ZipOutputStream zos = new ZipOutputStream(zipBaos)) {
 				// Choose the master template based on the number of judges
 				String suffix = sortedJudges.size() == 4 ? "_4j.pptx" : "_3j.pptx";
-				String masterTemplateName = "master_templates" + suffix;´
+				String masterTemplateName = "master_templates" + suffix;
 
-				// Force font fallback to SansSerif to avoid missing font issues in Apache POI
+				// Force font fallback to SansSerif to avoid missing font issues in Apache
+				// POI
 				System.setProperty("org.apache.poi.sl.draw.font.fallback", "SansSerif");
 
 				// Load the master template
