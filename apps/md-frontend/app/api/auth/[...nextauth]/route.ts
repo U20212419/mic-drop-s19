@@ -41,7 +41,7 @@ export const authOptions: NextAuthOptions = {
 
         // For the main app, verify the user with the backend API
         try {
-          await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/verify`, {
+          await axios.post(`${process.env.API_BASE_URL}/api/auth/verify`, {
             discordId: discordProfile.id,
             username: discordProfile.username,
             avatar: discordProfile.avatar,
@@ -71,7 +71,7 @@ export const authOptions: NextAuthOptions = {
 
         try {
           // Verify the user with the backend API and fetch their role
-          const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}${endpoint}`, {
+          const res = await axios.post(`${process.env.API_BASE_URL}/api${endpoint}`, {
             discordId: discordProfile.id,
             username: discordProfile.username,
             avatar: discordProfile.avatar,
@@ -112,7 +112,7 @@ export const authOptions: NextAuthOptions = {
 
       // Token has expired, attempt to refresh it
       try {
-        const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/refresh`, {
+        const res = await axios.post(`${process.env.API_BASE_URL}/api/auth/refresh`, {
           refreshToken: token.refreshToken,
         });
 

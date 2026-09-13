@@ -10,17 +10,29 @@ const cspHeader = `
   base-uri 'self';
   form-action 'self';
   frame-ancestors 'none';
-  connect-src 'self' https://*.applicationinsights.azure.com https://dc.services.visualstudio.com ${process.env.NEXT_PUBLIC_API_BASE_URL}/;
+  connect-src 'self' https://*.applicationinsights.azure.com https://dc.services.visualstudio.com;
 `;
 
 const nextConfig: NextConfig = {
   async rewrites() {
-    return [
-      {
-        source: "/ingest/telemetry",
-        destination: `${process.env.NEXT_PUBLIC_APPINSIGHTS_INGEST_URL}/v2/track`,
-      },
-    ];
+    return {
+      // 'afterFiles' rewrites are applied after all other rewrites, allowing us to mask the backend API URL and the App Insights ingestion endpoint
+      afterFiles: [
+        {
+          source: "/ingest/telemetry",
+          destination: `${process.env.NEXT_PUBLIC_APPINSIGHTS_INGEST_URL}/v2/track`,
+        },
+      ],
+      // 'fallback' rewrites are applied if no other rewrites match, allowing us to mask the backend API URL
+      // This ensures NextAuth handles its own routes first, and only rewrites to the backend API if no other route matches
+      fallback: [
+        {
+          // Mask the backend API URL to avoid exposing it to the frontend
+          source: "/api/:path*",
+          destination: `${process.env.API_BASE_URL}/api/:path*`,
+        },
+      ],
+    };
   },
   async headers() {
     return [
