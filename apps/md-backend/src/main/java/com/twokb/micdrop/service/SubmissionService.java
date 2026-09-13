@@ -84,6 +84,13 @@ public class SubmissionService {
 		sub.setTitle(title);
 		sub.setArtist(artist);
 
+		// If the staff removes the link from a submission, the score and review should be
+		// cleared as well
+		if (subLink == null || subLink.isBlank()) {
+			sub.setScore(null);
+			sub.setReview(null);
+		}
+
 		return submissionRepository.save(sub);
 	}
 

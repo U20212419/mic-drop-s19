@@ -10,6 +10,7 @@ interface FormTextareaProps {
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   required?: boolean;
   placeholder?: string;
+  disabled?: boolean;
 }
 
 export function FormTextarea({
@@ -20,6 +21,7 @@ export function FormTextarea({
   onChange,
   required = false,
   placeholder = "",
+  disabled = false,
 }: FormTextareaProps) {
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -48,6 +50,7 @@ export function FormTextarea({
         name={name}
         value={value}
         ref={textAreaRef}
+        disabled={disabled}
         onChange={handleInput}
         placeholder={placeholder}
         maxLength={5000}
