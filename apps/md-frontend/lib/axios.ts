@@ -1,6 +1,7 @@
 import axios, { AxiosError } from "axios";
 import { getSession, signOut } from "next-auth/react";
 import { toast } from "sonner";
+import { appInsights } from "./appInsights";
 
 export interface ServerErrorResponse {
   timestamp: string; // ISO 8601 format
@@ -170,6 +171,21 @@ api.interceptors.response.use(
 
       const { message, traceId } = errorData as ServerErrorResponse;
 
+      (error as any).traceId = traceId;
+
+      if (appInsights) {
+        appInsights.trackException({
+          error: new Error(`Server error: ${message} (Trace ID: ${traceId})`),
+          severityLevel: 3, // Error
+          properties: {
+            url: error.config?.url || "unknown",
+            method: error.config?.method || "unknown",
+            status: error.response?.status || "unknown",
+            traceId: traceId || "unknown",
+          },
+        });
+      }
+
       toast.error("Server error.", {
         description: `${message} (Trace ID: ${traceId})`,
         duration: 6000,
@@ -178,6 +194,19 @@ api.interceptors.response.use(
 
       console.error(`Server error: ${message} (Trace ID: ${traceId})`);
     } else if (error.code === "ERR_NETWORK") {
+      if (appInsights) {
+        appInsights.trackException({
+          error: new Error("Network error: Unable to connect to the server."),
+          severityLevel: 3, // Error
+          properties: {
+            url: error.config?.url || "unknown",
+            method: error.config?.method || "unknown",
+            message: error.message || "unknown",
+            reason: "Browser or network blocked the request before completion.",
+          },
+        });
+      }
+
       toast.error("Network error.", {
         description: "Unable to connect to the server. Please check your internet connection.",
         duration: 6000,
@@ -188,6 +217,17 @@ api.interceptors.response.use(
     } else {
       // Only show unexpected errors that don't have a proper server response and aren't network errors
       if (error.response?.status !== 401) {
+        if (appInsights) {
+          appInsights.trackException({
+            error: error instanceof Error ? error : new Error("Unexpected error"),
+            severityLevel: 3, // Error
+            properties: {
+              url: error.config?.url || "unknown",
+              status: error.response?.status || "unknown",
+            },
+          });
+        }
+
         toast.error("An unexpected error occurred.", {
           description: "An unexpected error occurred. Please try again later.",
           duration: 6000,

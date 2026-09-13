@@ -10,10 +10,18 @@ const cspHeader = `
   base-uri 'self';
   form-action 'self';
   frame-ancestors 'none';
-  connect-src 'self' ${process.env.NEXT_PUBLIC_API_BASE_URL}/;
+  connect-src 'self' https://*.applicationinsights.azure.com https://dc.services.visualstudio.com ${process.env.NEXT_PUBLIC_API_BASE_URL}/;
 `;
 
 const nextConfig: NextConfig = {
+  async rewrites() {
+    return [
+      {
+        source: "/ingest/telemetry",
+        destination: `${process.env.NEXT_PUBLIC_APPINSIGHTS_INGEST_URL}/v2/track`,
+      },
+    ];
+  },
   async headers() {
     return [
       {
