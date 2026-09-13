@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Lock,
   Info,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { FormTextarea } from "@/components/FormTextarea";
@@ -62,8 +63,11 @@ export default function RoundDetailPage() {
           let fetchedData = detailRes.data;
 
           const alreadySubmitted =
-            fetchedData.judges.length > 0 &&
-            fetchedData.judges.every((j: any) => j.subLink && j.subLink.trim() !== "");
+            fetchedData.hasSubmitted === true ||
+            (fetchedData.judges.length > 0 &&
+              fetchedData.judges.some(
+                (j: any) => j.idSubmission != null || (j.subLink && j.subLink.trim() !== ""),
+              ));
           setHasSubmitted(alreadySubmitted);
 
           // Load links from cache if available
@@ -389,11 +393,25 @@ export default function RoundDetailPage() {
           };
         }),
       };
-      await api.put("/my-rounds/batch-score", payload);
+      const res = await api.put("/my-rounds/batch-score", payload);
       setPersistedSubmissions(judgeData.submissions); // Update persisted submissions after successful save
-      toast.success("Scores saved successfully.", {
-        closeButton: true,
-      });
+
+      // Check if the backend reported any skipped scores
+      const { skippedCount } = res.data;
+
+      if (skippedCount > 0) {
+        toast.warning(
+          `Processed ${res.data.savedCount} scores. Skipped ${skippedCount} due to validation errors.`,
+          {
+            description: "Scores with missing links or permission issues were not processed.",
+            closeButton: true,
+          },
+        );
+      } else {
+        toast.success("Scores saved successfully.", {
+          closeButton: true,
+        });
+      }
     } catch (error: any) {
       // Error handled by interceptor
     } finally {
@@ -469,7 +487,9 @@ export default function RoundDetailPage() {
               contestantData.submissionsOpen === false
                 ? "bg-yellow-500/10 border-yellow-500/20"
                 : hasSubmitted
-                  ? "bg-green-500/10 border-green-500/20"
+                  ? contestantData.judges.every((j: any) => j.subLink && j.subLink.trim() !== "")
+                    ? "bg-green-500/10 border-green-500/20"
+                    : "bg-yellow-500/10 border-yellow-500/20"
                   : "bg-[#2B2D31] border-[#1E1F22]"
             }`}
           >
@@ -481,12 +501,24 @@ export default function RoundDetailPage() {
                 </p>
               </div>
             ) : hasSubmitted ? (
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" />
-                <p className="text-green-400/90 text-sm font-medium">
-                  You have already submitted your tracks for this round. Best of luck!
-                </p>
-              </div>
+              contestantData.judges.every(
+                (judge: any) => judge.subLink && judge.subLink.trim() !== "",
+              ) ? (
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" />
+                  <p className="text-green-400/90 text-sm font-medium">
+                    You have already submitted your tracks for this round. Best of luck!
+                  </p>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-yellow-500 shrink-0" />
+                  <p className="text-yellow-500/90 text-sm font-medium">
+                    One or more of your tracks requires a resubmission. Please check below and
+                    coordinate with your Head Judge via Discord.
+                  </p>
+                </div>
+              )
             ) : (
               <div className="flex items-center gap-2">
                 <Info className="w-5 h-5 text-[#5865F2] shrink-0" />
@@ -578,7 +610,14 @@ export default function RoundDetailPage() {
                       <div className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md px-4 py-3 flex items-center justify-between">
                         {judge.subLink ? (
                           <span className="truncate text-sm pr-4 opacity-70">{judge.subLink}</span>
+                        ) : judge.idSubmission ? (
+                          // Record exists but no link was provided means that a resubmission is required
+                          <span className="text-yellow-500/90 text-sm font-medium italic flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 shrink-0" /> Pending resubmission (send
+                            to your Head Judge via Discord DM)
+                          </span>
                         ) : (
+                          // Record doesn't exist means that the contestant never submitted before
                           <span className="text-[#80848E] text-sm italic">No link provided</span>
                         )}
                         {judge.subLink ? (
@@ -805,6 +844,9 @@ export default function RoundDetailPage() {
                   (s: any) => s.idSubmission === sub.idSubmission,
                 );
 
+                // Identify if a staff member removed the link
+                const isMissingLink = !sub.subLink || sub.subLink.trim() === "";
+
                 return (
                   <div
                     key={sub.idSubmission}
@@ -833,7 +875,12 @@ export default function RoundDetailPage() {
                         </div>
 
                         <div className="mt-3 space-y-2">
-                          {sub.subLink ? (
+                          {isMissingLink ? (
+                            <span className="text-yellow-500/90 text-sm font-medium flex items-center gap-1.5 w-fit">
+                              <AlertCircle className="w-4 h-4 shrink-0" /> Waiting for contestant to
+                              resubmit.
+                            </span>
+                          ) : (
                             <a
                               href={formatExternalUrl(sub.subLink)}
                               target="_blank"
@@ -842,10 +889,6 @@ export default function RoundDetailPage() {
                             >
                               <LinkIcon className="w-4 h-4" /> Listen to Track
                             </a>
-                          ) : (
-                            <span className="text-[#80848E] text-sm italic">
-                              No link submitted yet.
-                            </span>
                           )}
                         </div>
                       </div>
@@ -854,7 +897,9 @@ export default function RoundDetailPage() {
                         {/* Score Input Block */}
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-yellow-400/20 flex items-center justify-center">
-                            <Star className="w-4 h-4 text-yellow-400" />
+                            <Star
+                              className={`w-4 h-4 ${isMissingLink ? "text-[#80848E]" : "text-yellow-400"}`}
+                            />
                           </div>
                           <div className="flex flex-col">
                             <label className="text-[10px] text-[#80848E] font-bold uppercase mb-1">
@@ -863,9 +908,14 @@ export default function RoundDetailPage() {
                             <input
                               type="text"
                               inputMode="decimal"
-                              value={sub.score ?? ""}
+                              disabled={isMissingLink}
+                              value={isMissingLink ? "" : (sub.score ?? "")}
                               onChange={(e) => handleScoreChange(sub, e)}
-                              className="w-24 bg-[#2B2D31] border border-[#4E5058] text-white rounded px-3 py-2 outline-none focus:border-[#5865F2] font-mono text-center"
+                              className={`w-24 border text-white rounded px-3 py-2 outline-none font-mono text-center transition-colors ${
+                                isMissingLink
+                                  ? "bg-[#1E1F22] border-[#35373C] opacity-50 cursor-not-allowed"
+                                  : "bg-[#2B2D31] border-[#4E5058] focus:border-[#5865F2]"
+                              }`}
                               placeholder="--"
                             />
                           </div>
@@ -876,7 +926,7 @@ export default function RoundDetailPage() {
                           <div className="flex items-center sm:border-l border-[#35373C] sm:pl-4">
                             <label
                               className={`flex items-center gap-2 text-sm font-medium select-none ${
-                                sub.score && parseFloat(sub.score) >= 9
+                                isMissingLink || (sub.score && parseFloat(sub.score) >= 9)
                                   ? "text-[#4E5058] cursor-not-allowed"
                                   : "text-[#80848E] cursor-pointer"
                               }`}
@@ -885,10 +935,15 @@ export default function RoundDetailPage() {
                                 <input
                                   type="checkbox"
                                   checked={
-                                    (sub.hasBonus && sub.score && parseFloat(sub.score) < 9) ||
+                                    (!isMissingLink &&
+                                      sub.hasBonus &&
+                                      sub.score &&
+                                      parseFloat(sub.score) < 9) ||
                                     false
                                   }
-                                  disabled={!sub.score || parseFloat(sub.score) >= 9}
+                                  disabled={
+                                    isMissingLink || !sub.score || parseFloat(sub.score) >= 9
+                                  }
                                   onChange={(e) => handleBonusToggle(sub, e.target.checked)}
                                   className="peer opacity-0 absolute w-full h-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                                 />
@@ -917,14 +972,19 @@ export default function RoundDetailPage() {
                         name={`review-${sub.idSubmission}`}
                         label={`Review for Track #${originalIndex + 1}`}
                         sublabel="Explain why you gave this score."
-                        value={sub.review || ""}
+                        disabled={isMissingLink}
+                        value={isMissingLink ? "" : sub.review || ""}
                         onChange={(e) => handleReviewChange(sub, e)}
-                        placeholder="Write your review here..."
+                        placeholder={
+                          isMissingLink
+                            ? "Submission link is missing, cannot add review."
+                            : "Write your review here..."
+                        }
                         required={false}
                       />
 
                       {/* Visual Indicator of the appended string (Immutable UI representation) */}
-                      {sub.hasBonus && (
+                      {!isMissingLink && sub.hasBonus && (
                         <div className="mt-3 flex justify-end">
                           <span
                             className="inline-flex items-center gap-1.5 text-xs font-bold text-[#5865F2] bg-[#5865F2]/10 px-2.5 py-1.5 rounded-md border border-[#5865F2]/20 select-none cursor-default"

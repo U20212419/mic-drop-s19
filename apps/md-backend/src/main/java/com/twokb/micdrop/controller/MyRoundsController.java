@@ -17,6 +17,7 @@ import com.twokb.micdrop.dto.ClaimableSongDTO;
 import com.twokb.micdrop.dto.CollectionItemResponse;
 import com.twokb.micdrop.dto.PendingBonusDTO;
 import com.twokb.micdrop.dto.myRounds.BatchScoreRequest;
+import com.twokb.micdrop.dto.myRounds.BatchScoreResponse;
 import com.twokb.micdrop.dto.myRounds.BatchSubmissionRequest;
 import com.twokb.micdrop.dto.myRounds.ContestantRoundDetailDTO;
 import com.twokb.micdrop.dto.myRounds.JudgeRoundDetailDTO;
@@ -60,9 +61,10 @@ public class MyRoundsController {
 
 	@PutMapping("/batch-score")
 	@PreAuthorize("isAuthenticated()")
-	public ResponseEntity<Void> submitScores(@RequestBody BatchScoreRequest request, Principal principal) {
-		myRoundsService.submitScores(request, principal.getName());
-		return ResponseEntity.ok().build();
+	public ResponseEntity<BatchScoreResponse> submitScores(@RequestBody BatchScoreRequest request,
+			Principal principal) {
+		BatchScoreResponse response = myRoundsService.submitScores(request, principal.getName());
+		return ResponseEntity.ok(response);
 	}
 
 	@GetMapping("/collection")

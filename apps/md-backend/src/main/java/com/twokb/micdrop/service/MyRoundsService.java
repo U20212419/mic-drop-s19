@@ -16,6 +16,7 @@ import com.twokb.micdrop.dto.CollectionItemResponse;
 import com.twokb.micdrop.dto.JudgeAppDTO;
 import com.twokb.micdrop.dto.PendingBonusDTO;
 import com.twokb.micdrop.dto.myRounds.BatchScoreRequest;
+import com.twokb.micdrop.dto.myRounds.BatchScoreResponse;
 import com.twokb.micdrop.dto.myRounds.BatchSubmissionRequest;
 import com.twokb.micdrop.dto.myRounds.ContestantRoundDetailDTO;
 import com.twokb.micdrop.dto.myRounds.JudgeDetailDTO;
@@ -84,7 +85,7 @@ public class MyRoundsService {
 				.orElse(null);
 
 			return new JudgeDetailDTO(judgeUser.getDiscordId(), judgeUser.getUsername(), appDto,
-					sub != null ? sub.getSubLink() : "");
+					sub != null ? sub.getSubLink() : "", sub != null ? sub.getIdSubmission() : null);
 		}).toList();
 
 		return new ContestantRoundDetailDTO(idRound, myUr.getRound().getRoundNumber(), myUr.getGroupNumber(),
@@ -153,8 +154,10 @@ public class MyRoundsService {
 			Optional<Submission> existingSub = submissionService.getByRoundIdAndContestantIdAndJudgeId(
 					request.idRound(), contestant.getIdUser(), judgeUr.getUser().getIdUser());
 
-			if (existingSub.isPresent() && existingSub.get().getSubLink() != null
-					&& !existingSub.get().getSubLink().isBlank()) {
+			// If the submission record exists in the database, block resubmission
+			// completely
+			// Staff will handle any resubmission requests manually if needed
+			if (existingSub.isPresent()) {
 				throw new IllegalStateException("You have already submitted in this round. You cannot submit again.");
 			}
 		}
@@ -189,17 +192,10 @@ public class MyRoundsService {
 		for (SubmitLinkRequest slr : request.submissions()) {
 			DiscordUser judge = discordUserService.getUserByDiscordId(slr.judgeDiscordId());
 
-			Submission sub = submissionService
-				.getByRoundIdAndContestantIdAndJudgeId(request.idRound(), contestant.getIdUser(), judge.getIdUser())
-				.orElseGet(() -> {
-					Submission newSub = new Submission();
-					newSub.setIdRound(request.idRound());
-					newSub.setIdContestant(contestant.getIdUser());
-					newSub.setIdJudge(judge.getIdUser());
-					newSub.setSubmittedAt(Instant.now());
-					return newSub;
-				});
-
+			Submission sub = new Submission();
+			sub.setIdRound(request.idRound());
+			sub.setIdContestant(contestant.getIdUser());
+			sub.setIdJudge(judge.getIdUser());
 			sub.setSubLink(slr.subLink());
 			sub.setSubmittedAt(Instant.now());
 			submissionService.saveSubmission(sub);
@@ -207,16 +203,29 @@ public class MyRoundsService {
 	}
 
 	@Transactional
-	public void submitScores(BatchScoreRequest request, String judgeDiscordId) {
+	public BatchScoreResponse submitScores(BatchScoreRequest request, String judgeDiscordId) {
 		DiscordUser judge = discordUserService.getUserByDiscordId(judgeDiscordId);
 
 		BigDecimal allowedIncrement = new BigDecimal("0.25");
 
+		int savedCount = 0;
+		int skippedCount = 0;
+
 		for (SubmitScoreRequest ssr : request.scores()) {
 			Submission sub = submissionService.getById(ssr.idSubmission());
 
+			// Skip if the submission does not belong to the judge
 			if (!sub.getIdJudge().equals(judge.getIdUser())) {
-				throw new IllegalStateException("You do not have permission to score this submission.");
+				skippedCount++;
+				continue;
+			}
+
+			boolean isAttemptingToScore = ssr.score() != null || (ssr.review() != null && !ssr.review().isBlank());
+
+			// Skip if the judge is attempting to score a submission that has no link
+			if (isAttemptingToScore && (sub.getSubLink() == null || sub.getSubLink().isBlank())) {
+				skippedCount++;
+				continue;
 			}
 
 			BigDecimal score = ssr.score();
@@ -233,7 +242,14 @@ public class MyRoundsService {
 			sub.setScore(ssr.score());
 			sub.setReview(ssr.review());
 			submissionService.saveSubmission(sub);
+			savedCount++;
 		}
+
+		String message = skippedCount > 0
+				? String.format("Processed %d scores. Skipped %d due to validation errors.", savedCount, skippedCount)
+				: "All submissions processed successfully.";
+
+		return new BatchScoreResponse(savedCount, skippedCount, message);
 	}
 
 	@Transactional(readOnly = true)
