@@ -22,6 +22,8 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: "jwt",
+    maxAge: 7 * 24 * 60 * 60, // 7 days
+    updateAge: 0, // Disable automatic session updates to let the backend handle token expiration and refresh logic
   },
   pages: {
     signIn: "/",
@@ -121,6 +123,7 @@ export const authOptions: NextAuthOptions = {
           accessToken: res.data.token,
           refreshToken: res.data.refreshToken,
           accessTokenExpires: Date.now() + 25 * 60 * 1000, // Extend access token expiry
+          error: undefined, // Clear any previous errors
         };
       } catch (error: any) {
         console.error("Error refreshing access token:", error.message);
@@ -135,13 +138,16 @@ export const authOptions: NextAuthOptions = {
     },
     // Pass token data to the frontend session
     async session({ session, token }) {
+      if (token && (token as any).error) {
+        (session as any).error = (token as any).error;
+      }
+
       if (session.user) {
         session.user.discordId = token.sub as string;
         session.user.role = (token as any).role || "USER";
         session.user.status = (token as any).status || "INACTIVE";
         session.accessToken = (token as any).accessToken;
         session.user.host = (token as any).host || false;
-        session.error = (token as any).error;
       }
       return session;
     },

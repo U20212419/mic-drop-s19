@@ -16,13 +16,46 @@ const api = axios.create({
   },
 });
 
+// Variables to control simultaneous token refresh attempts
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value?: unknown) => void;
+  reject: (reason?: any) => void;
+}> = [];
+
+// Variables for duplicate request prevention mechanism
+const pendingRequests = new Map<string, Promise<any>>();
+const getRequestKey = (config: any) => {
+  if (!config) return "";
+  return `${config.method}_${config.url}_${JSON.stringify(config.params || {})}`;
+};
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+
+  failedQueue = [];
+};
+
 api.interceptors.request.use(
   async (config) => {
-    const session = await getSession();
-    const token = session?.accessToken;
+    // If the token isn't in memory, we attempt to retrieve it from the session
+    if (!api.defaults.headers.Authorization) {
+      const session = await getSession();
+      if (session?.accessToken) {
+        // Set the default Authorization header for future requests and avoid multiple calls to getSession
+        api.defaults.headers.Authorization = `Bearer ${session.accessToken}`;
+      }
+    }
 
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Inject the token into the request headers if it's available
+    if (api.defaults.headers.Authorization) {
+      config.headers.Authorization = api.defaults.headers.Authorization;
     }
 
     return config;
@@ -34,13 +67,41 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => {
+    // Remove the request from the pendingRequests map once it's completed
+    const requestKey = getRequestKey(response.config);
+    setTimeout(() => {
+      pendingRequests.delete(requestKey);
+    }, 600); // Delay to ensure the request is fully processed before removing it from the map
+
     return response;
   },
   async (error: AxiosError<ServerErrorResponse>) => {
     const originalRequest = error.config as any;
 
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+    if (!originalRequest) return Promise.reject(error);
+
+    const requestKey = getRequestKey(originalRequest);
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      pendingRequests.delete(requestKey);
+
+      // If the token is already being refreshed, queue the request and return a promise that resolves when the token is refreshed
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch((err) => {
+            return Promise.reject(err);
+          });
+      }
+
       originalRequest._retry = true;
+      isRefreshing = true;
 
       try {
         // Calling getSession triggers the NextAuth JWT callback, which will attempt to refresh the token if it's expired
@@ -57,23 +118,43 @@ api.interceptors.response.use(
           api.defaults.headers.Authorization = `Bearer ${session.accessToken}`;
 
           // Update the original request's header and retry it
+          originalRequest.headers = originalRequest.headers || {};
           originalRequest.headers.Authorization = `Bearer ${session.accessToken}`;
+
+          // Free the queue of failed requests and retry them with the new token
+          processQueue(null, session.accessToken);
+          isRefreshing = false;
+
           return api(originalRequest);
         } else {
           // Refresh failed
           throw new Error("Refresh token expired or invalid.");
         }
       } catch (refreshError) {
+        // If the refresh fails, clear the queue and sign out the user
+        processQueue(refreshError, null);
+        isRefreshing = false;
+        pendingRequests.clear();
+
         toast.error("Session expired.", {
           description: "Your session has expired. Please log in again.",
           duration: 6000,
           closeButton: true,
         });
 
-        signOut({ callbackUrl: "/" });
+        // Force logout and redirect to the home/login page, giving the user a chance to read the toast message first
+        signOut({ redirect: false });
+
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 3000);
+
         return Promise.reject(error);
       }
     }
+
+    // If the error is not a 401, or if the request has already been retried, handle it as a normal error
+    pendingRequests.delete(requestKey);
 
     if (error.response?.data) {
       let errorData = error.response.data;
@@ -120,5 +201,25 @@ api.interceptors.response.use(
     return Promise.reject(error);
   },
 );
+
+// Interceptor to prevent duplicate requests
+const originalRequestFunction = api.request;
+api.request = function (config: any) {
+  const requestKey = getRequestKey(config);
+
+  // If a request with the same key is already pending, return the existing promise
+  if (pendingRequests.has(requestKey)) {
+    return pendingRequests.get(requestKey)!;
+  }
+
+  const responsePromise = originalRequestFunction.call(this, config);
+
+  // Only deduplicate GET requests to avoid issues with non-idempotent methods
+  if (config.method?.toLowerCase() === "get") {
+    pendingRequests.set(requestKey, responsePromise);
+  }
+
+  return responsePromise;
+};
 
 export default api;

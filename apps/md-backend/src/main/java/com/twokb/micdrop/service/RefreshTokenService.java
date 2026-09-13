@@ -3,11 +3,12 @@ package com.twokb.micdrop.service;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
-import java.util.Optional;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
+import com.twokb.micdrop.exception.InvalidTokenException;
 import com.twokb.micdrop.model.RefreshToken;
 import com.twokb.micdrop.repository.RefreshTokenRepository;
 
@@ -19,6 +20,9 @@ import lombok.RequiredArgsConstructor;
 public class RefreshTokenService {
 
 	private final RefreshTokenRepository refreshTokenRepository;
+
+	public record RefreshTokenRotationResult(String discordId, String newRawRefreshToken) {
+	}
 
 	private String hashToken(String token) {
 		if (token == null || token.isBlank()) {
@@ -60,24 +64,43 @@ public class RefreshTokenService {
 		refreshToken.setDiscordId(discordId);
 		refreshToken.setTokenHash(hashedToken);
 		// Set expiry date to 7 days from now
-		refreshToken.setExpiryDate(Instant.now().plusSeconds(7 * 24 * 60 * 60));
+		refreshToken.setExpiryDate(Instant.now().plus(7, ChronoUnit.DAYS)); // Duration of
+																			// 7 days for
+																			// refresh
+																			// token
+																			// validity
 
 		refreshTokenRepository.save(refreshToken);
 
 		return rawToken; // Return the raw token to be sent to the client
 	}
 
-	public Optional<RefreshToken> verifyByRawToken(String rawToken) {
+	@Transactional
+	public RefreshTokenRotationResult rotateRefreshToken(String rawToken) {
 		String hashedToken = hashToken(rawToken);
 
-		return refreshTokenRepository.findByTokenHash(hashedToken).map(token -> {
-			if (token.getExpiryDate().isBefore(Instant.now())) {
-				// Token has expired, delete it from the database
-				refreshTokenRepository.delete(token);
-				throw new RuntimeException("Refresh token has expired. Please log in again.");
-			}
-			return token;
-		});
+		RefreshToken token = refreshTokenRepository.findByTokenHash(hashedToken)
+			.orElseThrow(() -> new InvalidTokenException("Refresh token not found. Please log in again."));
+
+		// Verify if the token has already passed the inactivity threshold
+		if (token.getExpiryDate().isBefore(Instant.now())) {
+			refreshTokenRepository.delete(token);
+			throw new InvalidTokenException("Refresh token has expired due to inactivity. Please log in again.");
+		}
+
+		// Generate a new raw token for rotation
+		String newRawToken = UUID.randomUUID().toString();
+		String newHashedToken = hashToken(newRawToken);
+
+		// Update hash and slide expiration window
+		token.setTokenHash(newHashedToken);
+		token.setExpiryDate(Instant.now().plus(7, ChronoUnit.DAYS)); // Slide the
+																		// expiration
+																		// window by 7
+																		// days from now
+		refreshTokenRepository.save(token);
+
+		return new RefreshTokenRotationResult(token.getDiscordId(), newRawToken);
 	}
 
 	@Transactional

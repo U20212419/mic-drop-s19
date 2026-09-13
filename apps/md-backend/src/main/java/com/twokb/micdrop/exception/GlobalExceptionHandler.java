@@ -146,4 +146,21 @@ public class GlobalExceptionHandler {
 		return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
 	}
 
+	@ExceptionHandler(InvalidTokenException.class)
+	public ResponseEntity<ErrorResponse> handleInvalidTokenException(InvalidTokenException ex) {
+		// Generate an 8-character trace ID for correlating logs
+		String traceId = UUID.randomUUID().toString().substring(0, 8);
+
+		// Log the exception with the trace ID for backend debugging
+		log.warn("Trace ID {}: Invalid Token Error - {}", traceId, ex.getMessage(), ex);
+
+		ErrorResponse errorResponse = new ErrorResponse(Instant.now(), // Current UTC time
+				HttpStatus.UNAUTHORIZED.value(), // HTTP status code
+				ex.getMessage(), // Exception message
+				traceId // Trace ID for backend log correlation
+		);
+
+		return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
+	}
+
 }
