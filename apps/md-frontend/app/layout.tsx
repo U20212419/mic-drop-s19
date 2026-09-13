@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { Toaster } from "sonner";
+import { AppInsightsTracker } from "@/components/AppInsightsTracker";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -26,7 +27,11 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         {/* The Providers wrapper gives session access to ALL pages and layouts */}
-        <Providers>{children}</Providers>
+        <Providers>
+          {/* The AppInsightsTracker component is responsible for tagging telemetry with the user's Discord ID */}
+          <AppInsightsTracker />
+          {children}
+        </Providers>
         <Toaster richColors position="bottom-right" theme="dark" />
       </body>
     </html>
