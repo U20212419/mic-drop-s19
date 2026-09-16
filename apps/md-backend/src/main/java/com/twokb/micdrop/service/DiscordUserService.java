@@ -28,6 +28,11 @@ public class DiscordUserService {
 
 	private final ApplicationEventPublisher eventPublisher;
 
+	@Transactional
+	public DiscordUser saveUser(DiscordUser user) {
+		return discordUserRepository.save(user);
+	}
+
 	// Register a new user from the management page
 	@Transactional
 	public DiscordUser registerUser(String discordId, String username, GlobalRoleType globalRole) {

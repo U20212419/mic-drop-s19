@@ -239,6 +239,18 @@ public class UserRoundService {
 		// Process judges
 		syncRole(idRound, roundNumber, targetJudges, UserRoleType.JUDGE);
 
+		// Update ContestantStatus to NOT_CONTESTANT for all assigned judges if they were
+		// INACTIVE so that they can log into the website
+		for (UserAssignmentDTO judge : targetJudges) {
+			DiscordUser user = discordUserService.getUserById(judge.idUser());
+			if (user.getStatus() == ContestantStatus.INACTIVE) {
+				user.setStatus(ContestantStatus.NOT_CONTESTANT);
+				discordUserService.saveUser(user);
+				log.info("Updated status of user {} from INACTIVE to NOT_CONTESTANT as they are assigned as a judge.",
+						user.getIdUser());
+			}
+		}
+
 		// Return updated assignments
 		return getRoundAssignments(idRound);
 	}
