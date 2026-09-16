@@ -203,17 +203,41 @@ export default function RoundAdminDetailPage() {
     try {
       setIsGeneratingSlides(true);
 
-      // Fetch the file as a blob
-      const response = await api.get(`/rounds/${id}/slides/download`, {
+      // Start the slide generation job
+      const startResponse = await api.post(`/rounds/${id}/slides/generate`, null, {
+        params: {
+          groupNumber: selectedGroup,
+        },
+      });
+      const jobId = startResponse.data.jobId;
+
+      // Poll for job status until it's completed or failed
+      let isCompleted = false;
+      while (!isCompleted) {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+
+        const statusResponse = await api.get(`/rounds/${id}/slides/status/${jobId}`);
+        const status = statusResponse.data.status;
+
+        if (status === "FAILED") {
+          throw new Error("Slide generation failed. Please try again later.");
+        }
+
+        if (status === "COMPLETED") {
+          isCompleted = true;
+        }
+      }
+
+      // Download the final file
+      const downloadResponse = await api.get(`/rounds/${id}/slides/download/${jobId}`, {
         params: {
           groupNumber: selectedGroup,
         },
         responseType: "blob",
-        timeout: 180000, // 3 minutes timeout for heavy workloads
       });
 
       // Create a temporary URL for the blob and trigger the download
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(new Blob([downloadResponse.data]));
       const link = document.createElement("a");
       link.href = url;
       link.setAttribute("download", `Round_${id}_Group_${selectedGroup}_Slides.pptx`);
