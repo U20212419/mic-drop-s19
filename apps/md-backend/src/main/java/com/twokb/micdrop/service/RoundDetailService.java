@@ -311,6 +311,7 @@ public class RoundDetailService {
 
 		String eliminatedRoleId = systemSettingService.getSetting("eliminated_role_id").orElse("");
 		String ytsRoleId = systemSettingService.getSetting("yts_role_id").orElse("");
+		String contestantRoleId = systemSettingService.getSetting("contestant_role_id").orElse("");
 
 		String guildId = systemSettingService.getSetting("guild_id").orElse("");
 		Guild guild = guildId.isEmpty() ? null : jda.getGuildById(guildId);
@@ -318,6 +319,8 @@ public class RoundDetailService {
 		Role eliminatedRole = (guild != null && !eliminatedRoleId.isEmpty()) ? guild.getRoleById(eliminatedRoleId)
 				: null;
 		Role ytsRole = (guild != null && !ytsRoleId.isEmpty()) ? guild.getRoleById(ytsRoleId) : null;
+		Role contestantRole = (guild != null && !contestantRoleId.isEmpty()) ? guild.getRoleById(contestantRoleId)
+				: null;
 
 		// Apply preliminary status to public status for all contestants in the group
 		for (DiscordUser contestant : contestants) {
@@ -336,11 +339,15 @@ public class RoundDetailService {
 								error.getMessage()));
 					}
 
-					// Add eliminated role for eliminated contestants
+					// Add eliminated role for eliminated contestants and remove the
+					// contestant role
 					if (eliminatedRole != null && (contestant.getStatus() == ContestantStatus.ELIMINATED
 							|| contestant.getStatus() == ContestantStatus.DID_NOT_SUBMIT)) {
 						guild.addRoleToMember(snowflake, eliminatedRole).queue(success -> {
 						}, error -> log.warn("Failed to add eliminated role to user {}: {}", discordId,
+								error.getMessage()));
+						guild.removeRoleFromMember(snowflake, contestantRole).queue(success -> {
+						}, error -> log.warn("Failed to remove contestant role from user {}: {}", discordId,
 								error.getMessage()));
 					}
 				}
