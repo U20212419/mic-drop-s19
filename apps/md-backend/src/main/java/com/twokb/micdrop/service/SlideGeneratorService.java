@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import javax.imageio.ImageIO;
 
 import org.apache.poi.sl.usermodel.PictureData;
+import org.apache.poi.sl.usermodel.TextShape.TextAutofit;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.apache.poi.xslf.usermodel.XSLFPictureData;
 import org.apache.poi.xslf.usermodel.XSLFPictureShape;
@@ -37,8 +38,10 @@ import org.apache.poi.xslf.usermodel.XSLFTextParagraph;
 import org.apache.poi.xslf.usermodel.XSLFTextRun;
 import org.apache.poi.xslf.usermodel.XSLFTextShape;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import com.twokb.micdrop.dto.SlideJobStatus;
 import com.twokb.micdrop.model.ContestantStatus;
 import com.twokb.micdrop.model.DiscordUser;
 import com.twokb.micdrop.model.Submission;
@@ -67,6 +70,39 @@ public class SlideGeneratorService {
 	private static final Color COLOR_RED = new Color(255, 105, 97);
 
 	private static final Color COLOR_WHITE = Color.WHITE;
+
+	private final Map<String, SlideJobStatus> jobStore = new ConcurrentHashMap<>();
+
+	@Async
+	public void generateSlidesAsync(String jobId, Integer idRound, Integer groupNumber) {
+		log.info("Starting asynchronous slide generation for jobId: {}, roundId: {}, groupNumber: {}", jobId, idRound,
+				groupNumber);
+		jobStore.put(jobId, new SlideJobStatus("PROCESSING", null));
+
+		try {
+			// Generate the slides and store the result in the jobStore
+			byte[] pptxBytes = generateRoundSlidesPptx(idRound, groupNumber);
+
+			jobStore.put(jobId, new SlideJobStatus("COMPLETED", pptxBytes));
+			log.info("Completed asynchronous slide generation for jobId: {}, roundId: {}, groupNumber: {}", jobId,
+					idRound, groupNumber);
+
+		}
+		catch (Exception e) {
+			log.error("Error generating slides for jobId: {}, roundId: {}, groupNumber: {}", jobId, idRound,
+					groupNumber, e);
+			jobStore.put(jobId, new SlideJobStatus("FAILED", null));
+		}
+	}
+
+	public SlideJobStatus getJobStatus(String jobId) {
+		return jobStore.get(jobId);
+	}
+
+	public void removeJob(String jobId) {
+		// Remove the job from the store to free up memory after it's completed or failed
+		jobStore.remove(jobId);
+	}
 
 	public byte[] generateRoundSlidesPptx(Integer idRound, Integer groupNumber) {
 		try {
@@ -243,6 +279,7 @@ public class SlideGeneratorService {
 				String text = textShape.getText();
 				boolean changed = false;
 				boolean isScoreField = false;
+				boolean isJudgeField = false;
 
 				// Identify if the shape is the avatar placeholder
 				if ("{avatar}".equals(text.trim())) {
@@ -259,10 +296,16 @@ public class SlideGeneratorService {
 						if (entry.getKey().startsWith("{score") || entry.getKey().equals("{avg}")) {
 							isScoreField = true;
 						}
+						if (entry.getKey().startsWith("{judge")) {
+							isJudgeField = true;
+						}
 					}
 				}
 
 				if (changed) {
+					textShape.setTextAutofit(TextAutofit.NORMAL);
+					textShape.setWordWrap(true);
+
 					Color specialColor = null;
 					if (isScoreField) {
 						specialColor = getScoreColor(text);
@@ -280,6 +323,45 @@ public class SlideGeneratorService {
 								if (specialColor != null) {
 									r.setFontColor(specialColor);
 								}
+
+								// Adjust font size to fit within the shape's bounding box
+								Double fontSize = r.getFontSize();
+								if (fontSize == null)
+									fontSize = 16.0;
+
+								// Calculate the bounding box of the text shape and adjust
+								// font size accordingly
+								Rectangle2D anchor = textShape.getAnchor();
+								double boxWidth = anchor.getWidth() * 0.85;
+								double boxHeight = anchor.getHeight() * 0.85;
+
+								double newFontSize = fontSize;
+
+								// If it's a judge field, we can be more aggressive in
+								// reducing the font size to fit the text
+								if (isJudgeField) {
+									double estimatedTextWidth = text.length() * (fontSize * 0.55);
+									if (estimatedTextWidth > boxWidth) {
+										// Scale down the font size proportionally to fit
+										// within the box width
+										newFontSize = fontSize * (boxWidth / estimatedTextWidth);
+									}
+								}
+
+								double shapeArea = boxWidth * boxHeight;
+								double charArea = (newFontSize * 0.55) * (newFontSize * 1.2);
+								int estimatedCapacity = (int) (shapeArea / charArea);
+
+								// If the text length exceeds the estimated capacity,
+								// reduce the font size further based on area
+								if (text.length() > estimatedCapacity && estimatedCapacity > 0) {
+									double areaBasedFontSize = Math.sqrt(shapeArea / (text.length() * 0.66));
+									newFontSize = Math.min(newFontSize, areaBasedFontSize);
+								}
+
+								// Ensure the new font size is within reasonable bounds
+								newFontSize = Math.max(7.5, Math.min(newFontSize, fontSize));
+								r.setFontSize(newFontSize);
 
 								isFirstRun = false;
 							}

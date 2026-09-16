@@ -2,6 +2,7 @@ package com.twokb.micdrop.controller;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.twokb.micdrop.dto.CreateRoundRequest;
 import com.twokb.micdrop.dto.RoundAssignmentsResponse;
+import com.twokb.micdrop.dto.SlideJobStatus;
 import com.twokb.micdrop.dto.UpdateRoundRequest;
 import com.twokb.micdrop.dto.UserAssignmentDTO;
 import com.twokb.micdrop.dto.myRounds.AdminBatchUpdateRequest;
@@ -147,17 +149,49 @@ public class RoundController {
 		return ResponseEntity.status(HttpStatus.OK).build();
 	}
 
-	@GetMapping("/{idRound}/slides/download")
+	@PostMapping("/{idRound}/slides/generate")
 	@PreAuthorize("hasRole('ADMIN')")
-	public ResponseEntity<byte[]> downloadSlidesZip(@PathVariable Integer idRound, DownloadSlidesRequest request) {
+	public ResponseEntity<Map<String, String>> startSlideGeneration(@PathVariable Integer idRound,
+			DownloadSlidesRequest request) {
+		String jobId = UUID.randomUUID().toString();
+		slideGeneratorService.generateSlidesAsync(jobId, idRound, request.groupNumber());
+		return ResponseEntity.ok(Map.of("jobId", jobId));
+	}
+
+	@GetMapping("/{idRound}/slides/status/{jobId}")
+	@PreAuthorize("hasRole('ADMIN')")
+	public ResponseEntity<Map<String, String>> checkSlideStatus(@PathVariable Integer idRound,
+			@PathVariable String jobId) {
+		SlideJobStatus job = slideGeneratorService.getJobStatus(jobId);
+
+		if (job == null) {
+			return ResponseEntity.notFound().build();
+		}
+
+		return ResponseEntity.ok(Map.of("status", job.status()));
+	}
+
+	@GetMapping("/{idRound}/slides/download/{jobId}")
+	@PreAuthorize("hasRole('ADMIN')")
+	public ResponseEntity<byte[]> downloadGeneratedSlides(@PathVariable Integer idRound, @PathVariable String jobId,
+			DownloadSlidesRequest request) {
+		SlideJobStatus job = slideGeneratorService.getJobStatus(jobId);
+
+		if (job == null || !"COMPLETED".equals(job.status())) {
+			return ResponseEntity.badRequest().build();
+		}
+
+		byte[] pptxBytes = job.fileData();
 		Integer groupNumber = request.groupNumber();
-		byte[] pptxBytes = slideGeneratorService.generateRoundSlidesPptx(idRound, groupNumber);
 
 		HttpHeaders headers = new HttpHeaders();
 		headers.setContentType(
 				MediaType.valueOf("application/vnd.openxmlformats-officedocument.presentationml.presentation"));
 		headers.setContentDispositionFormData("attachment",
 				"Round_" + idRound + "_Group_" + groupNumber + "_Slides.pptx");
+
+		// Free up memory
+		slideGeneratorService.removeJob(jobId);
 
 		return new ResponseEntity<>(pptxBytes, headers, HttpStatus.OK);
 	}
