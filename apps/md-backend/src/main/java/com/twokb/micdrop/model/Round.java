@@ -33,7 +33,7 @@ public class Round {
 	private Boolean submissionsOpen;
 
 	@Column(name = "elimination_amount", nullable = true)
-	private Integer eliminationAmount;
+	private String eliminationAmount;
 
 	@Column(name = "special_round", nullable = false)
 	private Boolean specialRound = false;

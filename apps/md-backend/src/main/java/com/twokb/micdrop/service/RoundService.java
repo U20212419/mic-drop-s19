@@ -29,7 +29,7 @@ public class RoundService {
 	}
 
 	@Transactional
-	public Round createRound(Integer roundNumber, Integer groupCount, Integer eliminationAmount, Boolean specialRound) {
+	public Round createRound(Integer roundNumber, Integer groupCount, String eliminationAmount, Boolean specialRound) {
 		if (roundRepository.findByRoundNumber(roundNumber).isPresent()) {
 			throw new IllegalArgumentException("Round number " + roundNumber + " already exists.");
 		}
@@ -66,7 +66,7 @@ public class RoundService {
 
 	@Transactional
 	public Round updateRound(Integer idRound, Integer roundNumber, Boolean active, Integer groupCount,
-			Boolean submissionsOpen, Integer eliminationAmount, Boolean specialRound) {
+			Boolean submissionsOpen, String eliminationAmount, Boolean specialRound) {
 		Round round = roundRepository.findById(idRound)
 			.orElseThrow(() -> new IllegalArgumentException("Round with ID " + idRound + " not found."));
 

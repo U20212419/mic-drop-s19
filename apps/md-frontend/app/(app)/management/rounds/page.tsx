@@ -30,7 +30,7 @@ export interface Round {
   active: boolean;
   submissionsOpen: boolean;
   groupCount: number;
-  eliminationAmount?: number;
+  eliminationAmount?: string;
   specialRound?: boolean;
 }
 
@@ -425,30 +425,77 @@ export default function RoundsPage() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-[#80848E] uppercase mb-1.5">
-                  Elimination Amount{" "}
-                  <span className="text-[#80848E] italic font-normal lowercase">
+                  Elimination Amount (Per Group)
+                  <span className="text-[#80848E] italic font-normal lowercase ml-1">
                     (optional on creation)
                   </span>
                 </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={
-                    formData.eliminationAmount || formData.eliminationAmount === 0
-                      ? formData.eliminationAmount.toString()
-                      : ""
-                  }
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      eliminationAmount:
-                        e.target.value || e.target.value === "0"
-                          ? Math.max(0, Number(e.target.value))
-                          : undefined,
-                    })
-                  }
-                  className="w-full bg-[#1E1F22] border border-[#1E1F22] text-[#DBDEE1] rounded-md px-3 py-2 focus:border-[#5865F2] outline-none"
-                />
+
+                {/* Dynamic Grid based on groupCount */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {Array.from({ length: formData.groupCount || 1 }).map((_, i) => {
+                    const elimString =
+                      formData.eliminationAmount !== null &&
+                      formData.eliminationAmount !== undefined
+                        ? String(formData.eliminationAmount)
+                        : "";
+                    const elimArray = elimString.split(",");
+
+                    // Allow empty values so it's truly optional
+                    const currentVal = elimArray[i]?.trim() ?? "";
+
+                    return (
+                      <div
+                        key={i}
+                        className="flex items-center rounded-md border bg-[#1E1F22] border-[#1E1F22] focus-within:border-[#5865F2] transition-colors"
+                      >
+                        <span className="bg-[#2B2D31] text-[#80848E] text-[10px] font-bold px-2 py-2 border-r border-[#35373C] rounded-l-md shrink-0">
+                          G{i + 1}
+                        </span>
+
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={currentVal}
+                          onKeyDown={(e) => {
+                            // Block decimal points, commas, minus, plus, and 'e' (scientific notation)
+                            if (["-", "+", "e", "E", ".", ","].includes(e.key)) {
+                              e.preventDefault();
+                            }
+                          }}
+                          onChange={(e) => {
+                            const newArray = [...elimArray];
+
+                            // Pad the array with empty strings if it's currently shorter than groupCount
+                            while (newArray.length < formData.groupCount) {
+                              newArray.push("");
+                            }
+
+                            const val = e.target.value;
+
+                            // Allow empty string, otherwise parse strictly as a base-10 integer
+                            newArray[i] =
+                              val === "" ? "" : Math.max(0, parseInt(val, 10)).toString();
+
+                            // Only set the elimination amount if there's actually a number somewhere.
+                            // If it's just a bunch of empty strings like ",,", set it to undefined to keep it clean in DB.
+                            const newValueJoined = newArray.slice(0, formData.groupCount).join(",");
+                            const isAllEmpty = newArray
+                              .slice(0, formData.groupCount)
+                              .every((v) => v === "");
+
+                            setFormData({
+                              ...formData,
+                              eliminationAmount: isAllEmpty ? undefined : newValueJoined,
+                            });
+                          }}
+                          className="w-full bg-transparent text-[#DBDEE1] px-2 py-2 outline-none text-xs min-w-0"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
               <div>
                 <label className="flex items-center gap-3 bg-[#1E1F22] p-3 rounded-md border border-[#35373C] cursor-pointer group hover:border-[#4E5058] transition-colors">

@@ -2,6 +2,7 @@ package com.twokb.micdrop.service;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -138,7 +139,8 @@ public class RoundDetailService {
 	public void calculatePreliminaryStatuses(Integer idRound, Integer groupNumber) {
 		Round round = roundService.getRound(idRound);
 
-		if (round.getSubmissionsOpen() || round.getEliminationAmount() == null || round.getEliminationAmount() <= 0) {
+		if (round.getSubmissionsOpen() || round.getEliminationAmount() == null
+				|| round.getEliminationAmount().isBlank()) {
 			throw new IllegalStateException("Round is not ready for eliminations. Check round configuration.");
 		}
 
@@ -171,7 +173,17 @@ public class RoundDetailService {
 		// Assign ELIMINATED or ACTIVE. DID_NOT_SUBMIT contestants consume the elimination
 		// slots.
 		long didNotSubmitCount = contestants.size() - activeStats.size();
-		int remainingEliminations = (int) Math.max(0, round.getEliminationAmount() - didNotSubmitCount);
+
+		int groupEliminationAmount;
+		try {
+			groupEliminationAmount = Integer.parseInt(round.getEliminationAmount().split(",")[groupNumber - 1].trim());
+		}
+		catch (Exception e) {
+			throw new IllegalStateException("Invalid or missing elimination amount configuration for group "
+					+ groupNumber + ". Check round configuration.");
+		}
+
+		int remainingEliminations = (int) Math.max(0, groupEliminationAmount - didNotSubmitCount);
 
 		int eliminateCount = Math.min(remainingEliminations, activeStats.size());
 
