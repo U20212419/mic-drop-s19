@@ -39,7 +39,7 @@ interface Round {
   active: boolean;
   submissionsOpen: boolean;
   groupCount: number;
-  eliminationAmount?: number;
+  eliminationAmount?: string;
   specialRound?: boolean;
 }
 
@@ -507,28 +507,75 @@ export default function RoundDetailPage() {
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-bold text-[#80848E] uppercase mb-2">
-                  Elimination Amount
+                  Elimination Amount (Per Group)
                 </label>
-                <input
-                  type="number"
-                  min="0"
-                  disabled={!isAdmin}
-                  value={
-                    round.eliminationAmount || round.eliminationAmount === 0
-                      ? round.eliminationAmount.toString()
-                      : ""
-                  }
-                  onChange={(e) =>
-                    setRound({
-                      ...round,
-                      eliminationAmount:
-                        e.target.value || e.target.value === "0"
-                          ? Math.max(0, Number(e.target.value))
-                          : undefined,
-                    })
-                  }
-                  className={`w-full sm:w-1/2 bg-[#1E1F22] border border-[#1E1F22] text-white rounded-md px-3 py-2 outline-none ${!isAdmin ? "opacity-50 cursor-not-allowed" : "focus:border-[#5865F2]"}`}
-                />
+
+                {/* Dynamic Grid based on groupCount */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {Array.from({ length: round.groupCount || 1 }).map((_, i) => {
+                    const elimString =
+                      round.eliminationAmount !== null && round.eliminationAmount !== undefined
+                        ? String(round.eliminationAmount)
+                        : "";
+                    const elimArray = elimString.split(",");
+
+                    // Allow empty values so the backend validation catches it if forgotten
+                    const currentVal = elimArray[i]?.trim() ?? "";
+
+                    return (
+                      <div
+                        key={i}
+                        className={`flex items-center rounded-md border transition-colors ${
+                          !isAdmin
+                            ? "bg-[#1E1F22] border-[#1E1F22] opacity-50 cursor-not-allowed"
+                            : "bg-[#1E1F22] border-[#35373C] focus-within:border-[#5865F2]"
+                        }`}
+                      >
+                        <span className="bg-[#2B2D31] text-[#80848E] text-xs font-bold px-3 py-2 border-r border-[#35373C] rounded-l-md shrink-0">
+                          G{i + 1}
+                        </span>
+
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          disabled={!isAdmin}
+                          value={currentVal}
+                          onKeyDown={(e) => {
+                            // Block decimal points, commas, minus, plus, and 'e' (scientific notation)
+                            if (["-", "+", "e", "E", ".", ","].includes(e.key)) {
+                              e.preventDefault();
+                            }
+                          }}
+                          onChange={(e) => {
+                            const newArray = [...elimArray];
+
+                            // Pad the array with empty strings if it's currently shorter than groupCount
+                            while (newArray.length < round.groupCount) {
+                              newArray.push("");
+                            }
+
+                            const val = e.target.value;
+
+                            // Allow empty string, otherwise parse strictly as a base-10 integer
+                            newArray[i] =
+                              val === "" ? "" : Math.max(0, parseInt(val, 10)).toString();
+
+                            setRound({
+                              ...round,
+                              eliminationAmount: newArray.slice(0, round.groupCount).join(","),
+                            });
+                          }}
+                          className="w-full bg-transparent text-white px-3 py-2 outline-none text-sm min-w-0"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[#80848E] text-[10px] mt-2">
+                  Specify the exact number of contestants to eliminate for each individual group.
+                  Must be configured before calculating statuses.
+                </p>
               </div>
             </div>
 

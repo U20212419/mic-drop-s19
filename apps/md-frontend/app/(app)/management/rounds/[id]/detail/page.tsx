@@ -300,8 +300,11 @@ export default function RoundAdminDetailPage() {
     return groupsArray;
   }, [augmentedSubs, selectedGroup, viewMode]);
 
-  const canExecuteElimination =
-    round && !round.submissionsOpen && (round.eliminationAmount || 0) > 0;
+  const elimString = round?.eliminationAmount != null ? String(round.eliminationAmount) : "";
+  const groupElimValue = elimString.split(",")[selectedGroup - 1]?.trim();
+  const isElimConfiguredForGroup =
+    groupElimValue !== undefined && groupElimValue !== "" && !isNaN(Number(groupElimValue));
+  const canExecuteElimination = round && !round.submissionsOpen && isElimConfiguredForGroup;
 
   const toggleGroup = (groupName: string) => {
     setExpandedGroups((prev) => ({
