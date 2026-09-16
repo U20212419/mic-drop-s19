@@ -370,7 +370,7 @@ public class UserRoundService {
 		// Map them to the current round
 		List<RoundAssignmentDTO> newContestantDTOs = previousAssignments.stream()
 			.map(prev -> new RoundAssignmentDTO(prev.getUser().getIdUser(), prev.getUser().getUsername(),
-					prev.getGroupNumber()))
+					prev.getGroupNumber(), null))
 			.toList();
 
 		// Fetch current judges to preserve them in the frontend preview
@@ -408,7 +408,7 @@ public class UserRoundService {
 		for (int index = 0; index < activeContestantIds.size(); index++) {
 			int groupNumber = (index % round.getGroupCount()) + 1;
 			Integer userId = activeContestantIds.get(index);
-			newContestantDTOs.add(new RoundAssignmentDTO(userId, usernameMap.get(userId), groupNumber));
+			newContestantDTOs.add(new RoundAssignmentDTO(userId, usernameMap.get(userId), groupNumber, null));
 		}
 
 		// Fetch current judges to preserve them in the frontend preview
@@ -477,14 +477,14 @@ public class UserRoundService {
 
 		List<RoundAssignmentDTO> contestantDTOs = allAssignments.stream()
 			.filter(ur -> ur.getUserRole() == UserRoleType.CONTESTANT)
-			.map(ur -> new RoundAssignmentDTO(ur.getUser().getIdUser(), ur.getUser().getUsername(),
-					ur.getGroupNumber()))
+			.map(ur -> new RoundAssignmentDTO(ur.getUser().getIdUser(), ur.getUser().getUsername(), ur.getGroupNumber(),
+					null))
 			.toList();
 
 		List<RoundAssignmentDTO> judgeDTOs = allAssignments.stream()
 			.filter(ur -> ur.getUserRole() == UserRoleType.JUDGE)
-			.map(ur -> new RoundAssignmentDTO(ur.getUser().getIdUser(), ur.getUser().getUsername(),
-					ur.getGroupNumber()))
+			.map(ur -> new RoundAssignmentDTO(ur.getUser().getIdUser(), ur.getUser().getUsername(), ur.getGroupNumber(),
+					ur.getSortOrder()))
 			.toList();
 
 		return new RoundAssignmentsResponse(contestantDTOs, judgeDTOs);

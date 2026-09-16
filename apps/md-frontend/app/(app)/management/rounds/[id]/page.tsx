@@ -30,6 +30,7 @@ interface DiscordUser {
   status: string;
   groupNumber?: number; // Only relevant for contestants to track their group assignment
   judgeApp?: any; // Field to validate if a user has submitted a judge application
+  sortOrder?: number; // Only relevant for judges to track their order within a group
 }
 
 interface Round {
@@ -145,16 +146,26 @@ export default function RoundDetailPage() {
   }, [selectedContestants, currentGroupSelection]);
 
   const currentGroupJudges = useMemo(() => {
-    return selectedJudges.filter((j) => (j.groupNumber || 1) === currentGroupSelection);
+    return selectedJudges
+      .filter((j) => (j.groupNumber || 1) === currentGroupSelection)
+      .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
   }, [selectedJudges, currentGroupSelection]);
 
   const handleToggleUser = (user: DiscordUser, isContestant: boolean) => {
     if (!isAdmin) return;
-    const newUser = { ...user, groupNumber: currentGroupSelection };
     if (isContestant) {
+      const newUser = { ...user, groupNumber: currentGroupSelection };
       setSelectedContestants((prev) => [...prev, newUser]);
     } else {
-      setSelectedJudges((prev) => [...prev, newUser]);
+      setSelectedJudges((prev) => {
+        const groupUsers = prev.filter((j) => (j.groupNumber || 1) === currentGroupSelection);
+        // Find the highest sortOrder in the current group and add 1
+        const nextSortOrder =
+          groupUsers.length > 0 ? Math.max(...groupUsers.map((u) => u.sortOrder ?? 0)) + 1 : 0;
+
+        const newUser = { ...user, groupNumber: currentGroupSelection, sortOrder: nextSortOrder };
+        return [...prev, newUser];
+      });
     }
   };
 
@@ -164,8 +175,9 @@ export default function RoundDetailPage() {
     const setter = isContestant ? setSelectedContestants : setSelectedJudges;
 
     setter((prev) => {
-      // Filter the users that aren't in the current group to know the relative index
       const groupUsers = prev.filter((u) => (u.groupNumber || 1) === currentGroupSelection);
+      groupUsers.sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+
       const currentIndexInGroup = groupUsers.findIndex((u) => u.idUser === idUser);
 
       if (currentIndexInGroup < 0) return prev;
@@ -182,9 +194,15 @@ export default function RoundDetailPage() {
 
       // Swap positions
       const newArr = [...prev];
-      const temp = newArr[absoluteCurrentIndex];
-      newArr[absoluteCurrentIndex] = newArr[absoluteTargetIndex];
-      newArr[absoluteTargetIndex] = temp;
+      const userA = { ...newArr[absoluteCurrentIndex] };
+      const userB = { ...newArr[absoluteTargetIndex] };
+
+      const tempOrder = userA.sortOrder ?? currentIndexInGroup;
+      userA.sortOrder = userB.sortOrder ?? targetIndexInGroup;
+      userB.sortOrder = tempOrder;
+
+      newArr[absoluteCurrentIndex] = userB;
+      newArr[absoluteTargetIndex] = userA;
 
       return newArr;
     });
@@ -201,15 +219,28 @@ export default function RoundDetailPage() {
 
   const handleSelectAllFiltered = (isContestant: boolean) => {
     if (!isAdmin) return;
-    const usersToAdd = isContestant ? availableContestants : availableJudges;
-    const usersWithGroups = usersToAdd.map((u) => ({ ...u, groupNumber: currentGroupSelection }));
 
     if (isContestant) {
+      const usersWithGroups = availableContestants.map((u) => ({
+        ...u,
+        groupNumber: currentGroupSelection,
+      }));
       // Add all currently filtered available contestants
       setSelectedContestants((prev) => [...prev, ...usersWithGroups]);
     } else {
-      // Add all currently filtered available judges
-      setSelectedJudges((prev) => [...prev, ...usersWithGroups]);
+      setSelectedJudges((prev) => {
+        const groupUsers = prev.filter((j) => (j.groupNumber || 1) === currentGroupSelection);
+        let nextSortOrder =
+          groupUsers.length > 0 ? Math.max(...groupUsers.map((u) => u.sortOrder ?? 0)) + 1 : 0;
+
+        const usersWithGroups = availableJudges.map((u) => {
+          const userObj = { ...u, groupNumber: currentGroupSelection, sortOrder: nextSortOrder };
+          nextSortOrder++;
+          return userObj;
+        });
+
+        return [...prev, ...usersWithGroups];
+      });
     }
   };
 
@@ -302,13 +333,18 @@ export default function RoundDetailPage() {
       if (activeTab === "details") {
         await api.put(`/rounds/${id}`, round);
       } else {
+        // Enforce sortOrder before sending the payload so the backend maps it sequentially
+        const sortedSelectedJudges = [...selectedJudges].sort(
+          (a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999),
+        );
+
         // Sync assignments (Contestants or Judges)
         const payload = {
           contestants: selectedContestants.map((c) => ({
             idUser: c.idUser,
             groupNumber: c.groupNumber || 1, // Default to group 1 if not set, though it should always be set
           })),
-          judges: selectedJudges.map((j) => ({
+          judges: sortedSelectedJudges.map((j) => ({
             idUser: j.idUser,
             groupNumber: j.groupNumber || 1, // Default to group 1 if not set, though it should always be set
           })),
