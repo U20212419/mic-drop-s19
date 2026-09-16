@@ -1,7 +1,6 @@
 package com.twokb.micdrop.service;
 
 import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.TexturePaint;
@@ -25,8 +24,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 import javax.imageio.ImageIO;
 
@@ -71,7 +68,7 @@ public class SlideGeneratorService {
 
 	private static final Color COLOR_WHITE = Color.WHITE;
 
-	public byte[] generateRoundSlidesZip(Integer idRound, Integer groupNumber) {
+	public byte[] generateRoundSlidesPptx(Integer idRound, Integer groupNumber) {
 		try {
 			// Fetch contestants and judges for the specified round and group
 			List<DiscordUser> contestants = userRoundService
@@ -135,90 +132,67 @@ public class SlideGeneratorService {
 			avatarExecutor.shutdown();
 			log.info("Completed downloading and processing avatars for all contestants.");
 
-			// Generate PPTX and PNG in memory
-			ByteArrayOutputStream zipBaos = new ByteArrayOutputStream();
-			try (ZipOutputStream zos = new ZipOutputStream(zipBaos)) {
-				// Choose the master template based on the number of judges
-				String suffix = sortedJudges.size() == 4 ? "_4j.pptx" : "_3j.pptx";
-				String masterTemplateName = "master_templates" + suffix;
+			// Generate PPTX in memory
+			ByteArrayOutputStream pptBaos = new ByteArrayOutputStream();
 
-				// Force font fallback to SansSerif to avoid missing font issues in Apache
-				// POI
-				System.setProperty("org.apache.poi.sl.draw.font.fallback", "SansSerif");
+			// Choose the master template based on the number of judges
+			String suffix = sortedJudges.size() == 4 ? "_4j.pptx" : "_3j.pptx";
+			String masterTemplateName = "master_templates" + suffix;
 
-				// Load the master template
-				try (InputStream is = new ClassPathResource("templates/" + masterTemplateName).getInputStream();
-						XMLSlideShow combinedPpt = new XMLSlideShow(is)) {
-					int baseTemplateCount = combinedPpt.getSlides().size();
+			// Force font fallback to SansSerif
+			System.setProperty("org.apache.poi.sl.draw.font.fallback", "SansSerif");
 
-					for (int i = 0; i < stats.size(); i++) {
-						var stat = stats.get(i);
-						String rank = stat.contestant().getPreliminaryStatus() == ContestantStatus.DID_NOT_SUBMIT
-								? "DNS" : String.valueOf(i + 1);
+			// Load the master template
+			try (InputStream is = new ClassPathResource("templates/" + masterTemplateName).getInputStream();
+					XMLSlideShow combinedPpt = new XMLSlideShow(is)) {
+				int baseTemplateCount = combinedPpt.getSlides().size();
 
-						// Get the submissions for the contestant
-						List<Integer> judgeIds = sortedJudges.stream().map(DiscordUser::getIdUser).toList();
-						List<Submission> subs = subsByContestant
-							.getOrDefault(stat.contestant().getIdUser(), Collections.emptyList())
-							.stream()
-							.filter(s -> judgeIds.contains(s.getIdJudge()))
-							.toList();
+				for (int i = 0; i < stats.size(); i++) {
+					var stat = stats.get(i);
+					String rank = stat.contestant().getPreliminaryStatus() == ContestantStatus.DID_NOT_SUBMIT ? "DNS"
+							: String.valueOf(i + 1);
 
-						String safeUsername = stat.contestant().getUsername().replaceAll("[^a-zA-Z0-9.-]", "_");
-						String filePrefix = rank.equals("DNS") ? String.format("DNS_%s", safeUsername)
-								: String.format("Rank_%02d_%s", Integer.parseInt(rank), safeUsername);
+					// Get the submissions for the contestant
+					List<Integer> judgeIds = sortedJudges.stream().map(DiscordUser::getIdUser).toList();
+					List<Submission> subs = subsByContestant
+						.getOrDefault(stat.contestant().getIdUser(), Collections.emptyList())
+						.stream()
+						.filter(s -> judgeIds.contains(s.getIdJudge()))
+						.toList();
 
-						// Choose what slide template to use based on rank and preliminary
-						// status
-						int templateIndex = getTemplateSlideIndex(rank, stat.contestant().getPreliminaryStatus());
-						XSLFSlide templateSlide = combinedPpt.getSlides().get(templateIndex);
+					String safeUsername = stat.contestant().getUsername().replaceAll("[^a-zA-Z0-9.-]", "_");
+					String filePrefix = rank.equals("DNS") ? String.format("DNS_%s", safeUsername)
+							: String.format("Rank_%02d_%s", Integer.parseInt(rank), safeUsername);
 
-						// Clone the template slide to keep the layout and background
-						// intact
-						XSLFSlide newSlide = combinedPpt.createSlide(templateSlide.getSlideLayout());
-						newSlide.importContent(templateSlide);
+					// Choose what slide template to use based on rank and preliminary
+					// status
+					int templateIndex = getTemplateSlideIndex(rank, stat.contestant().getPreliminaryStatus());
+					XSLFSlide templateSlide = combinedPpt.getSlides().get(templateIndex);
 
-						// Replace placeholders in the new slide
-						replacePlaceholders(combinedPpt, newSlide, rank, stat, sortedJudges, subs, avatarCache);
+					// Clone the template slide to keep the layout and background
+					// intact
+					XSLFSlide newSlide = combinedPpt.createSlide(templateSlide.getSlideLayout());
+					newSlide.importContent(templateSlide);
 
-						// Convert the slide to PNG
-						Dimension pgSize = combinedPpt.getPageSize();
-						BufferedImage img = new BufferedImage(pgSize.width, pgSize.height, BufferedImage.TYPE_INT_ARGB);
-						Graphics2D graphics = img.createGraphics();
+					// Inject the name into the XML as an internal name for the slide
+					newSlide.getXmlObject().getCSld().setName(filePrefix);
 
-						graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-						graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-						graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
-								RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-
-						if ((i + 1) % 10 == 0 || i == 0) {
-							log.info("Processing slide {} of {} ({}%)", i + 1, stats.size(),
-									((i + 1) * 100) / stats.size());
-						}
-						newSlide.draw(graphics);
-
-						// Add the PNG to the ZIP
-						zos.putNextEntry(new ZipEntry(filePrefix + ".png"));
-						ImageIO.write(img, "png", zos);
-						zos.closeEntry();
-					}
-
-					log.info("Completed generating slides for all contestants. Total slides: {}", stats.size());
-
-					// Delete the original template slides from the combined PPTX to keep
-					// only the generated slides
-					for (int i = baseTemplateCount - 1; i >= 0; i--) {
-						combinedPpt.removeSlide(i);
-					}
-
-					String combinedFileName = String.format("Round_%d_Group_%d_Slides.pptx", idRound, groupNumber);
-					zos.putNextEntry(new ZipEntry(combinedFileName));
-					combinedPpt.write(zos);
-					zos.closeEntry();
+					// Replace placeholders in the new slide
+					replacePlaceholders(combinedPpt, newSlide, rank, stat, sortedJudges, subs, avatarCache);
 				}
+
+				log.info("Completed generating slides for all contestants. Total slides: {}", stats.size());
+
+				// Delete the original template slides from the combined PPTX to keep
+				// only the generated slides
+				for (int i = baseTemplateCount - 1; i >= 0; i--) {
+					combinedPpt.removeSlide(i);
+				}
+
+				combinedPpt.write(pptBaos);
 			}
 
-			return zipBaos.toByteArray();
+			return pptBaos.toByteArray();
 		}
 		catch (IllegalStateException | IllegalArgumentException e) {
 			throw e; // Rethrow to be handled by the GlobalExceptionHandler
@@ -343,29 +317,53 @@ public class SlideGeneratorService {
 
 	private byte[] getCircularAvatarBytes(DiscordUser user) {
 		String avatarHash = user.getAvatar();
-		String avatarUrl;
+
+		// Calculate the default Discord avatar URL
+		long id = Long.parseLong(user.getDiscordId());
+		long defaultAvatarIndex = (id >> 22) % 5;
+		String defaultAvatarUrl = String.format("https://cdn.discordapp.com/embed/avatars/%d.png", defaultAvatarIndex);
 
 		// Check if the user has a custom avatar hash in the database
+		String targetUrl;
 		if (avatarHash != null && !avatarHash.isBlank()) {
 			// Use the stored avatar hash to construct the URL
-			avatarUrl = String.format("https://cdn.discordapp.com/avatars/%s/%s.png?size=256", user.getDiscordId(),
+			targetUrl = String.format("https://cdn.discordapp.com/avatars/%s/%s.png?size=256", user.getDiscordId(),
 					avatarHash);
 		}
 		else {
-			// Calculate the default Discord avatar if no custom avatar is set
-			long id = Long.parseLong(user.getDiscordId());
-			long defaultAvatarIndex = (id >> 22) % 5;
-			avatarUrl = String.format("https://cdn.discordapp.com/embed/avatars/%d.png", defaultAvatarIndex);
+			targetUrl = defaultAvatarUrl;
 		}
+
+		BufferedImage originalImage = null;
 
 		try {
 			// Load the image from the URL
-			URL url = new URI(avatarUrl).toURL();
-			BufferedImage originalImage = ImageIO.read(url);
+			URL url = new URI(targetUrl).toURL();
+			originalImage = ImageIO.read(url);
+		}
+		catch (Exception e) {
+			log.warn("Could not load avatar for user {}: {}. Falling back to default avatar.", user.getIdUser(),
+					e.getMessage());
+		}
 
-			if (originalImage == null)
+		if (originalImage == null && !targetUrl.equals(defaultAvatarUrl)) {
+			try {
+				URL fallbackUrl = new URI(defaultAvatarUrl).toURL();
+				originalImage = ImageIO.read(fallbackUrl);
+			}
+			catch (Exception e) {
+				log.error("Could not load default avatar for user {}: {}", user.getIdUser(), e.getMessage());
 				return null; // Failed to load image
+			}
+		}
 
+		// If it's still null, return null to avoid NullPointerException on further
+		// processing
+		if (originalImage == null) {
+			return null;
+		}
+
+		try {
 			int width = originalImage.getWidth();
 			int height = originalImage.getHeight();
 			int diameter = Math.min(width, height);
@@ -414,7 +412,7 @@ public class SlideGeneratorService {
 			return baos.toByteArray();
 		}
 		catch (Exception e) {
-			log.warn("Could not process avatar for user {}: {}", user.getIdUser(), e.getMessage());
+			log.error("Could not process avatar for user {}: {}", user.getIdUser(), e.getMessage());
 			return null;
 		}
 	}
