@@ -63,15 +63,19 @@ public class RoundDetailService {
 		Map<Integer, Integer> groupMap = userRounds.stream()
 			.filter(ur -> ur.getUserRole() == UserRoleType.CONTESTANT)
 			.collect(Collectors.toMap(ur -> ur.getId().getUserId(), UserRound::getGroupNumber));
+		Map<Integer, Integer> sortOrderMap = userRounds.stream()
+			.filter(ur -> ur.getUserRole() == UserRoleType.JUDGE)
+			.collect(Collectors.toMap(ur -> ur.getId().getUserId(), UserRound::getSortOrder));
 
 		return subs.stream().map(s -> {
 			DiscordUser judge = userMap.get(s.getIdJudge());
 			DiscordUser contestant = userMap.get(s.getIdContestant());
 			Integer group = groupMap.getOrDefault(contestant.getIdUser(), 1);
+			Integer sortOrder = sortOrderMap.getOrDefault(judge.getIdUser(), 0);
 
 			return new AdminSubmissionDTO(s.getIdSubmission(), s.getSubLink(), s.getScore(), s.getReview(),
 					s.getTitle(), s.getArtist(), judge.getDiscordId(), judge.getUsername(), contestant.getDiscordId(),
-					contestant.getUsername(), group, s.getSubmittedAt());
+					contestant.getUsername(), group, s.getSubmittedAt(), sortOrder);
 		}).toList();
 	}
 
@@ -87,15 +91,20 @@ public class RoundDetailService {
 			.stream()
 			.filter(ur -> ur.getUserRole() == UserRoleType.CONTESTANT)
 			.collect(Collectors.toMap(ur -> ur.getId().getUserId(), UserRound::getGroupNumber));
+		Map<Integer, Integer> sortOrderMap = userRoundService.getUserRoundsByRoundId(subs.get(0).getIdRound())
+			.stream()
+			.filter(ur -> ur.getUserRole() == UserRoleType.JUDGE)
+			.collect(Collectors.toMap(ur -> ur.getId().getUserId(), UserRound::getSortOrder));
 
 		return subs.stream().map(s -> {
 			DiscordUser judge = userMap.get(s.getIdJudge());
 			DiscordUser contestant = userMap.get(s.getIdContestant());
 			Integer group = groupMap.getOrDefault(contestant.getIdUser(), 1);
+			Integer sortOrder = sortOrderMap.getOrDefault(judge.getIdUser(), 0);
 
 			return new AdminSubmissionDTO(s.getIdSubmission(), s.getSubLink(), s.getScore(), s.getReview(),
 					s.getTitle(), s.getArtist(), judge.getDiscordId(), judge.getUsername(), contestant.getDiscordId(),
-					contestant.getUsername(), group, s.getSubmittedAt());
+					contestant.getUsername(), group, s.getSubmittedAt(), sortOrder);
 		}).toList();
 	}
 

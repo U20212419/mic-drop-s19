@@ -30,6 +30,7 @@ interface AdminSubmission {
   judgeUsername: string;
   contestantUsername: string;
   groupNumber: number;
+  sortOrder?: number; // Sort order for judges
 }
 
 export default function RoundAdminDetailPage() {
@@ -229,10 +230,35 @@ export default function RoundAdminDetailPage() {
     }
   };
 
-  // Group the data based on View Mode
+  // Pre-calculate the track number for every submission matching the judge's view
+  const augmentedSubs = useMemo(() => {
+    // Group all submissions by judge to determine track order
+    const judgeMap = new Map<string, AdminSubmission[]>();
+    submissions.forEach((s) => {
+      if (!judgeMap.has(s.judgeUsername)) judgeMap.set(s.judgeUsername, []);
+      judgeMap.get(s.judgeUsername)!.push(s);
+    });
+
+    const withTracks: (AdminSubmission & { trackNumber: number })[] = [];
+
+    judgeMap.forEach((subs) => {
+      // Sort by idSubmission to match the chronological order judges see on their page
+      subs.sort((a, b) => a.idSubmission - b.idSubmission);
+      subs.forEach((s, index) => {
+        withTracks.push({ ...s, trackNumber: index + 1 });
+      });
+    });
+
+    return withTracks;
+  }, [submissions]);
+
+  // Group the augmented data based on View Mode
   const groupedData = useMemo(() => {
-    const groupSubs = submissions.filter((s) => s.groupNumber === selectedGroup);
-    const map = new Map<string, { name: string; subs: AdminSubmission[] }>();
+    const groupSubs = augmentedSubs.filter((s) => s.groupNumber === selectedGroup);
+    const map = new Map<
+      string,
+      { name: string; subs: (AdminSubmission & { trackNumber: number })[] }
+    >();
 
     groupSubs.forEach((s) => {
       const key = viewMode === "contestant" ? s.contestantUsername : s.judgeUsername;
@@ -240,8 +266,39 @@ export default function RoundAdminDetailPage() {
       map.get(key)!.subs.push(s);
     });
 
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [submissions, selectedGroup, viewMode]);
+    const groupsArray = Array.from(map.values());
+
+    // Sort the accordions
+    if (viewMode === "contestant") {
+      // Accordions are contestants: Sort alphabetically by name
+      groupsArray.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      // Accordions are judges: Sort by the judge's configured sort order
+      // We grab the sort_order from the first submission in the group.
+      groupsArray.sort((a, b) => {
+        const orderA = a.subs[0]?.sortOrder ?? a.subs[0]?.sortOrder ?? 0;
+        const orderB = b.subs[0]?.sortOrder ?? b.subs[0]?.sortOrder ?? 0;
+        return orderA - orderB;
+      });
+    }
+
+    // Sort the cards inside the accordions
+    groupsArray.forEach((group) => {
+      if (viewMode === "contestant") {
+        // Cards are judges: Sort by their configured sort order
+        group.subs.sort((a, b) => {
+          const orderA = a.sortOrder ?? a.sortOrder ?? 0;
+          const orderB = b.sortOrder ?? b.sortOrder ?? 0;
+          return orderA - orderB;
+        });
+      } else {
+        // Cards are tracks/contestants: Sort chronologically by track number
+        group.subs.sort((a, b) => a.trackNumber - b.trackNumber);
+      }
+    });
+
+    return groupsArray;
+  }, [augmentedSubs, selectedGroup, viewMode]);
 
   const canExecuteElimination =
     round && !round.submissionsOpen && (round.eliminationAmount || 0) > 0;
@@ -472,15 +529,20 @@ export default function RoundAdminDetailPage() {
                       <div className="flex flex-col lg:flex-row gap-6">
                         {/* Left: Editable Metadata */}
                         <div className="flex-1 space-y-4">
-                          <div>
-                            <p className="text-xs font-bold text-[#80848E] uppercase mb-1">
-                              {viewMode === "contestant" ? "To Judge" : "From Contestant"}
-                            </p>
-                            <p className="text-[#DBDEE1] font-medium">
-                              {viewMode === "contestant"
-                                ? sub.judgeUsername
-                                : sub.contestantUsername}
-                            </p>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <div className="bg-[#5865F2]/20 text-[#5865F2] text-xs font-bold px-2 py-1 rounded shrink-0">
+                              Track #{sub.trackNumber}
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-bold text-[#80848E] uppercase">
+                                {viewMode === "contestant" ? "To Judge:" : "From Contestant:"}
+                              </span>
+                              <span className="text-[#DBDEE1] font-medium text-sm">
+                                {viewMode === "contestant"
+                                  ? sub.judgeUsername
+                                  : sub.contestantUsername}
+                              </span>
+                            </div>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
