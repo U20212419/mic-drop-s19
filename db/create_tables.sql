@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS round (
 	active BOOLEAN NOT NULL,
 	group_count INTEGER NOT NULL,
 	submissions_open BOOLEAN NOT NULL,
-	elimination_amount INTEGER NULL,
+	elimination_amount VARCHAR(30) NULL,
 	special_round BOOLEAN NOT NULL DEFAULT FALSE
 );
 

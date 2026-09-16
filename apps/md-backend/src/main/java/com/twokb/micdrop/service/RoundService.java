@@ -64,6 +64,20 @@ public class RoundService {
 		return activeRounds.get(0);
 	}
 
+	@Transactional(readOnly = true)
+	public Optional<Round> findActiveRound() {
+		List<Round> activeRounds = roundRepository.findAllByActiveTrue();
+
+		if (activeRounds.isEmpty()) {
+			return Optional.empty();
+		}
+		if (activeRounds.size() > 1) {
+			throw new IllegalStateException("More than one round is active. Please fix the round configuration first.");
+		}
+
+		return Optional.of(activeRounds.get(0));
+	}
+
 	@Transactional
 	public Round updateRound(Integer idRound, Integer roundNumber, Boolean active, Integer groupCount,
 			Boolean submissionsOpen, String eliminationAmount, Boolean specialRound) {
