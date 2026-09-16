@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -12,7 +13,6 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.twokb.micdrop.dto.PendingBonusDTO;
 import com.twokb.micdrop.dto.RoundAssignmentDTO;
 import com.twokb.micdrop.dto.RoundAssignmentsResponse;
 import com.twokb.micdrop.dto.UserAssignmentDTO;
@@ -505,6 +505,11 @@ public class UserRoundService {
 		return userRoundRepository.findById_RoundIdAndUser_DiscordId(idRound, discordId)
 			.orElseThrow(() -> new IllegalArgumentException(
 					"User with Discord ID " + discordId + " is not part of round with ID " + idRound + "."));
+	}
+
+	@Transactional(readOnly = true)
+	public Optional<UserRound> findUserRoundByRoundIdAndDiscordId(Integer idRound, String discordId) {
+		return userRoundRepository.findById_RoundIdAndUser_DiscordId(idRound, discordId);
 	}
 
 	@Transactional(readOnly = true)
