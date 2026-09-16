@@ -151,14 +151,15 @@ public class RoundController {
 	@PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<byte[]> downloadSlidesZip(@PathVariable Integer idRound, DownloadSlidesRequest request) {
 		Integer groupNumber = request.groupNumber();
-		byte[] zipData = slideGeneratorService.generateRoundSlidesZip(idRound, groupNumber);
+		byte[] pptxBytes = slideGeneratorService.generateRoundSlidesPptx(idRound, groupNumber);
 
 		HttpHeaders headers = new HttpHeaders();
-		headers.setContentType(MediaType.valueOf("application/zip"));
+		headers.setContentType(
+				MediaType.valueOf("application/vnd.openxmlformats-officedocument.presentationml.presentation"));
 		headers.setContentDispositionFormData("attachment",
-				"Round_" + idRound + "_Group_" + groupNumber + "_Slides.zip");
+				"Round_" + idRound + "_Group_" + groupNumber + "_Slides.pptx");
 
-		return new ResponseEntity<>(zipData, headers, HttpStatus.OK);
+		return new ResponseEntity<>(pptxBytes, headers, HttpStatus.OK);
 	}
 
 }

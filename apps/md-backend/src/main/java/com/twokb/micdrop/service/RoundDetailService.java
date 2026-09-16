@@ -63,15 +63,19 @@ public class RoundDetailService {
 		Map<Integer, Integer> groupMap = userRounds.stream()
 			.filter(ur -> ur.getUserRole() == UserRoleType.CONTESTANT)
 			.collect(Collectors.toMap(ur -> ur.getId().getUserId(), UserRound::getGroupNumber));
+		Map<Integer, Integer> sortOrderMap = userRounds.stream()
+			.filter(ur -> ur.getUserRole() == UserRoleType.JUDGE)
+			.collect(Collectors.toMap(ur -> ur.getId().getUserId(), UserRound::getSortOrder));
 
 		return subs.stream().map(s -> {
 			DiscordUser judge = userMap.get(s.getIdJudge());
 			DiscordUser contestant = userMap.get(s.getIdContestant());
 			Integer group = groupMap.getOrDefault(contestant.getIdUser(), 1);
+			Integer sortOrder = sortOrderMap.getOrDefault(judge.getIdUser(), 0);
 
 			return new AdminSubmissionDTO(s.getIdSubmission(), s.getSubLink(), s.getScore(), s.getReview(),
 					s.getTitle(), s.getArtist(), judge.getDiscordId(), judge.getUsername(), contestant.getDiscordId(),
-					contestant.getUsername(), group, s.getSubmittedAt());
+					contestant.getUsername(), group, s.getSubmittedAt(), sortOrder);
 		}).toList();
 	}
 
@@ -87,15 +91,20 @@ public class RoundDetailService {
 			.stream()
 			.filter(ur -> ur.getUserRole() == UserRoleType.CONTESTANT)
 			.collect(Collectors.toMap(ur -> ur.getId().getUserId(), UserRound::getGroupNumber));
+		Map<Integer, Integer> sortOrderMap = userRoundService.getUserRoundsByRoundId(subs.get(0).getIdRound())
+			.stream()
+			.filter(ur -> ur.getUserRole() == UserRoleType.JUDGE)
+			.collect(Collectors.toMap(ur -> ur.getId().getUserId(), UserRound::getSortOrder));
 
 		return subs.stream().map(s -> {
 			DiscordUser judge = userMap.get(s.getIdJudge());
 			DiscordUser contestant = userMap.get(s.getIdContestant());
 			Integer group = groupMap.getOrDefault(contestant.getIdUser(), 1);
+			Integer sortOrder = sortOrderMap.getOrDefault(judge.getIdUser(), 0);
 
 			return new AdminSubmissionDTO(s.getIdSubmission(), s.getSubLink(), s.getScore(), s.getReview(),
 					s.getTitle(), s.getArtist(), judge.getDiscordId(), judge.getUsername(), contestant.getDiscordId(),
-					contestant.getUsername(), group, s.getSubmittedAt());
+					contestant.getUsername(), group, s.getSubmittedAt(), sortOrder);
 		}).toList();
 	}
 
@@ -311,6 +320,7 @@ public class RoundDetailService {
 
 		String eliminatedRoleId = systemSettingService.getSetting("eliminated_role_id").orElse("");
 		String ytsRoleId = systemSettingService.getSetting("yts_role_id").orElse("");
+		String contestantRoleId = systemSettingService.getSetting("contestant_role_id").orElse("");
 
 		String guildId = systemSettingService.getSetting("guild_id").orElse("");
 		Guild guild = guildId.isEmpty() ? null : jda.getGuildById(guildId);
@@ -318,6 +328,8 @@ public class RoundDetailService {
 		Role eliminatedRole = (guild != null && !eliminatedRoleId.isEmpty()) ? guild.getRoleById(eliminatedRoleId)
 				: null;
 		Role ytsRole = (guild != null && !ytsRoleId.isEmpty()) ? guild.getRoleById(ytsRoleId) : null;
+		Role contestantRole = (guild != null && !contestantRoleId.isEmpty()) ? guild.getRoleById(contestantRoleId)
+				: null;
 
 		// Apply preliminary status to public status for all contestants in the group
 		for (DiscordUser contestant : contestants) {
@@ -336,11 +348,15 @@ public class RoundDetailService {
 								error.getMessage()));
 					}
 
-					// Add eliminated role for eliminated contestants
+					// Add eliminated role for eliminated contestants and remove the
+					// contestant role
 					if (eliminatedRole != null && (contestant.getStatus() == ContestantStatus.ELIMINATED
 							|| contestant.getStatus() == ContestantStatus.DID_NOT_SUBMIT)) {
 						guild.addRoleToMember(snowflake, eliminatedRole).queue(success -> {
 						}, error -> log.warn("Failed to add eliminated role to user {}: {}", discordId,
+								error.getMessage()));
+						guild.removeRoleFromMember(snowflake, contestantRole).queue(success -> {
+						}, error -> log.warn("Failed to remove contestant role from user {}: {}", discordId,
 								error.getMessage()));
 					}
 				}
