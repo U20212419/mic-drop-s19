@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS user_round (
 	placed_first BOOLEAN NOT NULL DEFAULT FALSE,
 	bonus_claimed BOOLEAN NOT NULL DEFAULT FALSE,
 	sort_order INTEGER NULL,
+	statuses_applied BOOLEAN NOT NULL DEFAULT FALSE,
 	PRIMARY KEY (discord_user_id_user, round_id_round),
 	CONSTRAINT fk_user_round_discord_user
 		FOREIGN KEY (discord_user_id_user)

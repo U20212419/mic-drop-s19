@@ -208,11 +208,21 @@ public class PublicStatsService {
 		}
 
 		// Leaderboard sorting (nulls pushed to bottom implicitly)
-		contestantStats.sort(Comparator
-			.comparing(ContestantGlobalStatDTO::globalAverage, Comparator.nullsLast(Comparator.reverseOrder()))
-			.thenComparing(ContestantGlobalStatDTO::roundsPlayed, Comparator.nullsLast(Comparator.reverseOrder()))
-			.thenComparing(ContestantGlobalStatDTO::globalStdDev, Comparator.nullsLast(Comparator.naturalOrder()))
-			.thenComparing(ContestantGlobalStatDTO::globalMedian, Comparator.nullsLast(Comparator.reverseOrder())));
+		contestantStats.sort(
+				// Priority 1: Rounds Played (higher is better)
+				Comparator
+					.comparing(ContestantGlobalStatDTO::roundsPlayed, Comparator.nullsLast(Comparator.reverseOrder()))
+					// Priority 2: Survival Status (ACTIVE > ELIMINATED > DID_NOT_SUBMIT)
+					.thenComparing(c -> "ACTIVE".equalsIgnoreCase(c.currentStatus()) ? 1 : 0, Comparator.reverseOrder())
+					// Priority 3: Global Average (higher is better)
+					.thenComparing(ContestantGlobalStatDTO::globalAverage,
+							Comparator.nullsLast(Comparator.reverseOrder()))
+					// Priority 4: Global Standard Deviation (lower is better)
+					.thenComparing(ContestantGlobalStatDTO::globalStdDev,
+							Comparator.nullsLast(Comparator.naturalOrder()))
+					// Priority 5: Global Median (higher is better)
+					.thenComparing(ContestantGlobalStatDTO::globalMedian,
+							Comparator.nullsLast(Comparator.reverseOrder())));
 
 		List<Integer> availableRounds = processedRoundNumbers.stream().sorted().toList();
 		PublicStatResponseDTO finalResponse = new PublicStatResponseDTO(contestantStats, availableRounds);

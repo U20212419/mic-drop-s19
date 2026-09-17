@@ -19,6 +19,8 @@ import {
   Clock,
   Frown,
   ArrowLeft,
+  Minimize2,
+  Maximize2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -76,6 +78,7 @@ export default function PublicStatsPage() {
     key: "RANK",
     direction: "ASC",
   });
+  const [isCompact, setIsCompact] = useState(false);
 
   // Smart "Go Back" logic
   const handleGoBack = () => {
@@ -337,7 +340,7 @@ export default function PublicStatsPage() {
       <th
         key={sortKey}
         onClick={() => handleSort(sortKey)}
-        className={`px-6 py-5 cursor-pointer transition-colors select-none group sticky top-0 z-30 bg-[#1E1F22] border-b border-[#35373C] ${
+        className={`px-6 ${isCompact ? "py-2.5" : "py-5"} cursor-pointer transition-colors select-none group sticky top-0 z-30 bg-[#1E1F22] border-b border-[#35373C] ${
           isActive ? "bg-[#35373C]! shadow-inner" : "hover:bg-[#2B2D31]"
         } ${customClass}`}
         title={title}
@@ -404,9 +407,9 @@ export default function PublicStatsPage() {
               Season 19 Stats
             </h1>
             <p className="text-[#80848E] mt-2 text-sm max-w-xl leading-relaxed">
-              Global statistics across all completed rounds. Contestants are sorted by average by
-              default. Ties are broken by round reached, then standard deviation, and finally
-              median.
+              Global statistics across all completed rounds. Contestants are ranked by round
+              reached, survival status and average by default. Ties are broken by standard
+              deviation, then median.
             </p>
             {/* Legends */}
             <div className="flex items-center gap-2 mt-2">
@@ -448,7 +451,7 @@ export default function PublicStatsPage() {
         </div>
 
         {/* Toolbar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-[#2B2D31] p-4 rounded-xl border border-[#1E1F22] shadow-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 bg-[#2B2D31] p-4 rounded-xl border border-[#1E1F22] shadow-sm">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#80848E]" />
@@ -509,6 +512,20 @@ export default function PublicStatsPage() {
               ))}
             </select>
           </div>
+
+          {/* Compact View Toggle */}
+          <button
+            onClick={() => setIsCompact((prev) => !prev)}
+            className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border transition-colors h-full ${
+              isCompact
+                ? "bg-[#5865F2]/10 border-[#5865F2]/50 text-[#5865F2]"
+                : "bg-[#1E1F22] border-[#35373C] text-[#80848E] hover:border-[#5865F2] hover:text-[#DBDEE1]"
+            }`}
+            title="Toggle compact view"
+          >
+            {isCompact ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
+            <span className="text-sm font-medium">{isCompact ? "Expand" : "Compact"}</span>
+          </button>
         </div>
 
         {/* Responsive Table Wrapper */}
@@ -526,7 +543,9 @@ export default function PublicStatsPage() {
                     "w-[260px] md:left-22.5 md:z-40 md:shadow-[4px_0_10px_-3px_rgba(0,0,0,0.3)]",
                   )}
 
-                  <th className="px-6 py-5 select-none w-35 sticky top-0 z-30 bg-[#1E1F22] border-b border-[#35373C]">
+                  <th
+                    className={`px-6 ${isCompact ? "py-2.5" : "py-5"} select-none w-35 sticky top-0 z-30 bg-[#1E1F22] border-b border-[#35373C]`}
+                  >
                     Status
                   </th>
 
@@ -584,7 +603,9 @@ export default function PublicStatsPage() {
                     return (
                       <tr key={c.idUser} className="hover:bg-[#35373C]/40 transition-colors group">
                         {/* Rank */}
-                        <td className="px-6 py-4 md:sticky md:left-0 z-10 bg-[#2B2D31] group-hover:bg-[#323438] transition-colors">
+                        <td
+                          className={`px-6 ${isCompact ? "py-2" : "py-4"} md:sticky md:left-0 z-10 bg-[#2B2D31] group-hover:bg-[#323438] transition-colors`}
+                        >
                           <span
                             className={`font-mono font-bold text-lg drop-shadow-sm ${isGlobalDns ? "text-[#4E5058]" : rank === 1 ? "text-[#F1C40F]" : rank === 2 ? "text-[#C0C0C0]" : rank === 3 ? "text-[#CD7F32]" : "text-[#80848E]"}`}
                           >
@@ -593,7 +614,9 @@ export default function PublicStatsPage() {
                         </td>
 
                         {/* Contestant Details */}
-                        <td className="px-6 py-4 font-medium text-white min-w-65 md:sticky md:left-22.5 z-10 bg-[#2B2D31] group-hover:bg-[#323438] transition-colors md:shadow-[4px_0_10px_-3px_rgba(0,0,0,0.3)]">
+                        <td
+                          className={`px-6 ${isCompact ? "py-2" : "py-4"} font-medium text-white min-w-65 md:sticky md:left-22.5 z-10 bg-[#2B2D31] group-hover:bg-[#323438] transition-colors md:shadow-[4px_0_10px_-3px_rgba(0,0,0,0.3)]`}
+                        >
                           <div className="flex items-center gap-3">
                             <img
                               src={
@@ -614,9 +637,9 @@ export default function PublicStatsPage() {
                         </td>
 
                         {/* Status Badge */}
-                        <td className="px-6 py-4">
+                        <td className={`px-6 ${isCompact ? "py-2" : "py-4"}`}>
                           <span
-                            className={`text-[10px] font-black px-2.5 py-1 rounded shadow-sm uppercase tracking-widest whitespace-nowrap ${
+                            className={`text-[9px] sm:text-[10px] font-black px-2 sm:px-2.5 py-1 rounded shadow-sm uppercase tracking-widest whitespace-nowrap ${
                               c.currentStatus === "ACTIVE"
                                 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                                 : c.currentStatus === "ELIMINATED"
@@ -624,12 +647,21 @@ export default function PublicStatsPage() {
                                   : "bg-[#4E5058]/20 text-[#80848E] border border-[#4E5058]/30"
                             }`}
                           >
-                            {c.currentStatus.replace(/_/g, " ")}
+                            {c.currentStatus === "DID_NOT_SUBMIT" ? (
+                              <>
+                                <span className="sm:hidden">DNS</span>
+                                <span className="hidden sm:inline">DID NOT SUBMIT</span>
+                              </>
+                            ) : (
+                              c.currentStatus.replace(/_/g, " ")
+                            )}
                           </span>
                         </td>
 
                         {/* Global Stats */}
-                        <td className="px-6 py-4 border-l border-[#35373C]/50 font-bold tabular-nums bg-[#2B2D31]/10">
+                        <td
+                          className={`px-6 ${isCompact ? "py-2" : "py-4"} border-l border-[#35373C]/50 font-bold tabular-nums bg-[#2B2D31]/10`}
+                        >
                           {isGlobalDns ? (
                             <span className="text-[#4E5058] text-sm">DNS</span>
                           ) : (
@@ -638,7 +670,9 @@ export default function PublicStatsPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-4 tabular-nums bg-[#2B2D31]/10">
+                        <td
+                          className={`px-6 ${isCompact ? "py-2" : "py-4"} tabular-nums bg-[#2B2D31]/10`}
+                        >
                           {isGlobalDns ? (
                             <span className="text-[#4E5058] text-sm">DNS</span>
                           ) : (
@@ -647,7 +681,9 @@ export default function PublicStatsPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-4 border-r border-[#35373C]/50 tabular-nums bg-[#2B2D31]/10">
+                        <td
+                          className={`px-6 ${isCompact ? "py-2" : "py-4"} border-r border-[#35373C]/50 tabular-nums bg-[#2B2D31]/10`}
+                        >
                           {isGlobalDns ? (
                             <span className="text-[#4E5058] text-sm">DNS</span>
                           ) : (
@@ -675,14 +711,27 @@ export default function PublicStatsPage() {
                           else if (isWorst) scoreColorClass = "text-[#E67E22]"; // Orange
 
                           if (!rData || rData.isPending) {
+                            // Check if the user is eliminated and this round happens after their elimination
+                            // If eliminationRound is null but they are eliminated, it means they never played (global DNS), so it's also N/A
+                            const isNA =
+                              (c.currentStatus === "ELIMINATED" ||
+                                c.currentStatus === "DID_NOT_SUBMIT") &&
+                              (!highlights.eliminationRound || rNum > highlights.eliminationRound);
+
                             return (
                               <td
                                 key={rNum}
-                                className="px-6 py-4 text-center border-r border-[#35373C]/50 last:border-0 bg-[#1E1F22]/20"
-                                title="Results pending application"
+                                className={`px-6 ${isCompact ? "py-2" : "py-3"} text-center border-r border-[#35373C]/50 last:border-0 bg-[#1E1F22]/20`}
+                                title={
+                                  isNA
+                                    ? "Not applicable (contestant eliminated)"
+                                    : "Results pending application"
+                                }
                               >
-                                <span className="text-[#4E5058] text-[11px] font-bold uppercase tracking-wider italic">
-                                  TBD
+                                <span
+                                  className={`text-[11px] font-bold uppercase tracking-wider italic ${isNA ? "text-[#4E5058]/50" : "text-[#4E5058]"}`}
+                                >
+                                  {isNA ? "N/A" : "TBD"}
                                 </span>
                               </td>
                             );
@@ -738,53 +787,56 @@ export default function PublicStatsPage() {
                                   {rData.average.toFixed(2)}
                                 </span>
 
-                                <div className="flex items-center gap-1.5 mt-1 text-[10px] text-[#80848E] font-medium bg-[#1E1F22] px-2 py-0.5 rounded-sm border border-[#35373C]">
-                                  <span title="Assigned Group">G{rData.groupNumber}</span>
-                                  <span className="opacity-50">•</span>
+                                {!isCompact && (
+                                  <>
+                                    <div className="flex items-center gap-1.5 mt-1 text-[10px] text-[#80848E] font-medium bg-[#1E1F22] px-2 py-0.5 rounded-sm border border-[#35373C]">
+                                      <span title="Assigned Group">G{rData.groupNumber}</span>
+                                      <span className="opacity-50">•</span>
 
-                                  {/* Group Rank Badge */}
-                                  <span
-                                    title={`Ranked #${rData.groupRank} in Group ${rData.groupNumber}`}
-                                    className={`${
-                                      rData.groupRank === 1
-                                        ? "text-[#F1C40F] font-bold"
-                                        : rData.groupRank === 2
-                                          ? "text-[#C0C0C0] font-bold"
-                                          : rData.groupRank === 3
-                                            ? "text-[#CD7F32] font-bold"
-                                            : ""
-                                    }`}
-                                  >
-                                    #{rData.groupRank}
-                                  </span>
+                                      {/* Group Rank Badge */}
+                                      <span
+                                        title={`Ranked #${rData.groupRank} in Group ${rData.groupNumber}`}
+                                        className={`${
+                                          rData.groupRank === 1
+                                            ? "text-[#F1C40F] font-bold"
+                                            : rData.groupRank === 2
+                                              ? "text-[#C0C0C0] font-bold"
+                                              : rData.groupRank === 3
+                                                ? "text-[#CD7F32] font-bold"
+                                                : ""
+                                        }`}
+                                      >
+                                        #{rData.groupRank}
+                                      </span>
+                                      <span className="opacity-50">•</span>
+                                      <span title="Round Standard Deviation">
+                                        ±{rData.stdDev.toFixed(2)}
+                                      </span>
+                                    </div>
 
-                                  <span className="opacity-50">•</span>
-                                  <span title="Round Standard Deviation">
-                                    ±{rData.stdDev.toFixed(2)}
-                                  </span>
-                                </div>
+                                    {/* Colored Individual Scores */}
+                                    <div className="mt-2 flex flex-wrap justify-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity duration-300">
+                                      {rData.scores.map((score, i) => (
+                                        <span
+                                          key={i}
+                                          className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border shadow-sm ${getScoreColorClass(score)}`}
+                                        >
+                                          {score}
+                                        </span>
+                                      ))}
+                                    </div>
 
-                                {/* Colored Individual Scores */}
-                                <div className="mt-2 flex flex-wrap justify-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity duration-300">
-                                  {rData.scores.map((score, i) => (
-                                    <span
-                                      key={i}
-                                      className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border shadow-sm ${getScoreColorClass(score)}`}
-                                    >
-                                      {score}
-                                    </span>
-                                  ))}
-                                </div>
-
-                                {/* Exact Submission Time */}
-                                {rData.submittedAt && (
-                                  <div
-                                    title="Last valid submission time for this round"
-                                    className="mt-2.5 flex items-center gap-1 text-[9px] font-mono text-[#80848E]/70 group-hover:text-[#80848E] transition-colors"
-                                  >
-                                    <Clock className="w-2.5 h-2.5" />
-                                    <span>{formatSubmittedAt(rData.submittedAt)}</span>
-                                  </div>
+                                    {/* Exact Submission Time */}
+                                    {rData.submittedAt && (
+                                      <div
+                                        title="Last valid submission time for this round"
+                                        className="mt-2.5 flex items-center gap-1 text-[9px] font-mono text-[#80848E]/70 group-hover:text-[#80848E] transition-colors"
+                                      >
+                                        <Clock className="w-2.5 h-2.5" />
+                                        <span>{formatSubmittedAt(rData.submittedAt)}</span>
+                                      </div>
+                                    )}
+                                  </>
                                 )}
                               </div>
                             </td>
