@@ -4,7 +4,7 @@ import { signIn, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
 import { toast } from "sonner";
-import { Disc3, Gavel, MicVocal } from "lucide-react";
+import { Disc3, Gavel, MicVocal, Trophy } from "lucide-react";
 
 function LoginContent() {
   const { status, data: session } = useSession();
@@ -73,19 +73,29 @@ function LoginContent() {
           Login with Discord
         </button>
 
-        <div className="flex items-center gap-2 py-2">
+        <div className="flex items-center gap-2 py-2 my-2">
           <div className="h-px bg-[#35373C] flex-1"></div>
-          <span className="text-[10px] font-bold text-[#4E5058] uppercase">or</span>
+          <span className="text-[10px] font-bold text-[#4E5058] uppercase">Public Access</span>
           <div className="h-px bg-[#35373C] flex-1"></div>
         </div>
 
-        <button
-          onClick={() => router.push("/judge-app")}
-          className="w-full bg-transparent border border-[#4E5058] text-[#DBDEE1] px-4 py-2.5 rounded-md font-semibold hover:bg-[#35373C] transition-colors flex items-center justify-center gap-2 group"
-        >
-          <Gavel className="w-4 h-4 text-[#80848E] group-hover:text-[#5865F2] transition-colors" />
-          Judge Application
-        </button>
+        <div className="space-y-3">
+          <button
+            onClick={() => router.push("/stats")}
+            className="w-full bg-transparent border border-[#4E5058] text-[#DBDEE1] px-4 py-2.5 rounded-md font-semibold hover:bg-[#35373C] transition-colors flex items-center justify-center gap-2 group"
+          >
+            <Trophy className="w-4 h-4 text-[#80848E] group-hover:text-[#F1C40F] transition-colors" />
+            Season 19 Stats
+          </button>
+
+          <button
+            onClick={() => router.push("/judge-app")}
+            className="w-full bg-transparent border border-[#4E5058] text-[#DBDEE1] px-4 py-2.5 rounded-md font-semibold hover:bg-[#35373C] transition-colors flex items-center justify-center gap-2 group"
+          >
+            <Gavel className="w-4 h-4 text-[#80848E] group-hover:text-[#5865F2] transition-colors" />
+            Judge Application
+          </button>
+        </div>
       </div>
     </div>
   );

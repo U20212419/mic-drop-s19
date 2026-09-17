@@ -30,4 +30,10 @@ public interface DiscordUserRepository extends JpaRepository<DiscordUser, Intege
 			""", nativeQuery = true)
 	Set<Integer> findUserIdsByStatus(@Param("statusStr") String statusStr);
 
+	@Query(value = """
+			SELECT * FROM discord_user
+			WHERE CAST(status AS text) IN (:statusStrList)
+			""", nativeQuery = true)
+	Set<DiscordUser> findAllByStatusIn(@Param("statusStrList") Set<String> statusStrList);
+
 }

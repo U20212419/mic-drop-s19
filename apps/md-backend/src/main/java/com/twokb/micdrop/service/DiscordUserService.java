@@ -215,6 +215,20 @@ public class DiscordUserService {
 	}
 
 	@Transactional(readOnly = true)
+	public List<DiscordUser> getAllCurrentOrExContestants() {
+		// Contestants and ex-contestants are users with ACTIVE, DID_NOT_SUBMIT, or
+		// ELIMINATED status
+		List<DiscordUser> contestants = discordUserRepository
+			.findAllByStatusIn(Set.of(ContestantStatus.ACTIVE.name().toLowerCase(),
+					ContestantStatus.DID_NOT_SUBMIT.name().toLowerCase(),
+					ContestantStatus.ELIMINATED.name().toLowerCase()))
+			.stream()
+			.toList();
+
+		return contestants;
+	}
+
+	@Transactional(readOnly = true)
 	public boolean isUserActive(Integer id) {
 		return discordUserRepository.existsByIdUserAndStatus(id, ContestantStatus.ACTIVE.name().toLowerCase());
 	}

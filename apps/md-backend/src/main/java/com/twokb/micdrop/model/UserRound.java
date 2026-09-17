@@ -44,4 +44,7 @@ public class UserRound {
 	@Column(name = "sort_order")
 	private Integer sortOrder;
 
+	@Column(name = "statuses_applied", columnDefinition = "boolean default false", nullable = false)
+	private Boolean statusesApplied = false;
+
 }

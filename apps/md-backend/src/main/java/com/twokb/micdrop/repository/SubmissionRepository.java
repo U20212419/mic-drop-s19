@@ -43,4 +43,10 @@ public interface SubmissionRepository extends JpaRepository<Submission, Integer>
 
 	List<Submission> findByIdRoundAndIdContestantIn(Integer idRound, List<Integer> idContestants);
 
+	@Query("""
+			SELECT s FROM Submission s
+			WHERE s.score IS NOT NULL
+			""")
+	List<Submission> findAllByScoreIsNotNull();
+
 }

@@ -15,6 +15,7 @@ import {
   Disc3,
   Menu,
   X,
+  Trophy,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -75,6 +76,12 @@ export function Sidebar() {
       name: "Judge App",
       href: "/judge-app",
       icon: Gavel,
+      roles: ["ADMIN", "STAFF", "USER"],
+    },
+    {
+      name: "Stats",
+      href: "/stats",
+      icon: Trophy,
       roles: ["ADMIN", "STAFF", "USER"],
     },
     {

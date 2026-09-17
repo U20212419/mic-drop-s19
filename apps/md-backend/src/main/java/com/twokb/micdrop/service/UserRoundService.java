@@ -491,6 +491,16 @@ public class UserRoundService {
 	}
 
 	@Transactional(readOnly = true)
+	public List<UserRound> getAllContestantAssignments() {
+		return userRoundRepository.findByUserRole(UserRoleType.CONTESTANT.name().toLowerCase());
+	}
+
+	@Transactional(readOnly = true)
+	public List<UserRound> getAllJudgeAssignments() {
+		return userRoundRepository.findByUserRole(UserRoleType.JUDGE.name().toLowerCase());
+	}
+
+	@Transactional(readOnly = true)
 	public List<UserRound> getUserRoundsByRoundId(Integer idRound) {
 		return userRoundRepository.findById_RoundId(idRound);
 	}

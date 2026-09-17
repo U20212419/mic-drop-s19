@@ -24,3 +24,35 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Scrollbar styles */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #4e5058 transparent;
+}
+
+/* Chrome, Edge, and Safari */
+::-webkit-scrollbar {
+  width: 8px; /* Adjust the width of the scrollbar */
+  height: 8px; /* Adjust the height of the scrollbar for horizontal scrolling */
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #4e5058;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #80848e;
+}
+
+/* Hide the corner between horizontal and vertical scrollbars */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}

@@ -49,6 +49,8 @@ public class RoundDetailService {
 
 	private final SystemSettingService systemSettingService;
 
+	private final PublicStatsService publicStatsService;
+
 	record ContestantStat(DiscordUser contestant, double avgScore, double stdDev, Instant maxSubmittedAt) {
 	}
 
@@ -310,13 +312,16 @@ public class RoundDetailService {
 		// Get stats to find out who placed first
 		List<ContestantStat> activeStats = getGroupStats(idRound, contestants, judges);
 
-		// Grant 1st place bonus to the top contestant (last in the sorted list) and
-		// remove it from all others
-		if (!activeStats.isEmpty()) {
-			DiscordUser firstPlace = activeStats.get(activeStats.size() - 1).contestant();
+		// Identify the 1st place (last in the sorted list) if anyone actually submitted
+		DiscordUser firstPlace = activeStats.isEmpty() ? null : activeStats.get(activeStats.size() - 1).contestant();
 
-			boolean firstPlaceFound = false;
+		boolean firstPlaceFound = false;
+		if (firstPlace != null) {
+			// Grant 1st place bonus to the top contestant and remove it from all others
 			for (UserRound ur : contestantUserRounds) {
+				// Mark statuses as applied for all contestants in the group
+				ur.setStatusesApplied(true);
+
 				if (ur.getUser().getIdUser().equals(firstPlace.getIdUser())) {
 					ur.setPlacedFirst(true);
 					firstPlaceFound = true;
@@ -325,9 +330,10 @@ public class RoundDetailService {
 					ur.setPlacedFirst(false);
 				}
 			}
-			if (!firstPlaceFound) {
-				throw new IllegalStateException("First place contestant UserRound info not found.");
-			}
+		}
+
+		if (!firstPlaceFound) {
+			throw new IllegalStateException("First place contestant UserRound info not found.");
 		}
 
 		String eliminatedRoleId = systemSettingService.getSetting("eliminated_role_id").orElse("");
@@ -377,6 +383,9 @@ public class RoundDetailService {
 				}
 			}
 		}
+
+		// Rebuild the public leaderboard cache now that statuses and scores are locked
+		publicStatsService.buildAndCacheStats();
 	}
 
 }
