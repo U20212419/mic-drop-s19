@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { toast } from "sonner";
 import api from "@/lib/axios";
-import { Gavel, Send, Loader2, Disc3, LogOut, Home } from "lucide-react";
+import { Gavel, Send, Loader2, Disc3, LogOut, Home, Trophy } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { FormTextarea } from "@/components/FormTextarea";
 
@@ -184,6 +184,15 @@ function JudgeAppForm() {
 
             {/* Action Buttons Container */}
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto shrink-0">
+              <button
+                onClick={() => router.push("/stats")}
+                className="flex flex-1 sm:flex-none justify-center items-center gap-2 text-xs font-bold bg-[#35373C] hover:bg-[#4E5058] text-[#DBDEE1] px-3 py-2 rounded transition-colors"
+                title="View Leaderboard"
+              >
+                <Trophy className="w-4 h-4 text-[#F1C40F]" />
+                Stats
+              </button>
+
               {session?.user?.status !== "INACTIVE" && (
                 <button
                   onClick={() => router.push("/")}

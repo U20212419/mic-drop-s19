@@ -104,4 +104,9 @@ public class SubmissionService {
 		return submissionRepository.findFirstBySubLink(subLink);
 	}
 
+	@Transactional(readOnly = true)
+	public List<Submission> getAllScoredSubmissions() {
+		return submissionRepository.findAllByScoreIsNotNull();
+	}
+
 }
