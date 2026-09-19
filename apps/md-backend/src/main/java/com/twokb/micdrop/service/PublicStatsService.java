@@ -70,6 +70,11 @@ public class PublicStatsService {
 		Map<Integer, List<UserRound>> assignmentsByUser = allAssignments.stream()
 			.collect(Collectors.groupingBy(ur -> ur.getUser().getIdUser()));
 
+		// Precompute judge count for each round and group to handle missing scores
+		Map<Integer, Map<Integer, Long>> judgeCountByRoundAndGroup = allJudgeAssignments.stream()
+			.collect(Collectors.groupingBy(ja -> ja.getRound().getIdRound(), Collectors
+				.groupingBy(ja -> ja.getGroupNumber() != null ? ja.getGroupNumber() : 1, Collectors.counting())));
+
 		Set<Integer> processedRoundNumbers = new HashSet<>();
 		List<ContestantGlobalStatDTO> contestantStats = new ArrayList<>();
 
@@ -109,15 +114,34 @@ public class PublicStatsService {
 						Map<Integer, Integer> currentRoundJudges = judgeSortOrdersByRound.getOrDefault(roundId,
 								Collections.emptyMap());
 
-						List<BigDecimal> roundScores = subs.stream()
+						// See how many judges are in the current user's group
+						int judgeCount = judgeCountByRoundAndGroup.getOrDefault(roundId, Collections.emptyMap())
+							.getOrDefault(groupNum, 0L)
+							.intValue();
+
+						// Build the display array (padded with nulls for missing
+						// submissions)
+						List<BigDecimal> displayScores = new ArrayList<>();
+						subs.stream()
 							.sorted(Comparator.comparing(s -> currentRoundJudges.getOrDefault(s.getIdJudge(), 999)))
-							.map(Submission::getScore)
+							.forEach(s -> displayScores.add(s.getScore()));
+
+						while (displayScores.size() < judgeCount) {
+							displayScores.add(null);
+						}
+
+						// Build the strict math array (nulls converted to 0.0 for
+						// penalties)
+						List<BigDecimal> mathScores = displayScores.stream()
+							.map(s -> s == null ? BigDecimal.ZERO : s)
 							.toList();
 
-						allScoresGlobal.addAll(roundScores);
+						// Calculate average and standard deviation for this round
+						// considering missing scores as 0
+						Double roundAvg = calculateAverage(mathScores);
+						Double roundStdDev = calculateStdDev(mathScores, roundAvg);
 
-						Double roundAvg = calculateAverage(roundScores);
-						Double roundStdDev = calculateStdDev(roundScores, roundAvg);
+						allScoresGlobal.addAll(mathScores);
 
 						// Get the latest submission time for this contestant in this
 						// round to use as a tie-breaker
@@ -128,7 +152,7 @@ public class PublicStatsService {
 							.orElse(null);
 
 						roundPerformances.put(roundNumber, new RoundPerformanceDTO(roundNumber, groupNum, roundAvg,
-								roundStdDev, roundScores, false, false, latestSubmissionTime, null));
+								roundStdDev, displayScores, false, false, latestSubmissionTime, null));
 					}
 				}
 			}
@@ -143,9 +167,10 @@ public class PublicStatsService {
 			// Calculate how many valid rounds the contestant successfully participated in
 			Integer roundsPlayed = roundAverages.size();
 
-			Double globalAvg = allScoresGlobal.isEmpty() ? null : calculateAverage(allScoresGlobal);
+			Double globalAvg = allScoresGlobal.isEmpty() ? null
+					: roundAverages.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
 			Double globalStdDev = roundAverages.isEmpty() ? null : calculateStdDevForAverages(roundAverages, globalAvg);
-			Double globalMedian = allScoresGlobal.isEmpty() ? null : calculateMedian(allScoresGlobal);
+			Double globalMedian = allScoresGlobal.isEmpty() ? null : calculateMedianOfAverages(roundAverages);
 
 			String currentStatus = user.getStatus() != null ? user.getStatus().name() : "UNKNOWN";
 
@@ -222,7 +247,9 @@ public class PublicStatsService {
 							Comparator.nullsLast(Comparator.naturalOrder()))
 					// Priority 5: Global Median (higher is better)
 					.thenComparing(ContestantGlobalStatDTO::globalMedian,
-							Comparator.nullsLast(Comparator.reverseOrder())));
+							Comparator.nullsLast(Comparator.reverseOrder()))
+					// Priority 6: Username (case-insensitive alphabetical order)
+					.thenComparing(ContestantGlobalStatDTO::username, String.CASE_INSENSITIVE_ORDER));
 
 		List<Integer> availableRounds = processedRoundNumbers.stream().sorted().toList();
 		PublicStatResponseDTO finalResponse = new PublicStatResponseDTO(contestantStats, availableRounds);
@@ -235,44 +262,51 @@ public class PublicStatsService {
 		if (scores == null || scores.isEmpty())
 			return 0.0;
 
-		return scores.stream().mapToDouble(BigDecimal::doubleValue).average().orElse(0.0);
+		// Consider null scores as 0 for average calculation
+		return scores.stream().mapToDouble(s -> s != null ? s.doubleValue() : 0.0).average().orElse(0.0);
 	}
 
 	private Double calculateStdDev(List<BigDecimal> scores, Double mean) {
 		if (scores == null || scores.isEmpty())
 			return 0.0;
 
-		double variance = scores.stream().mapToDouble(s -> Math.pow(s.doubleValue() - mean, 2)).average().orElse(0.0);
+		double variance = scores.stream()
+			.mapToDouble(s -> s != null ? s.doubleValue() : 0.0)
+			.map(s -> Math.pow(s - mean, 2))
+			.average()
+			.orElse(0.0);
 
 		return Math.sqrt(variance);
-	}
-
-	private Double calculateMedian(List<BigDecimal> scores) {
-		if (scores == null || scores.isEmpty())
-			return 0.0;
-
-		// Create a mutable copy to sort
-		List<BigDecimal> sorted = new ArrayList<>(scores);
-		Collections.sort(sorted);
-
-		int size = sorted.size();
-		if (size % 2 == 0) {
-			// Even number of elements: average the two middle values
-			double middle1 = sorted.get(size / 2 - 1).doubleValue();
-			double middle2 = sorted.get(size / 2).doubleValue();
-			return (middle1 + middle2) / 2.0;
-		}
-		else {
-			// Odd number of elements: return the exact middle value
-			return sorted.get(size / 2).doubleValue();
-		}
 	}
 
 	private Double calculateStdDevForAverages(List<Double> averages, Double mean) {
 		if (averages == null || averages.isEmpty())
 			return 0.0;
+
 		double variance = averages.stream().mapToDouble(a -> Math.pow(a - mean, 2)).average().orElse(0.0);
+
 		return Math.sqrt(variance);
+	}
+
+	private Double calculateMedianOfAverages(List<Double> averages) {
+		if (averages == null || averages.isEmpty())
+			return 0.0;
+
+		// Create a copy and sort it in ascending order
+		List<Double> sorted = new ArrayList<>(averages);
+		Collections.sort(sorted);
+
+		int size = sorted.size();
+		if (size % 2 == 0) {
+			// Average of the two middle values if even
+			double middle1 = sorted.get(size / 2 - 1);
+			double middle2 = sorted.get(size / 2);
+			return (middle1 + middle2) / 2.0;
+		}
+		else {
+			// Exact middle value if odd
+			return sorted.get(size / 2);
+		}
 	}
 
 }
