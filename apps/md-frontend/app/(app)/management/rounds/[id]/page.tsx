@@ -927,7 +927,7 @@ export default function RoundDetailPage() {
                       <label className="text-xs font-bold text-[#80848E] uppercase tracking-wide mb-2 block">
                         {field.label}
                       </label>
-                      <p className="text-[#DBDEE1] text-sm whitespace-pre-wrap leading-relaxed">
+                      <p className="text-[#DBDEE1] text-sm whitespace-pre-wrap leading-relaxed wrap-anywhere">
                         {field.val || <span className="text-[#4E5058] italic">Not provided</span>}
                       </p>
                     </div>

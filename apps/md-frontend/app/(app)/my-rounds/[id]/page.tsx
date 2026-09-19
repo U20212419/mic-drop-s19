@@ -1028,7 +1028,7 @@ function ReadField({ label, val }: { label: string; val: string }) {
   return (
     <div>
       <p className="text-[#80848E] text-[10px] font-bold uppercase mb-1">{label}</p>
-      <div className="bg-[#1E1F22] border border-[#35373C] p-3 rounded-md text-[#DBDEE1] text-sm whitespace-pre-wrap">
+      <div className="bg-[#1E1F22] border border-[#35373C] p-3 rounded-md text-[#DBDEE1] text-sm whitespace-pre-wrap wrap-anywhere">
         {val}
       </div>
     </div>
