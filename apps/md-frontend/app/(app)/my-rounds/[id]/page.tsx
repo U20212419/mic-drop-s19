@@ -972,6 +972,7 @@ export default function RoundDetailPage() {
                         name={`review-${sub.idSubmission}`}
                         label={`Review for Track #${originalIndex + 1}`}
                         sublabel="Explain why you gave this score."
+                        maxLength={1000}
                         disabled={isMissingLink}
                         value={isMissingLink ? "" : sub.review || ""}
                         onChange={(e) => handleReviewChange(sub, e)}
