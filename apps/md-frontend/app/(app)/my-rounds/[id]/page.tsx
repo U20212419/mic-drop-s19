@@ -106,6 +106,8 @@ export default function RoundDetailPage() {
             }
           }
 
+          fetchedData.judges.sort((a: any, b: any) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+
           setContestantData(fetchedData);
 
           // If it's a special round, fetch the user's collection
