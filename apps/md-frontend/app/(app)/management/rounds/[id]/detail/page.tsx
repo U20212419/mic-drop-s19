@@ -482,7 +482,17 @@ export default function RoundAdminDetailPage() {
             return hasTrack && (isMissingScore || isMissingReview);
           }).length;
 
-          const isAlert = hasMissingSubs || (viewMode === "judge" && missingJudgementsCount > 0);
+          const missingDataCount = group.subs.filter((sub) => {
+            const hasTrack = sub.subLink && sub.subLink.trim() !== "";
+            const isMissingTitle = !sub.title || sub.title.trim() === "";
+            const isMissingArtist = !sub.artist || sub.artist.trim() === "";
+            return hasTrack && (isMissingTitle || isMissingArtist);
+          }).length;
+
+          const isAlert =
+            hasMissingSubs ||
+            (viewMode === "judge" && missingJudgementsCount > 0) ||
+            missingDataCount > 0;
 
           return (
             <div
@@ -526,6 +536,15 @@ export default function RoundAdminDetailPage() {
                           Missing {missingJudgementsCount} Judgement
                           {missingJudgementsCount !== 1 ? "s" : ""}
                         </span>
+                      </span>
+                    )}
+                    {missingDataCount > 0 && (
+                      <span
+                        className="bg-[#E67E22]/20 text-[#E67E22] text-[10px] sm:text-xs font-bold px-2 py-1 rounded flex items-center gap-1 shadow-sm shrink-0"
+                        title="Missing Title or Artist"
+                      >
+                        <AlertCircle className="w-3 h-3 shrink-0" />
+                        <span className="sm:inline">Missing Data ({missingDataCount})</span>
                       </span>
                     )}
                   </div>
