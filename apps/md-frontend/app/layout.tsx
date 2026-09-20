@@ -8,7 +8,10 @@ import { AppInsightsTracker } from "@/components/AppInsightsTracker";
 const inter = Inter({ subsets: ["latin"] });
 
 export const viewport: Viewport = {
-  themeColor: "#313338",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#313338" },
+    { media: "(prefers-color-scheme: dark)", color: "#313338" },
+  ],
 };
 
 export const metadata: Metadata = {
