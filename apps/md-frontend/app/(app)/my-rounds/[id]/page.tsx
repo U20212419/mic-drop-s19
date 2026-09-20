@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { FormTextarea } from "@/components/FormTextarea";
+import FormattedText from "@/components/FormattedText";
 
 export default function RoundDetailPage() {
   const { id } = useParams();
@@ -1128,7 +1129,11 @@ function ReadField({ label, val }: { label: string; val: string }) {
     <div>
       <p className="text-[#80848E] text-[10px] font-bold uppercase mb-1">{label}</p>
       <div className="bg-[#1E1F22] border border-[#35373C] p-3 rounded-md text-[#DBDEE1] text-sm whitespace-pre-wrap wrap-anywhere">
-        {val}
+        {val ? (
+          <FormattedText text={val} />
+        ) : (
+          <span className="text-[#4E5058] italic">Not provided</span>
+        )}
       </div>
     </div>
   );
