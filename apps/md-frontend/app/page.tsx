@@ -63,7 +63,7 @@ function LoginContent() {
 
         <h1 className="text-2xl font-extrabold text-white mb-2 tracking-tight">MicDrop</h1>
         <p className="text-[#80848E] mb-6 text-sm">
-          You need to be logged in with your Discord account to access the Season 19 dashboard.
+          You need to be logged in with your Discord account to access the Season 19 platform.
         </p>
         <button
           onClick={() => signIn("discord", { callbackUrl: "/home" })}
