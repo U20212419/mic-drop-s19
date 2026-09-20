@@ -2,9 +2,10 @@ import type { NextConfig } from "next";
 
 const cspHeader = `
   default-src 'self';
-  script-src 'self' 'unsafe-eval' 'unsafe-inline';
+  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://tenor.com;
+  frame-src 'self' https://tenor.com;
   style-src 'self' 'unsafe-inline';
-  img-src 'self' blob: data: https://cdn.discordapp.com;
+  img-src 'self' blob: data: https://cdn.discordapp.com https://tenor.com https://media.giphy.com https://media1.tenor.com https://i.imgur.com https://*.imgur.com;
   font-src 'self';
   object-src 'none';
   base-uri 'self';

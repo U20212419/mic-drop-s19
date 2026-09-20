@@ -84,8 +84,10 @@ public class MyRoundsService {
 				.getByRoundIdAndContestantIdAndJudgeId(idRound, myUr.getUser().getIdUser(), judgeUser.getIdUser())
 				.orElse(null);
 
+			Integer sortOrder = (jur.getSortOrder() == null) ? 999 : jur.getSortOrder();
+
 			return new JudgeDetailDTO(judgeUser.getDiscordId(), judgeUser.getUsername(), appDto,
-					sub != null ? sub.getSubLink() : "", sub != null ? sub.getIdSubmission() : null);
+					sub != null ? sub.getSubLink() : "", sub != null ? sub.getIdSubmission() : null, sortOrder);
 		}).toList();
 
 		return new ContestantRoundDetailDTO(idRound, myUr.getRound().getRoundNumber(), myUr.getGroupNumber(),

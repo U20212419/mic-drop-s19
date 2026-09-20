@@ -21,6 +21,7 @@ import {
   Star,
   FileText,
 } from "lucide-react";
+import FormattedText from "@/components/FormattedText";
 
 interface DiscordUser {
   idUser: number;
@@ -387,6 +388,28 @@ export default function RoundDetailPage() {
     } finally {
       setIsLoadingJudgeApp(false);
     }
+  };
+
+  const renderTextWithLinks = (text: string) => {
+    if (!text) return null;
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    return parts.map((part, i) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#5865F2] hover:underline"
+          >
+            {part}
+          </a>
+        );
+      }
+      return part;
+    });
   };
 
   if (isLoading)
@@ -927,9 +950,13 @@ export default function RoundDetailPage() {
                       <label className="text-xs font-bold text-[#80848E] uppercase tracking-wide mb-2 block">
                         {field.label}
                       </label>
-                      <p className="text-[#DBDEE1] text-sm whitespace-pre-wrap leading-relaxed">
-                        {field.val || <span className="text-[#4E5058] italic">Not provided</span>}
-                      </p>
+                      <div className="text-[#DBDEE1] text-sm whitespace-pre-wrap leading-relaxed [overflow-wrap:anywhere]">
+                        {field.val ? (
+                          <FormattedText text={field.val} />
+                        ) : (
+                          <span className="text-[#4E5058] italic">Not provided</span>
+                        )}
+                      </div>
                     </div>
                   ))}
 

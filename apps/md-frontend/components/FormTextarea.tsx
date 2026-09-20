@@ -11,6 +11,7 @@ interface FormTextareaProps {
   required?: boolean;
   placeholder?: string;
   disabled?: boolean;
+  maxLength?: number;
 }
 
 export function FormTextarea({
@@ -22,6 +23,7 @@ export function FormTextarea({
   required = false,
   placeholder = "",
   disabled = false,
+  maxLength = 5000,
 }: FormTextareaProps) {
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -53,12 +55,14 @@ export function FormTextarea({
         disabled={disabled}
         onChange={handleInput}
         placeholder={placeholder}
-        maxLength={5000}
+        maxLength={maxLength}
         rows={2}
         className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md px-3 py-2 outline-none focus:border-[#5865F2] transition-all duration-200 overflow-hidden min-h-20"
         style={{ resize: "none" }}
       />
-      <p className="text-[10px] text-right text-[#4E5058]">{value?.length || 0} / 5000</p>
+      <p className="text-[10px] text-right text-[#4E5058]">
+        {value?.length || 0} / {maxLength}
+      </p>
     </div>
   );
 }

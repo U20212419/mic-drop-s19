@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import api from "@/lib/axios";
 import {
@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { FormTextarea } from "@/components/FormTextarea";
+import FormattedText from "@/components/FormattedText";
 
 export default function RoundDetailPage() {
   const { id } = useParams();
@@ -106,6 +107,8 @@ export default function RoundDetailPage() {
             }
           }
 
+          fetchedData.judges.sort((a: any, b: any) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+
           setContestantData(fetchedData);
 
           // If it's a special round, fetch the user's collection
@@ -136,10 +139,50 @@ export default function RoundDetailPage() {
               hasBonus: hasBonus,
             };
           });
+
+          // Recover drafts from localStorage if available
+          let initialJudgeSubmissions = [...parsedSubmissions];
+          const cachedDraft = localStorage.getItem(`micdrop-round-${id}-judge-draft`);
+
+          if (cachedDraft) {
+            try {
+              const parsedDraft = JSON.parse(cachedDraft);
+              let recoveredSomething = false;
+
+              initialJudgeSubmissions = initialJudgeSubmissions.map((sub: any) => {
+                const draftSub = parsedDraft.find((d: any) => d.idSubmission === sub.idSubmission);
+                if (
+                  draftSub &&
+                  (draftSub.score !== sub.score ||
+                    draftSub.review !== sub.review ||
+                    draftSub.hasBonus !== sub.hasBonus)
+                ) {
+                  recoveredSomething = true;
+                  return {
+                    ...sub,
+                    score: draftSub.score,
+                    review: draftSub.review,
+                    hasBonus: draftSub.hasBonus,
+                  };
+                }
+                return sub;
+              });
+
+              if (recoveredSomething) {
+                toast.info("Draft recovered from your previous session.", { closeButton: true });
+              }
+            } catch (error) {
+              console.error("Error parsing cached draft:", error);
+            }
+          }
+
           setJudgeData({
             ...detailRes.data,
-            submissions: parsedSubmissions,
+            // Saved + Draft
+            submissions: initialJudgeSubmissions,
           });
+
+          // Persist saved submissions for comparison to detect changes
           setPersistedSubmissions(parsedSubmissions);
         }
       } catch (error: any) {
@@ -152,7 +195,32 @@ export default function RoundDetailPage() {
     fetchRoundData();
   }, [id, router]);
 
-  // Auto save to cache
+  // Calculate which entries were modified by the judge
+  const dirtySubmissionIds = useMemo(() => {
+    if (role !== "JUDGE" || !judgeData?.submissions || !persistedSubmissions)
+      return new Set<number>();
+
+    const dirtyIds = new Set<number>();
+    judgeData.submissions.forEach((current: any) => {
+      const original = persistedSubmissions.find(
+        (p: any) => p.idSubmission === current.idSubmission,
+      );
+      if (!original) return;
+
+      if (
+        current.score !== original.score ||
+        current.review !== original.review ||
+        current.hasBonus !== original.hasBonus
+      ) {
+        dirtyIds.add(current.idSubmission);
+      }
+    });
+    return dirtyIds;
+  }, [judgeData?.submissions, persistedSubmissions, role]);
+
+  const hasChangesToSave = dirtySubmissionIds.size > 0;
+
+  // Auto save to cache for contestants
   useEffect(() => {
     // Only save if the user is a contestant, data exists, and hasn't finally submitted
     if (role === "CONTESTANT" && contestantData?.judges && !hasSubmitted) {
@@ -166,6 +234,19 @@ export default function RoundDetailPage() {
       localStorage.setItem(`micdrop-round-${id}-draft`, JSON.stringify(draft));
     }
   }, [contestantData, selectedForCollection, role, hasSubmitted, id]);
+
+  // Auto save to cache for judges
+  useEffect(() => {
+    if (role === "JUDGE" && judgeData?.submissions) {
+      const draft = judgeData.submissions.map((s: any) => ({
+        idSubmission: s.idSubmission,
+        score: s.score,
+        review: s.review,
+        hasBonus: s.hasBonus,
+      }));
+      localStorage.setItem(`micdrop-round-${id}-judge-draft`, JSON.stringify(draft));
+    }
+  }, [judgeData?.submissions, role, id]);
 
   const toggleJudge = (discordId: string) => {
     setOpenJudges((prev) => ({ ...prev, [discordId]: !prev[discordId] }));
@@ -396,6 +477,9 @@ export default function RoundDetailPage() {
       const res = await api.put("/my-rounds/batch-score", payload);
       setPersistedSubmissions(judgeData.submissions); // Update persisted submissions after successful save
 
+      // Clear cache on success
+      localStorage.removeItem(`micdrop-round-${id}-judge-draft`);
+
       // Check if the backend reported any skipped scores
       const { skippedCount } = res.data;
 
@@ -431,6 +515,8 @@ export default function RoundDetailPage() {
 
   // Filter out judged submissions if the toggle is enabled
   const filteredSubmissions = judgeData?.submissions?.filter((sub: any) => {
+    if (dirtySubmissionIds.has(sub.idSubmission)) return true;
+
     if (!hideJudged) return true;
 
     const persistedSub = persistedSubmissions.find(
@@ -847,6 +933,8 @@ export default function RoundDetailPage() {
                 // Identify if a staff member removed the link
                 const isMissingLink = !sub.subLink || sub.subLink.trim() === "";
 
+                const isDirty = dirtySubmissionIds.has(sub.idSubmission);
+
                 return (
                   <div
                     key={sub.idSubmission}
@@ -859,6 +947,12 @@ export default function RoundDetailPage() {
                           <div className="bg-[#5865F2]/20 text-[#5865F2] text-xs font-bold px-2 py-1 rounded">
                             Track #{originalIndex + 1}
                           </div>
+
+                          {isDirty && (
+                            <div className="bg-yellow-500/20 text-yellow-500 border border-yellow-500/30 text-[10px] font-bold px-2 py-1 rounded uppercase flex items-center gap-1.5 shadow-sm transition-all animate-pulse">
+                              <AlertCircle className="w-3 h-3" /> Unsaved
+                            </div>
+                          )}
                         </div>
 
                         {/* Display the track artist and title if available, otherwise show the link */}
@@ -972,6 +1066,7 @@ export default function RoundDetailPage() {
                         name={`review-${sub.idSubmission}`}
                         label={`Review for Track #${originalIndex + 1}`}
                         sublabel="Explain why you gave this score."
+                        maxLength={1000}
                         disabled={isMissingLink}
                         value={isMissingLink ? "" : sub.review || ""}
                         onChange={(e) => handleReviewChange(sub, e)}
@@ -1002,15 +1097,23 @@ export default function RoundDetailPage() {
               <div className="pt-6 flex justify-end">
                 <button
                   onClick={submitJudgeScores}
-                  disabled={submitting}
-                  className="bg-[#5865F2] hover:bg-[#4752C4] text-white px-6 py-2 rounded-md font-medium flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={submitting || !hasChangesToSave}
+                  className={`px-6 py-2.5 rounded-md font-medium flex items-center gap-2 transition-all shadow-md ${
+                    !hasChangesToSave
+                      ? "bg-[#35373C] text-[#80848E] cursor-not-allowed opacity-50"
+                      : "bg-[#5865F2] hover:bg-[#4752C4] text-white"
+                  }`}
                 >
                   {submitting ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <Save className="w-5 h-5" />
                   )}
-                  Save Scores
+                  {submitting
+                    ? "Saving..."
+                    : !hasChangesToSave
+                      ? "No changes to save"
+                      : "Save Scores"}
                 </button>
               </div>
             </div>
@@ -1025,8 +1128,12 @@ function ReadField({ label, val }: { label: string; val: string }) {
   return (
     <div>
       <p className="text-[#80848E] text-[10px] font-bold uppercase mb-1">{label}</p>
-      <div className="bg-[#1E1F22] border border-[#35373C] p-3 rounded-md text-[#DBDEE1] text-sm whitespace-pre-wrap">
-        {val}
+      <div className="bg-[#1E1F22] border border-[#35373C] p-3 rounded-md text-[#DBDEE1] text-sm whitespace-pre-wrap wrap-anywhere">
+        {val ? (
+          <FormattedText text={val} />
+        ) : (
+          <span className="text-[#4E5058] italic">Not provided</span>
+        )}
       </div>
     </div>
   );

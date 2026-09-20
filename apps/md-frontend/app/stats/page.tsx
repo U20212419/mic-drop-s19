@@ -30,7 +30,7 @@ interface RoundPerformance {
   groupNumber: number;
   average: number;
   stdDev: number;
-  scores: number[];
+  scores: (number | null)[];
   isPending: boolean; // Spoilers hidden
   isDns: boolean; // Did not submit
   submittedAt?: string; // ISO timestamp of submission
@@ -189,10 +189,37 @@ export default function PublicStatsPage() {
 
   const rankedContestants = useMemo<RankedContestant[]>(() => {
     if (!data) return [];
-    return data.contestants.map((c, index) => ({
-      ...c,
-      absoluteRank: index + 1,
-    }));
+
+    let currentRank = 1;
+
+    return data.contestants.map((c, index, arr) => {
+      if (index > 0) {
+        const prev = arr[index - 1];
+
+        // Determine if the current contestant's survival status is the same as the previous contestant's survival status
+        const sameSurvival = (c.currentStatus === "ACTIVE") === (prev.currentStatus === "ACTIVE");
+
+        // Determine if there's a perfect tie
+        const isPerfectTie =
+          c.roundsPlayed === prev.roundsPlayed &&
+          sameSurvival &&
+          c.globalAverage === prev.globalAverage &&
+          c.globalStdDev === prev.globalStdDev &&
+          c.globalMedian === prev.globalMedian;
+
+        // If it's not a perfect tie, increment the rank; otherwise, keep the same rank
+        if (!isPerfectTie) {
+          currentRank = index + 1;
+        }
+      } else {
+        currentRank = 1;
+      }
+
+      return {
+        ...c,
+        absoluteRank: currentRank,
+      };
+    });
   }, [data]);
 
   const processedContestants = useMemo(() => {
@@ -296,34 +323,79 @@ export default function PublicStatsPage() {
     }
 
     if (validRounds.length === 0) {
-      return { best: null, worst: null, eliminationRound };
+      return { bestRoundNumbers: [], worstRoundNumbers: [], eliminationRound };
     }
 
     if (validRounds.length === 1) {
-      let best = null;
+      let bestRoundNumbers: number[] = [];
       if (revealedRounds.length > 1) {
-        best = validRounds[0].roundNumber;
+        bestRoundNumbers = [validRounds[0].roundNumber];
       }
-      return { best, worst: null, eliminationRound };
+      return { bestRoundNumbers, worstRoundNumbers: [], eliminationRound };
     }
 
-    const sorted = [...validRounds].sort((a, b) => {
-      if (a.average !== b.average) return b.average - a.average;
-      if (a.stdDev !== b.stdDev) return a.stdDev - b.stdDev;
-
-      const getMedian = (arr: number[]) => {
-        const s = [...arr].sort((x, y) => x - y);
+    // Pre-calculate metrics for best/worst rounds across all contestants to avoid recalculating them for each row
+    const roundsWithMetrics = validRounds.map((r) => {
+      const getMedian = (arr: (number | null)[]) => {
+        if (!arr || arr.length === 0) return 0;
+        const numericArray = arr.map((score) => (score === null ? 0 : score));
+        const s = [...numericArray].sort((x, y) => x - y);
         const m = Math.floor(s.length / 2);
         return s.length % 2 !== 0 ? s[m] : (s[m - 1] + s[m]) / 2;
       };
-      return getMedian(b.scores) - getMedian(a.scores);
+
+      return {
+        ...r,
+        medianScore: getMedian(r.scores),
+        safeGroupRank: r.groupRank ?? 999,
+      };
     });
 
-    return {
-      best: sorted[0].roundNumber,
-      worst: sorted[sorted.length - 1].roundNumber,
-      eliminationRound,
-    };
+    const sortedRounds = roundsWithMetrics.sort((a, b) => {
+      // Priority 1: Average (higher is better)
+      if (a.average !== b.average) return b.average - a.average;
+
+      // Priority 2: Standard deviation (lower is better)
+      if (a.stdDev !== b.stdDev) return a.stdDev - b.stdDev;
+
+      // Priority 3: Median of individual scores (higher is better)
+      if (a.medianScore !== b.medianScore) return b.medianScore - a.medianScore;
+
+      // Priority 4: Rank within the group (lower is better)
+      return a.safeGroupRank - b.safeGroupRank;
+    });
+
+    // Find all tied rounds for best and worst
+    let bestRoundNumbers: number[] = [];
+    let worstRoundNumbers: number[] = [];
+
+    if (sortedRounds.length > 0) {
+      const top = sortedRounds[0];
+      // Filter all rounds that are tied for the best
+      bestRoundNumbers = sortedRounds
+        .filter(
+          (r) =>
+            r.average === top.average &&
+            r.stdDev === top.stdDev &&
+            r.medianScore === top.medianScore &&
+            r.safeGroupRank === top.safeGroupRank,
+        )
+        .map((r) => r.roundNumber);
+
+      const bottom = sortedRounds[sortedRounds.length - 1];
+      // Filter all rounds that are tied for the worst
+      worstRoundNumbers = sortedRounds
+        .filter(
+          (r) =>
+            r.average === bottom.average &&
+            r.stdDev === bottom.stdDev &&
+            r.medianScore === bottom.medianScore &&
+            r.safeGroupRank === bottom.safeGroupRank,
+        )
+        .map((r) => r.roundNumber);
+    }
+
+    return { bestRoundNumbers, worstRoundNumbers, eliminationRound };
   };
 
   const renderSortableHeader = (
@@ -639,7 +711,7 @@ export default function PublicStatsPage() {
                         {/* Status Badge */}
                         <td className={`px-6 ${isCompact ? "py-2" : "py-4"}`}>
                           <span
-                            className={`text-[9px] sm:text-[10px] font-black px-2 sm:px-2.5 py-1 rounded shadow-sm uppercase tracking-widest whitespace-nowrap ${
+                            className={`text-[9px] lg:text-[10px] font-black px-2 lg:px-2.5 py-1 rounded shadow-sm uppercase tracking-widest whitespace-nowrap ${
                               c.currentStatus === "ACTIVE"
                                 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                                 : c.currentStatus === "ELIMINATED"
@@ -649,8 +721,8 @@ export default function PublicStatsPage() {
                           >
                             {c.currentStatus === "DID_NOT_SUBMIT" ? (
                               <>
-                                <span className="sm:hidden">DNS</span>
-                                <span className="hidden sm:inline">DID NOT SUBMIT</span>
+                                <span className="lg:hidden">DNS</span>
+                                <span className="hidden lg:inline">DID NOT SUBMIT</span>
                               </>
                             ) : (
                               c.currentStatus.replace(/_/g, " ")
@@ -698,9 +770,11 @@ export default function PublicStatsPage() {
                           const rData = c.rounds[rNum];
                           // Precedence booleans
                           const isEliminatedRound = highlights.eliminationRound === rNum;
-                          const isBest = highlights.best === rNum;
-                          // Worst round is only considered if it's not the eliminated round
-                          const isWorst = highlights.worst === rNum && !isEliminatedRound;
+                          const isBest = highlights.bestRoundNumbers?.includes(rNum);
+                          const isWorst =
+                            highlights.worstRoundNumbers?.includes(rNum) &&
+                            !isBest &&
+                            !isEliminatedRound;
 
                           // Apply colors based on precedence.
                           let scoreColorClass = "text-white";
@@ -816,14 +890,24 @@ export default function PublicStatsPage() {
 
                                     {/* Colored Individual Scores */}
                                     <div className="mt-2 flex flex-wrap justify-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity duration-300">
-                                      {rData.scores.map((score, i) => (
-                                        <span
-                                          key={i}
-                                          className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border shadow-sm ${getScoreColorClass(score)}`}
-                                        >
-                                          {score}
-                                        </span>
-                                      ))}
+                                      {rData.scores.map((score, i) => {
+                                        const isPartialDns = score === null;
+                                        const colorClass = isPartialDns
+                                          ? getScoreColorClass(0)
+                                          : getScoreColorClass(score);
+
+                                        return (
+                                          <span
+                                            key={i}
+                                            title={
+                                              isPartialDns ? "Did Not Submit" : `Score: ${score}`
+                                            }
+                                            className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border shadow-sm ${colorClass}`}
+                                          >
+                                            {isPartialDns ? "DNS" : score}
+                                          </span>
+                                        );
+                                      })}
                                     </div>
 
                                     {/* Exact Submission Time */}
