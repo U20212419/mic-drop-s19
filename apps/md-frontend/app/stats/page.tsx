@@ -87,7 +87,7 @@ export default function PublicStatsPage() {
       if (status === "unauthenticated" || !session) return "/";
       // Logged in but INACTIVE -> Judge App
       if (session.user?.status === "INACTIVE") return "/judge-app";
-      // Logged in and not INACTIVE -> Main Home Dashboard
+      // Logged in and not INACTIVE -> Main Home Platform
       return "/home";
     };
 
