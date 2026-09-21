@@ -64,6 +64,14 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 	}
 
 	private String getClientIpAddress(HttpServletRequest request) {
+		// Check for Cloudflare's CF-Connecting-IP header first
+		String cfConnectingIp = request.getHeader("CF-Connecting-IP");
+		if (cfConnectingIp != null && !cfConnectingIp.isEmpty()) {
+			return cfConnectingIp.trim();
+		}
+
+		// Fallback to X-Forwarded-For header for other proxies/load balancers or local
+		// development
 		String xForwardedForHeader = request.getHeader("X-Forwarded-For");
 		if (xForwardedForHeader == null || xForwardedForHeader.isEmpty()
 				|| "unknown".equalsIgnoreCase(xForwardedForHeader)) {
