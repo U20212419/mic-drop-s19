@@ -52,7 +52,8 @@ public class SecurityConfig {
 			.csrf(csrf -> csrf.disable())
 			// Configure CORS to allow requests from the frontend
 			.cors(cors -> cors.configurationSource(corsConfigurationSource()))
-			// Add the Cloudflare secret filter after the CORS filter to validate requests from Cloudflare
+			// Add the Cloudflare secret filter after the CORS filter to validate requests
+			// from Cloudflare
 			.addFilterAfter(cloudflareSecretFilter, CorsFilter.class)
 			// Access rules
 			.authorizeHttpRequests(auth -> auth.requestMatchers("/api/public/**")
