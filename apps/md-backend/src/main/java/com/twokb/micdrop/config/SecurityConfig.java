@@ -19,11 +19,13 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import com.twokb.micdrop.converter.CustomJwtConverter;
+import com.twokb.micdrop.filter.CloudflareSecretFilter;
 
 import lombok.RequiredArgsConstructor;
 
@@ -35,6 +37,8 @@ public class SecurityConfig {
 
 	private final CustomJwtConverter customJwtConverter;
 
+	private final CloudflareSecretFilter cloudflareSecretFilter;
+
 	@Value("${jwt.secret}")
 	private String jwtSecret;
 
@@ -43,7 +47,7 @@ public class SecurityConfig {
 
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-		http
+		http.addFilterBefore(cloudflareSecretFilter, CorsFilter.class)
 			// Disable CSRF to use JWT tokens for stateless authentication
 			.csrf(csrf -> csrf.disable())
 			// Configure CORS to allow requests from the frontend
