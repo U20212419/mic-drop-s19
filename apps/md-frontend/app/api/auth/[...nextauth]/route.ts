@@ -41,11 +41,19 @@ export const authOptions: NextAuthOptions = {
 
         // For the main app, verify the user with the backend API
         try {
-          await axios.post(`${process.env.API_BASE_URL}/api/auth/verify`, {
-            discordId: discordProfile.id,
-            username: discordProfile.username,
-            avatar: discordProfile.avatar,
-          });
+          await axios.post(
+            `${process.env.INTERNAL_API_URL}/api/auth/verify`,
+            {
+              discordId: discordProfile.id,
+              username: discordProfile.username,
+              avatar: discordProfile.avatar,
+            },
+            {
+              headers: {
+                "X-Cloudflare-Secret": process.env.CLOUDFLARE_SECRET_TOKEN,
+              },
+            },
+          );
 
           // If verification is successful, allow sign-in
           return true;
@@ -71,11 +79,19 @@ export const authOptions: NextAuthOptions = {
 
         try {
           // Verify the user with the backend API and fetch their role
-          const res = await axios.post(`${process.env.API_BASE_URL}/api${endpoint}`, {
-            discordId: discordProfile.id,
-            username: discordProfile.username,
-            avatar: discordProfile.avatar,
-          });
+          const res = await axios.post(
+            `${process.env.INTERNAL_API_URL}/api${endpoint}`,
+            {
+              discordId: discordProfile.id,
+              username: discordProfile.username,
+              avatar: discordProfile.avatar,
+            },
+            {
+              headers: {
+                "X-Cloudflare-Secret": process.env.CLOUDFLARE_SECRET_TOKEN,
+              },
+            },
+          );
 
           console.log("Server status:", res.status);
           console.log("Server response:", res.data);
@@ -112,9 +128,17 @@ export const authOptions: NextAuthOptions = {
 
       // Token has expired, attempt to refresh it
       try {
-        const res = await axios.post(`${process.env.API_BASE_URL}/api/auth/refresh`, {
-          refreshToken: token.refreshToken,
-        });
+        const res = await axios.post(
+          `${process.env.INTERNAL_API_URL}/api/auth/refresh`,
+          {
+            refreshToken: token.refreshToken,
+          },
+          {
+            headers: {
+              "X-Cloudflare-Secret": process.env.CLOUDFLARE_SECRET_TOKEN,
+            },
+          },
+        );
 
         console.log("Token refreshed successfully:", res.data);
 
