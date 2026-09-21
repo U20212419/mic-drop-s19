@@ -47,11 +47,13 @@ public class SecurityConfig {
 
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-		http.addFilterBefore(cloudflareSecretFilter, CorsFilter.class)
+		http
 			// Disable CSRF to use JWT tokens for stateless authentication
 			.csrf(csrf -> csrf.disable())
 			// Configure CORS to allow requests from the frontend
 			.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+			// Add the Cloudflare secret filter after the CORS filter to validate requests from Cloudflare
+			.addFilterAfter(cloudflareSecretFilter, CorsFilter.class)
 			// Access rules
 			.authorizeHttpRequests(auth -> auth.requestMatchers("/api/public/**")
 				.permitAll() // Allow public endpoints without authentication
@@ -85,7 +87,7 @@ public class SecurityConfig {
 		CorsConfiguration configuration = new CorsConfiguration();
 		configuration.setAllowedOrigins(List.of(allowedOrigins));
 		configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-		configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+		configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Cloudflare-Secret"));
 		configuration.setAllowCredentials(true);
 
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
