@@ -30,6 +30,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.UserSnowflake;
 
@@ -457,15 +458,47 @@ public class UserRoundService {
 		}
 
 		UserSnowflake userSnowflake = UserSnowflake.fromId(user.getDiscordId());
+		Member member = guild.getMember(userSnowflake);
+
+		final Role finalTargetRole = targetRole;
+
+		// If the member is cached and already has the target role, no need to make any
+		// changes
+		if (member != null) {
+			boolean hasTargetRole = finalTargetRole != null && member.getRoles().contains(finalTargetRole);
+			boolean shouldNotHaveAnyGroupRole = finalTargetRole == null;
+
+			long currentGroupRolesCount = member.getRoles().stream().filter(roles::contains).count();
+
+			if ((hasTargetRole && currentGroupRolesCount == 1)
+					|| shouldNotHaveAnyGroupRole && currentGroupRolesCount == 0) {
+				log.info("No role changes needed for user {}.", user.getUsername());
+				return; // No changes needed
+			}
+		}
 
 		// Remove any existing group roles first to avoid multiple roles
 		for (Role role : roles) {
-			guild.removeRoleFromMember(userSnowflake, role).queue();
+			if (!role.equals(finalTargetRole)) {
+				// Only request removal to Discord API if the member has the role or if
+				// the member isn't cached
+				if (member == null || member.getRoles().contains(role)) {
+					guild.removeRoleFromMember(userSnowflake, role).queue(success -> {
+					}, error -> log.warn("Failed to remove group role {} from user {}: {}", role.getName(),
+							user.getUsername(), error.getMessage()));
+				}
+			}
 		}
 
 		// Assign the new group role
-		if (targetRole != null) {
-			guild.addRoleToMember(userSnowflake, targetRole).queue();
+		if (finalTargetRole != null) {
+			// Only request addition to Discord API if the member doesn't have the role or
+			// if the member isn't cached
+			if (member == null || !member.getRoles().contains(finalTargetRole)) {
+				guild.addRoleToMember(userSnowflake, finalTargetRole).queue(success -> {
+				}, error -> log.warn("Failed to add group role {} to user {}: {}", finalTargetRole.getName(),
+						user.getUsername(), error.getMessage()));
+			}
 		}
 	}
 
