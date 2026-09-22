@@ -27,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.UserSnowflake;
 
@@ -339,6 +340,7 @@ public class RoundDetailService {
 		String eliminatedRoleId = systemSettingService.getSetting("eliminated_role_id").orElse("");
 		String ytsRoleId = systemSettingService.getSetting("yts_role_id").orElse("");
 		String contestantRoleId = systemSettingService.getSetting("contestant_role_id").orElse("");
+		String rolesStr = systemSettingService.getSetting("group_roles_ids").orElse(null);
 
 		String guildId = systemSettingService.getSetting("guild_id").orElse("");
 		Guild guild = guildId.isEmpty() ? null : jda.getGuildById(guildId);
@@ -349,6 +351,20 @@ public class RoundDetailService {
 		Role contestantRole = (guild != null && !contestantRoleId.isEmpty()) ? guild.getRoleById(contestantRoleId)
 				: null;
 
+		List<Role> groupRoles = new ArrayList<>();
+		if (guild != null && rolesStr != null && !rolesStr.isBlank()) {
+			for (String roleId : rolesStr.split(",")) {
+				String trimmedRoleId = roleId.trim();
+				Role role = guild.getRoleById(trimmedRoleId);
+				if (role != null) {
+					groupRoles.add(role);
+				}
+				else {
+					log.warn("Group role with ID {} not found in guild.", trimmedRoleId);
+				}
+			}
+		}
+
 		// Apply preliminary status to public status for all contestants in the group
 		for (DiscordUser contestant : contestants) {
 			contestant.setStatus(contestant.getPreliminaryStatus());
@@ -358,24 +374,42 @@ public class RoundDetailService {
 				String discordId = contestant.getDiscordId();
 				UserSnowflake snowflake = UserSnowflake.fromId(discordId);
 
+				Member member = guild.getMember(snowflake);
+
 				try {
-					// Remove YTS role for everyone
-					if (ytsRole != null) {
+					// Remove YTS role for everyone who has the role or isn't cached
+					if (ytsRole != null && (member == null || member.getRoles().contains(ytsRole))) {
 						guild.removeRoleFromMember(snowflake, ytsRole).queue(success -> {
 						}, error -> log.warn("Failed to remove YTS role from user {}: {}", discordId,
 								error.getMessage()));
 					}
 
-					// Add eliminated role for eliminated contestants and remove the
-					// contestant role
+					// Add eliminated role for eliminated contestants, and remove the
+					// contestant and group roles
 					if (eliminatedRole != null && (contestant.getStatus() == ContestantStatus.ELIMINATED
 							|| contestant.getStatus() == ContestantStatus.DID_NOT_SUBMIT)) {
-						guild.addRoleToMember(snowflake, eliminatedRole).queue(success -> {
-						}, error -> log.warn("Failed to add eliminated role to user {}: {}", discordId,
-								error.getMessage()));
-						guild.removeRoleFromMember(snowflake, contestantRole).queue(success -> {
-						}, error -> log.warn("Failed to remove contestant role from user {}: {}", discordId,
-								error.getMessage()));
+						// Add eliminated role if not already present
+						if (member == null || !member.getRoles().contains(eliminatedRole)) {
+							guild.addRoleToMember(snowflake, eliminatedRole).queue(success -> {
+							}, error -> log.warn("Failed to add eliminated role to user {}: {}", discordId,
+									error.getMessage()));
+						}
+
+						// Remove contestant role if present
+						if (contestantRole != null && (member == null || member.getRoles().contains(contestantRole))) {
+							guild.removeRoleFromMember(snowflake, contestantRole).queue(success -> {
+							}, error -> log.warn("Failed to remove contestant role from user {}: {}", discordId,
+									error.getMessage()));
+						}
+
+						// Remove any group roles that the user has
+						for (Role groupRole : groupRoles) {
+							if (member == null || member.getRoles().contains(groupRole)) {
+								guild.removeRoleFromMember(snowflake, groupRole).queue(success -> {
+								}, error -> log.warn("Failed to remove group role {} from user {}: {}",
+										groupRole.getName(), discordId, error.getMessage()));
+							}
+						}
 					}
 				}
 				catch (Exception e) {

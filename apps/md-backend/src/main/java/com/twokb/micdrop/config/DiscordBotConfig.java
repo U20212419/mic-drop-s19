@@ -9,6 +9,8 @@ import com.twokb.micdrop.listener.DiscordEventListener;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.requests.GatewayIntent;
+import net.dv8tion.jda.api.utils.ChunkingFilter;
+import net.dv8tion.jda.api.utils.MemberCachePolicy;
 
 @Configuration
 public class DiscordBotConfig {
@@ -22,7 +24,11 @@ public class DiscordBotConfig {
 		try {
 			// Build the JDA instance with the provided bot token
 			return JDABuilder.createDefault(botToken)
-				.enableIntents(GatewayIntent.GUILD_MESSAGE_REACTIONS)
+				.enableIntents(GatewayIntent.GUILD_MESSAGE_REACTIONS, GatewayIntent.GUILD_MEMBERS)
+				// Force JDA to store all members in the RAM permanently
+				.setMemberCachePolicy(MemberCachePolicy.ALL)
+				// Force the bot to download all members of the guilds it is in
+				.setChunkingFilter(ChunkingFilter.ALL)
 				.addEventListeners(eventListener) // Register event listeners
 				.build()
 				.awaitReady(); // Wait until JDA is fully loaded
