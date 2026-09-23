@@ -65,6 +65,11 @@ public class RoundService {
 	}
 
 	@Transactional(readOnly = true)
+	public Optional<Round> getActiveRoundOptional() {
+		return roundRepository.findByActiveTrue();
+	}
+
+	@Transactional(readOnly = true)
 	public Optional<Round> findActiveRound() {
 		List<Round> activeRounds = roundRepository.findAllByActiveTrue();
 
@@ -121,6 +126,11 @@ public class RoundService {
 	@Transactional(readOnly = true)
 	public Optional<Round> getPreviousRound(Integer currentRoundNumber) {
 		return roundRepository.findFirstByRoundNumberLessThanOrderByRoundNumberDesc(currentRoundNumber);
+	}
+
+	@Transactional(readOnly = true)
+	public Integer getPreviousNormalRoundNumber(int currentRound) {
+		return roundRepository.findPreviousNormalRoundNumber(currentRound);
 	}
 
 }

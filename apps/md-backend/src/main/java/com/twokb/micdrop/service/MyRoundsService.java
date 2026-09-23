@@ -294,6 +294,33 @@ public class MyRoundsService {
 			throw new IllegalStateException("You have already claimed the first place bonus for this round.");
 		}
 
+		// Validate active round and special round restrictions
+		Round activeRound;
+		try {
+			activeRound = roundService.getActiveRound();
+		}
+		catch (IllegalStateException e) {
+			throw new IllegalStateException("There is no active round at the moment.");
+		}
+
+		if (activeRound.getSpecialRound()) {
+			throw new IllegalStateException("You cannot claim the first place bonus during a special round.");
+		}
+
+		int activeNum = activeRound.getRoundNumber();
+		Integer previousNormalRoundNum = roundService.getPreviousNormalRoundNumber(activeNum);
+		int targetRoundNum = ur.getRound().getRoundNumber();
+
+		// Validate that the bonus belongs to the round between the previous normal round
+		// and the current active round
+		// This includes any special rounds that may have occurred in between
+		boolean isClaimable = (previousNormalRoundNum != null)
+				? (targetRoundNum >= previousNormalRoundNum && targetRoundNum <= activeNum)
+				: (targetRoundNum <= activeNum);
+		if (!isClaimable) {
+			throw new IllegalStateException("This bonus has expired and can no longer be claimed.");
+		}
+
 		// Get the data for the song to be added to the collection
 		Submission ref = submissionService.getSubmissionBySubLink(subLink)
 			.orElseThrow(() -> new IllegalArgumentException("Submission with the provided link not found."));
@@ -306,23 +333,31 @@ public class MyRoundsService {
 
 	@Transactional(readOnly = true)
 	public List<PendingBonusDTO> getPendingBonuses(String discordId) {
-		Round activeRound;
-		try {
-			activeRound = roundService.getActiveRound();
+		Optional<Round> activeRoundOpt = roundService.getActiveRoundOptional();
+
+		if (activeRoundOpt.isEmpty()) {
+			return List.of();
 		}
-		catch (IllegalStateException e) {
-			return List.of(); // If there isn't an active round, bonuses can't be claimed
+
+		Round activeRound = activeRoundOpt.get();
+
+		// Disable bonus claiming entirely if the active round is a special round
+		if (activeRound.getSpecialRound()) {
+			return List.of();
 		}
 
 		int activeNum = activeRound.getRoundNumber();
+		Integer previousNormalRoundNum = roundService.getPreviousNormalRoundNumber(activeNum);
 
 		// Search all the active rounds where the user placed first and hasn't claimed the
 		// bonus yet
 		return userRoundService.getRoundsAbleToClaimBonus(discordId).stream().filter(ur -> {
-			int wonRoundNum = ur.getRound().getRoundNumber();
-			// Claimable if the contestant won in the current round or the immediately
-			// previous round
-			return wonRoundNum == activeNum || wonRoundNum == (activeNum - 1);
+			int targetRoundNum = ur.getRound().getRoundNumber();
+			// Claimable if it belongs to the current normal round, previous normal round,
+			// or any special round that occurred between them
+			return (previousNormalRoundNum != null)
+					? (targetRoundNum >= previousNormalRoundNum && targetRoundNum <= activeNum)
+					: (targetRoundNum <= activeNum);
 		}).map(ur -> new PendingBonusDTO(ur.getId().getRoundId(), ur.getRound().getRoundNumber())).toList();
 	}
 

@@ -193,7 +193,7 @@ export default function CollectionPage() {
                 <p className="text-sm text-yellow-500/80 mt-0.5">
                   {isBannerExpanded
                     ? `Selecting track for Round ${activeBonus?.roundNumber}...`
-                    : "Claim an extra track from your group before time runs out. You can only claim bonuses from the current or the previous round."}
+                    : "Claim an extra track from your group before time runs out. You can only claim bonuses from the current and previous normal rounds, including any special rounds in between."}
                 </p>
               </div>
             </div>

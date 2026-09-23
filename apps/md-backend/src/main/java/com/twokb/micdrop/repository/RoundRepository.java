@@ -28,4 +28,7 @@ public interface RoundRepository extends JpaRepository<Round, Integer> {
 	// Find the most recent round with a round number less than the specified number
 	Optional<Round> findFirstByRoundNumberLessThanOrderByRoundNumberDesc(Integer roundNumber);
 
+	@Query("SELECT MAX(r.roundNumber) FROM Round r WHERE r.roundNumber < :currentRound AND r.specialRound = false")
+	Integer findPreviousNormalRoundNumber(@Param("currentRound") int currentRound);
+
 }
