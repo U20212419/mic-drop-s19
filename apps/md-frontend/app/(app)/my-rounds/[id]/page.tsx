@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { FormTextarea } from "@/components/FormTextarea";
 import FormattedText from "@/components/FormattedText";
+import { SpecialRoundCombobox } from "@/components/ui/SpecialRoundCombobox";
 
 export default function RoundDetailPage() {
   const { id } = useParams();
@@ -718,26 +719,12 @@ export default function RoundDetailPage() {
                         ) : null}
                       </div>
                     ) : contestantData.specialRound ? (
-                      // Special round dropdown
-                      <select
-                        value={judge.subLink || ""}
-                        onChange={(e) => handleLinkChange(judge.discordId, e.target.value)}
-                        className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md px-4 py-3 outline-none focus:border-[#5865F2] focus:bg-[#111214] transition-all"
-                      >
-                        <option value="">Select from your Collection...</option>
-                        {collection
-                          .filter((item: any) => item.quantity > 0)
-                          .map((item: any) => (
-                            <option
-                              key={item.subLink}
-                              value={item.subLink}
-                              disabled={item.quantity <= 0}
-                            >
-                              {item.title || "Unknown Title"} - {item.artist || "Unknown Artist"} (x
-                              {item.quantity})
-                            </option>
-                          ))}
-                      </select>
+                      // Special round combobox for selecting from collection
+                      <SpecialRoundCombobox
+                        judge={judge}
+                        collection={collection}
+                        onSelectLink={handleLinkChange}
+                      />
                     ) : (
                       // Normal round input
                       <div className="space-y-3">

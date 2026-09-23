@@ -2,6 +2,7 @@ package com.twokb.micdrop.service;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -165,8 +166,38 @@ public class MyRoundsService {
 		}
 
 		boolean isSpecialRound = round.getSpecialRound() != null && round.getSpecialRound();
+		// Map to hold the title and artist for each submitted link, to be used when
+		// adding to the collection
+		Map<String, String[]> metadataMap = new HashMap<>();
 
 		if (isSpecialRound) {
+			Map<String, Long> requestedLinksCount = request.submissions()
+				.stream()
+				.map(s -> s.subLink())
+				.filter(link -> link != null && !link.isBlank())
+				.collect(Collectors.groupingBy(link -> link, Collectors.counting()));
+
+			// Validate that the contestant has enough copies of each song in their
+			// collection
+			for (Map.Entry<String, Long> entry : requestedLinksCount.entrySet()) {
+				String linkToSubmit = entry.getKey();
+				long copiesNeeded = entry.getValue();
+
+				List<CollectionItem> userItems = collectionItemService.findByContestantAndSubLink(contestant,
+						linkToSubmit);
+				long copiesOwned = userItems.size();
+
+				if (copiesOwned < copiesNeeded) {
+					throw new IllegalStateException(
+							"You do not have enough copies of the song " + linkToSubmit + " in your collection.");
+				}
+
+				if (!userItems.isEmpty()) {
+					CollectionItem referenceItem = userItems.get(0);
+					metadataMap.put(linkToSubmit, new String[] { referenceItem.getTitle(), referenceItem.getArtist() });
+				}
+			}
+
 			// Deduct from collection
 			collectionItemService.deductFromCollection(contestant, request.submissions());
 		}
@@ -200,6 +231,15 @@ public class MyRoundsService {
 			sub.setIdJudge(judge.getIdUser());
 			sub.setSubLink(slr.subLink());
 			sub.setSubmittedAt(Instant.now());
+
+			if (isSpecialRound && slr.subLink() != null && !slr.subLink().isBlank()) {
+				String[] metadata = metadataMap.get(slr.subLink());
+				if (metadata != null) {
+					sub.setTitle(metadata[0]);
+					sub.setArtist(metadata[1]);
+				}
+			}
+
 			submissionService.saveSubmission(sub);
 		}
 	}
@@ -294,6 +334,33 @@ public class MyRoundsService {
 			throw new IllegalStateException("You have already claimed the first place bonus for this round.");
 		}
 
+		// Validate active round and special round restrictions
+		Round activeRound;
+		try {
+			activeRound = roundService.getActiveRound();
+		}
+		catch (IllegalStateException e) {
+			throw new IllegalStateException("There is no active round at the moment.");
+		}
+
+		if (activeRound.getSpecialRound()) {
+			throw new IllegalStateException("You cannot claim the first place bonus during a special round.");
+		}
+
+		int activeNum = activeRound.getRoundNumber();
+		Integer previousNormalRoundNum = roundService.getPreviousNormalRoundNumber(activeNum);
+		int targetRoundNum = ur.getRound().getRoundNumber();
+
+		// Validate that the bonus belongs to the round between the previous normal round
+		// and the current active round
+		// This includes any special rounds that may have occurred in between
+		boolean isClaimable = (previousNormalRoundNum != null)
+				? (targetRoundNum >= previousNormalRoundNum && targetRoundNum <= activeNum)
+				: (targetRoundNum <= activeNum);
+		if (!isClaimable) {
+			throw new IllegalStateException("This bonus has expired and can no longer be claimed.");
+		}
+
 		// Get the data for the song to be added to the collection
 		Submission ref = submissionService.getSubmissionBySubLink(subLink)
 			.orElseThrow(() -> new IllegalArgumentException("Submission with the provided link not found."));
@@ -306,23 +373,31 @@ public class MyRoundsService {
 
 	@Transactional(readOnly = true)
 	public List<PendingBonusDTO> getPendingBonuses(String discordId) {
-		Round activeRound;
-		try {
-			activeRound = roundService.getActiveRound();
+		Optional<Round> activeRoundOpt = roundService.getActiveRoundOptional();
+
+		if (activeRoundOpt.isEmpty()) {
+			return List.of();
 		}
-		catch (IllegalStateException e) {
-			return List.of(); // If there isn't an active round, bonuses can't be claimed
+
+		Round activeRound = activeRoundOpt.get();
+
+		// Disable bonus claiming entirely if the active round is a special round
+		if (activeRound.getSpecialRound()) {
+			return List.of();
 		}
 
 		int activeNum = activeRound.getRoundNumber();
+		Integer previousNormalRoundNum = roundService.getPreviousNormalRoundNumber(activeNum);
 
 		// Search all the active rounds where the user placed first and hasn't claimed the
 		// bonus yet
 		return userRoundService.getRoundsAbleToClaimBonus(discordId).stream().filter(ur -> {
-			int wonRoundNum = ur.getRound().getRoundNumber();
-			// Claimable if the contestant won in the current round or the immediately
-			// previous round
-			return wonRoundNum == activeNum || wonRoundNum == (activeNum - 1);
+			int targetRoundNum = ur.getRound().getRoundNumber();
+			// Claimable if it belongs to the current normal round, previous normal round,
+			// or any special round that occurred between them
+			return (previousNormalRoundNum != null)
+					? (targetRoundNum >= previousNormalRoundNum && targetRoundNum <= activeNum)
+					: (targetRoundNum <= activeNum);
 		}).map(ur -> new PendingBonusDTO(ur.getId().getRoundId(), ur.getRound().getRoundNumber())).toList();
 	}
 
