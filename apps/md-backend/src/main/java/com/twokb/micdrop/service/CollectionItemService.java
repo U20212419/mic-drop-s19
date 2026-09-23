@@ -121,4 +121,14 @@ public class CollectionItemService {
 		}
 	}
 
+	@Transactional(readOnly = true)
+	public long countCopiesOwned(DiscordUser contestant, String subLink) {
+		return collectionItemRepository.countByContestantAndSubLink(contestant, subLink);
+	}
+
+	@Transactional(readOnly = true)
+	public List<CollectionItem> findByContestantAndSubLink(DiscordUser contestant, String subLink) {
+		return collectionItemRepository.findByContestantIdUserAndSubLink(contestant.getIdUser(), subLink);
+	}
+
 }

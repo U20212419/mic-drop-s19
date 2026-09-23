@@ -2,6 +2,7 @@ package com.twokb.micdrop.service;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -165,8 +166,38 @@ public class MyRoundsService {
 		}
 
 		boolean isSpecialRound = round.getSpecialRound() != null && round.getSpecialRound();
+		// Map to hold the title and artist for each submitted link, to be used when
+		// adding to the collection
+		Map<String, String[]> metadataMap = new HashMap<>();
 
 		if (isSpecialRound) {
+			Map<String, Long> requestedLinksCount = request.submissions()
+				.stream()
+				.map(s -> s.subLink())
+				.filter(link -> link != null && !link.isBlank())
+				.collect(Collectors.groupingBy(link -> link, Collectors.counting()));
+
+			// Validate that the contestant has enough copies of each song in their
+			// collection
+			for (Map.Entry<String, Long> entry : requestedLinksCount.entrySet()) {
+				String linkToSubmit = entry.getKey();
+				long copiesNeeded = entry.getValue();
+
+				List<CollectionItem> userItems = collectionItemService.findByContestantAndSubLink(contestant,
+						linkToSubmit);
+				long copiesOwned = userItems.size();
+
+				if (copiesOwned < copiesNeeded) {
+					throw new IllegalStateException(
+							"You do not have enough copies of the song " + linkToSubmit + " in your collection.");
+				}
+
+				if (!userItems.isEmpty()) {
+					CollectionItem referenceItem = userItems.get(0);
+					metadataMap.put(linkToSubmit, new String[] { referenceItem.getTitle(), referenceItem.getArtist() });
+				}
+			}
+
 			// Deduct from collection
 			collectionItemService.deductFromCollection(contestant, request.submissions());
 		}
@@ -200,6 +231,15 @@ public class MyRoundsService {
 			sub.setIdJudge(judge.getIdUser());
 			sub.setSubLink(slr.subLink());
 			sub.setSubmittedAt(Instant.now());
+
+			if (isSpecialRound && slr.subLink() != null && !slr.subLink().isBlank()) {
+				String[] metadata = metadataMap.get(slr.subLink());
+				if (metadata != null) {
+					sub.setTitle(metadata[0]);
+					sub.setArtist(metadata[1]);
+				}
+			}
+
 			submissionService.saveSubmission(sub);
 		}
 	}
