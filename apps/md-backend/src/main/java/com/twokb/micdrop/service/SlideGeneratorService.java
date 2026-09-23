@@ -149,7 +149,7 @@ public class SlideGeneratorService {
 					contestantIds);
 
 			Map<Integer, List<Submission>> subsByContestant = allGroupSubmissions.stream()
-				.collect(Collectors.groupingBy(s -> s.getContestant().getId().getUserId()));
+				.collect(Collectors.groupingBy(s -> s.getContestant().getIdUser()));
 
 			// Download and process avatars concurrently to improve performance
 			Map<Integer, byte[]> avatarCache = new ConcurrentHashMap<>();

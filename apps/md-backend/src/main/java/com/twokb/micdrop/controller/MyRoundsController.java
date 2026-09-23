@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.twokb.micdrop.dto.ClaimableSongDTO;
@@ -48,8 +49,9 @@ public class MyRoundsController {
 
 	@GetMapping("/{idRound}/judge-detail")
 	@PreAuthorize("isAuthenticated()")
-	public ResponseEntity<JudgeRoundDetailDTO> getJudgeDetail(@PathVariable Integer idRound, Principal principal) {
-		return ResponseEntity.ok(myRoundsService.getJudgeDetail(idRound, principal.getName()));
+	public ResponseEntity<JudgeRoundDetailDTO> getJudgeDetail(@PathVariable Integer idRound, Principal principal,
+			@RequestParam(name = "group") Integer groupNumber) {
+		return ResponseEntity.ok(myRoundsService.getJudgeDetail(idRound, principal.getName(), groupNumber));
 	}
 
 	@PostMapping("/batch-submit")

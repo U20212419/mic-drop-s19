@@ -64,7 +64,7 @@ public interface UserRoundRepository extends JpaRepository<UserRound, UserRoundI
 
 	List<UserRound> findByUser_DiscordId(String discordId);
 
-	Optional<UserRound> findById_RoundIdAndUser_DiscordId(Integer idRound, String discordId);
+	List<UserRound> findById_RoundIdAndUser_DiscordId(Integer idRound, String discordId);
 
 	@Query(value = """
 			SELECT ur.* FROM user_round ur
@@ -72,10 +72,10 @@ public interface UserRoundRepository extends JpaRepository<UserRound, UserRoundI
 			AND ur.group_number = :groupNumber
 			AND ur.user_role = CAST(:userRoleStr AS user_role_type)
 			""", nativeQuery = true)
-	List<UserRound> findById_RoundIdAndGroupNumberAndUserRole(@Param("idRound") Integer idRound,
+	List<UserRound> findById_RoundIdAndId_GroupNumberAndUserRole(@Param("idRound") Integer idRound,
 			@Param("groupNumber") Integer groupNumber, @Param("userRoleStr") String userRoleStr);
 
-	List<UserRound> findById_RoundIdAndGroupNumber(Integer idRound, Integer groupNumber);
+	List<UserRound> findById_RoundIdAndId_GroupNumber(Integer idRound, Integer groupNumber);
 
 	@Query(value = """
 			SELECT ur.* FROM user_round ur
@@ -93,5 +93,7 @@ public interface UserRoundRepository extends JpaRepository<UserRound, UserRoundI
 			WHERE ur.user_role = CAST(:userRoleStr AS user_role_type)
 			""", nativeQuery = true)
 	List<UserRound> findByUserRole(@Param("userRoleStr") String userRoleStr);
+
+	List<UserRound> findById_RoundIdAndId_UserId(Integer idRound, Integer userId);
 
 }

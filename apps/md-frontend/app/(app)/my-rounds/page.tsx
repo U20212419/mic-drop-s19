@@ -24,8 +24,11 @@ export default function MyRoundsPage() {
     api
       .get("/my-rounds")
       .then((res) => {
-        // Sort rounds by roundNumber ascending
-        res.data.sort((a: MyRound, b: MyRound) => a.roundNumber - b.roundNumber);
+        // Sort rounds by roundNumber ascending and then by groupNumber ascending
+        res.data.sort(
+          (a: MyRound, b: MyRound) =>
+            a.roundNumber - b.roundNumber || a.groupNumber - b.groupNumber,
+        );
         setRounds(res.data);
       })
       .finally(() => setLoading(false));
@@ -46,8 +49,11 @@ export default function MyRoundsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {rounds.map((round) => (
           <div
-            key={`${round.idRound}-${round.role}`}
-            onClick={() => round.active && router.push(`/my-rounds/${round.idRound}`)}
+            key={`${round.idRound}-${round.role}-${round.groupNumber || 1}`}
+            onClick={() =>
+              round.active &&
+              router.push(`/my-rounds/${round.idRound}?group=${round.groupNumber || 1}`)
+            }
             className={`bg-[#2B2D31] border border-[#1E1F22] rounded-xl p-5 sm:p-6 transition-all ${
               round.active
                 ? "hover:border-[#5865F2] cursor-pointer hover:-translate-y-1 shadow-md"

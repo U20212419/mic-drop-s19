@@ -75,7 +75,7 @@ class UserRoundServiceTests {
 		assertThat(assignments).allMatch(assignment -> assignment.getUserRole() == UserRoleType.CONTESTANT);
 
 		Map<Integer, Integer> groupSizes = new HashMap<>();
-		assignments.forEach(assignment -> groupSizes.merge(assignment.getGroupNumber(), 1, Integer::sum));
+		assignments.forEach(assignment -> groupSizes.merge(assignment.getId().getGroupNumber(), 1, Integer::sum));
 
 		assertThat(groupSizes.keySet()).containsExactlyInAnyOrder(1, 2, 3);
 		assertThat(groupSizes.values()).allMatch(size -> size >= 2 && size <= 3);

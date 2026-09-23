@@ -32,9 +32,6 @@ public class UserRound {
 	@Column(name = "user_role")
 	private UserRoleType userRole;
 
-	@Column(name = "group_number", nullable = false)
-	private Integer groupNumber;
-
 	@Column(name = "placed_first", nullable = false)
 	private Boolean placedFirst = false;
 

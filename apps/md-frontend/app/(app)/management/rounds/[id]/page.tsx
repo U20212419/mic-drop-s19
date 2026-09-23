@@ -82,6 +82,11 @@ export default function RoundDetailPage() {
     fetchInitialData();
   }, [id]);
 
+  useEffect(() => {
+    setContestantSearch("");
+    setJudgeSearch("");
+  }, [currentGroupSelection, activeTab]);
+
   const fetchInitialData = async () => {
     try {
       setIsLoading(true);
@@ -127,14 +132,16 @@ export default function RoundDetailPage() {
 
   // Available users for judges (not selected and not an active contestant)
   const availableJudges = useMemo(() => {
-    const selectedIds = selectedJudges.map((j) => j.idUser);
+    const selectedIdsInCurrentGroup = selectedJudges
+      .filter((j) => (j.groupNumber || 1) === currentGroupSelection)
+      .map((j) => j.idUser);
     const contestantIds = selectedContestants.map((p) => p.idUser);
     return allUsers.filter(
       (u) =>
-        !selectedIds.includes(u.idUser) &&
         !contestantIds.includes(u.idUser) && // A contestant cannot be a judge
         u.status !== "DID_NOT_SUBMIT" && // Users who did not submit cannot be judges
         u.judgeApp && // Only include users who have submitted a judge application
+        !selectedIdsInCurrentGroup.includes(u.idUser) && // Not already selected as a judge in the current group
         u.username.toLowerCase().includes(judgeSearch.toLowerCase()),
     );
   }, [allUsers, selectedJudges, selectedContestants, judgeSearch]);
@@ -189,9 +196,13 @@ export default function RoundDetailPage() {
 
       const targetIdUser = groupUsers[targetIndexInGroup].idUser;
 
-      // Find the absolute indexes in the original array
-      const absoluteCurrentIndex = prev.findIndex((u) => u.idUser === idUser);
-      const absoluteTargetIndex = prev.findIndex((u) => u.idUser === targetIdUser);
+      // Find the absolute indexes in the original array, filtered by the current group selection
+      const absoluteCurrentIndex = prev.findIndex(
+        (u) => u.idUser === idUser && (u.groupNumber || 1) === currentGroupSelection,
+      );
+      const absoluteTargetIndex = prev.findIndex(
+        (u) => u.idUser === targetIdUser && (u.groupNumber || 1) === currentGroupSelection,
+      );
 
       // Swap positions
       const newArr = [...prev];
@@ -214,7 +225,11 @@ export default function RoundDetailPage() {
     if (isContestant) {
       setSelectedContestants((prev) => prev.filter((c) => c.idUser !== idUser));
     } else {
-      setSelectedJudges((prev) => prev.filter((j) => j.idUser !== idUser));
+      setSelectedJudges((prev) =>
+        prev.filter(
+          (j) => !(j.idUser === idUser && (j.groupNumber || 1) === currentGroupSelection),
+        ),
+      );
     }
   };
 
@@ -787,7 +802,6 @@ export default function RoundDetailPage() {
                               disabled={index === array.length - 1}
                               className="text-[#80848E] hover:text-[#DBDEE1] disabled:opacity-30 disabled:cursor-not-allowed"
                             >
-                              {/* Reutilizando ChevronLeft invertido para la derecha */}
                               <ChevronLeft className="w-3.5 h-3.5 rotate-180" />
                             </button>
                           </div>
@@ -950,7 +964,7 @@ export default function RoundDetailPage() {
                       <label className="text-xs font-bold text-[#80848E] uppercase tracking-wide mb-2 block">
                         {field.label}
                       </label>
-                      <div className="text-[#DBDEE1] text-sm whitespace-pre-wrap leading-relaxed [overflow-wrap:anywhere]">
+                      <div className="text-[#DBDEE1] text-sm whitespace-pre-wrap leading-relaxed wrap-anywhere">
                         {field.val ? (
                           <FormattedText text={field.val} />
                         ) : (

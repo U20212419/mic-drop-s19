@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import api from "@/lib/axios";
 import {
   Loader2,
@@ -23,6 +23,8 @@ import { SpecialRoundCombobox } from "@/components/ui/SpecialRoundCombobox";
 
 export default function RoundDetailPage() {
   const { id } = useParams();
+  const searchParams = useSearchParams();
+  const groupParam = searchParams.get("group");
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -44,6 +46,14 @@ export default function RoundDetailPage() {
     const fetchRoundData = async () => {
       try {
         const res = await api.get("/my-rounds");
+
+        if (!groupParam) {
+          // If no group is specified, redirect and stop execution
+          toast.error("No group specified.", { closeButton: true });
+          router.push("/my-rounds");
+          return;
+        }
+
         const info = res.data.find((r: any) => r.idRound === Number(id));
 
         // If not found or not active, redirect and stop execution
@@ -55,11 +65,28 @@ export default function RoundDetailPage() {
           return;
         }
 
+        const infoGroup = res.data.find(
+          (r: any) => r.idRound === Number(id) && r.groupNumber === Number(groupParam),
+        );
+
+        // If the user is not assigned to the requested group, redirect and stop execution
+        if (groupParam && infoGroup === undefined) {
+          toast.error("You are not assigned to the requested group.", {
+            closeButton: true,
+          });
+          router.push("/my-rounds");
+          return;
+        }
+
         setRole(info.role);
 
         // Fetch specific details based on role
         const endpoint = info.role === "CONTESTANT" ? "contestant-detail" : "judge-detail";
-        const detailRes = await api.get(`/my-rounds/${id}/${endpoint}`);
+        const requestParams =
+          info.role === "JUDGE" ? { ...(groupParam && { group: groupParam }) } : {};
+        const detailRes = await api.get(`/my-rounds/${id}/${endpoint}`, {
+          params: requestParams,
+        });
 
         if (info.role === "CONTESTANT") {
           let fetchedData = detailRes.data;
@@ -194,7 +221,7 @@ export default function RoundDetailPage() {
     };
 
     fetchRoundData();
-  }, [id, router]);
+  }, [id, router, groupParam]);
 
   // Calculate which entries were modified by the judge
   const dirtySubmissionIds = useMemo(() => {
