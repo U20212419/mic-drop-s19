@@ -18,7 +18,6 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXTAUTH_URL || "http://localhost:3000"),
   title: "MicDrop S19",
   description: "Season 19 Platform for MicDrop",
   icons: {
@@ -32,22 +31,13 @@ export const metadata: Metadata = {
     description: "Season 19 Platform for MicDrop",
     url: "/",
     siteName: "MicDrop S19",
-    images: [
-      {
-        url: "/MicDrop19.png",
-        width: 512,
-        height: 512,
-        alt: "MicDrop S19 Logo",
-      },
-    ],
     locale: "en-US",
     type: "website",
   },
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: "MicDrop S19",
     description: "Season 19 Platform for MicDrop",
-    images: ["/MicDrop19.png"],
   },
 };
 
