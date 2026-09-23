@@ -109,4 +109,9 @@ public class SubmissionService {
 		return submissionRepository.findAllByScoreIsNotNull();
 	}
 
+	@Transactional(readOnly = true)
+	public boolean existsByJudgeAndLink(Integer idJudge, String subLink) {
+		return submissionRepository.existsByIdJudgeAndSubLink(idJudge, subLink);
+	}
+
 }
