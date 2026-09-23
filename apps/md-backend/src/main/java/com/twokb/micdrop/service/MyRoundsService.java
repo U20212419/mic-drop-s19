@@ -188,6 +188,21 @@ public class MyRoundsService {
 			}
 		}
 
+		for (SubmitLinkRequest slr : request.submissions()) {
+			if (slr.subLink() != null && !slr.subLink().isBlank()) {
+				DiscordUser judge = discordUserService.getUserByDiscordId(slr.judgeDiscordId());
+
+				// Check if this judge has already received this link in any previous
+				// round
+				boolean alreadyReceived = submissionService.existsByJudgeAndLink(judge.getIdUser(), slr.subLink());
+
+				if (alreadyReceived) {
+					throw new IllegalArgumentException("The judge " + judge.getUsername()
+							+ " has already received this track in a previous round. Please submit a different track.");
+				}
+			}
+		}
+
 		boolean isSpecialRound = round.getSpecialRound() != null && round.getSpecialRound();
 		// Map to hold the title and artist for each submitted link, to be used when
 		// adding to the collection

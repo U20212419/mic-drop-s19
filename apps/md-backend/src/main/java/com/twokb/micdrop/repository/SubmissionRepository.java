@@ -49,4 +49,6 @@ public interface SubmissionRepository extends JpaRepository<Submission, Integer>
 			""")
 	List<Submission> findAllByScoreIsNotNull();
 
+	boolean existsByIdJudgeAndSubLink(Integer idJudge, String subLink);
+
 }
