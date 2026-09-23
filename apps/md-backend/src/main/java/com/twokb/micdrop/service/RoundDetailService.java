@@ -66,16 +66,18 @@ public class RoundDetailService {
 		List<UserRound> userRounds = userRoundService.getUserRoundsByRoundId(idRound);
 		Map<Integer, Integer> groupMap = userRounds.stream()
 			.filter(ur -> ur.getUserRole() == UserRoleType.CONTESTANT)
-			.collect(Collectors.toMap(ur -> ur.getId().getUserId(), UserRound::getGroupNumber));
-		Map<Integer, Integer> sortOrderMap = userRounds.stream()
+			.collect(Collectors.toMap(ur -> ur.getId().getUserId(), ur -> ur.getId().getGroupNumber(),
+					(existing, replacement) -> existing));
+		Map<String, Integer> sortOrderMap = userRounds.stream()
 			.filter(ur -> ur.getUserRole() == UserRoleType.JUDGE)
-			.collect(Collectors.toMap(ur -> ur.getId().getUserId(), UserRound::getSortOrder));
+			.collect(Collectors.toMap(ur -> ur.getId().getUserId() + "-" + ur.getId().getGroupNumber(),
+					ur -> ur.getSortOrder() != null ? ur.getSortOrder() : 999, (existing, replacement) -> existing));
 
 		return subs.stream().map(s -> {
 			DiscordUser judge = userMap.get(s.getIdJudge());
 			DiscordUser contestant = userMap.get(s.getIdContestant());
 			Integer group = groupMap.getOrDefault(contestant.getIdUser(), 1);
-			Integer sortOrder = sortOrderMap.getOrDefault(judge.getIdUser(), 0);
+			Integer sortOrder = sortOrderMap.getOrDefault(judge.getIdUser() + "-" + group, 999);
 
 			return new AdminSubmissionDTO(s.getIdSubmission(), s.getSubLink(), s.getScore(), s.getReview(),
 					s.getTitle(), s.getArtist(), judge.getDiscordId(), judge.getUsername(), contestant.getDiscordId(),
@@ -94,17 +96,19 @@ public class RoundDetailService {
 		Map<Integer, Integer> groupMap = userRoundService.getUserRoundsByRoundId(subs.get(0).getIdRound())
 			.stream()
 			.filter(ur -> ur.getUserRole() == UserRoleType.CONTESTANT)
-			.collect(Collectors.toMap(ur -> ur.getId().getUserId(), UserRound::getGroupNumber));
-		Map<Integer, Integer> sortOrderMap = userRoundService.getUserRoundsByRoundId(subs.get(0).getIdRound())
+			.collect(Collectors.toMap(ur -> ur.getId().getUserId(), ur -> ur.getId().getGroupNumber(),
+					(existing, replacement) -> existing));
+		Map<String, Integer> sortOrderMap = userRoundService.getUserRoundsByRoundId(subs.get(0).getIdRound())
 			.stream()
 			.filter(ur -> ur.getUserRole() == UserRoleType.JUDGE)
-			.collect(Collectors.toMap(ur -> ur.getId().getUserId(), UserRound::getSortOrder));
+			.collect(Collectors.toMap(ur -> ur.getId().getUserId() + "-" + ur.getId().getGroupNumber(),
+					ur -> ur.getSortOrder() != null ? ur.getSortOrder() : 999, (existing, replacement) -> existing));
 
 		return subs.stream().map(s -> {
 			DiscordUser judge = userMap.get(s.getIdJudge());
 			DiscordUser contestant = userMap.get(s.getIdContestant());
 			Integer group = groupMap.getOrDefault(contestant.getIdUser(), 1);
-			Integer sortOrder = sortOrderMap.getOrDefault(judge.getIdUser(), 0);
+			Integer sortOrder = sortOrderMap.getOrDefault(judge.getIdUser() + "-" + group, 999);
 
 			return new AdminSubmissionDTO(s.getIdSubmission(), s.getSubLink(), s.getScore(), s.getReview(),
 					s.getTitle(), s.getArtist(), judge.getDiscordId(), judge.getUsername(), contestant.getDiscordId(),
@@ -122,8 +126,8 @@ public class RoundDetailService {
 			}
 
 			// Sync with the table collection_item
-			collectionItemService.syncCollectionItemData(oldSub.getContestant().getUser(), oldSub.getSubLink(),
-					update.subLink(), update.title(), update.artist());
+			collectionItemService.syncCollectionItemData(oldSub.getContestant(), oldSub.getSubLink(), update.subLink(),
+					update.title(), update.artist());
 
 			// Update submission table
 			submissionService.adminUpdateSubmission(update.idSubmission(), update.subLink(), update.title(),

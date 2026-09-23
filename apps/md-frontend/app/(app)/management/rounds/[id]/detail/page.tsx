@@ -259,8 +259,9 @@ export default function RoundAdminDetailPage() {
     // Group all submissions by judge to determine track order
     const judgeMap = new Map<string, AdminSubmission[]>();
     submissions.forEach((s) => {
-      if (!judgeMap.has(s.judgeUsername)) judgeMap.set(s.judgeUsername, []);
-      judgeMap.get(s.judgeUsername)!.push(s);
+      const key = `${s.judgeUsername}-${s.groupNumber}`;
+      if (!judgeMap.has(key)) judgeMap.set(key, []);
+      judgeMap.get(key)!.push(s);
     });
 
     const withTracks: (AdminSubmission & { trackNumber: number })[] = [];

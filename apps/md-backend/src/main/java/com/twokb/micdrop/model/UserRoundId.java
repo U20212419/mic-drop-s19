@@ -2,6 +2,7 @@ package com.twokb.micdrop.model;
 
 import java.io.Serializable;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -16,5 +17,8 @@ public class UserRoundId implements Serializable {
 	private Integer userId;
 
 	private Integer roundId;
+
+	@Column(name = "group_number")
+	private Integer groupNumber;
 
 }

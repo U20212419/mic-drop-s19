@@ -55,19 +55,11 @@ public class Submission {
 	private Integer idRound;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumns({
-			@JoinColumn(name = "id_contestant", referencedColumnName = "discord_user_id_user", insertable = false,
-					updatable = false),
-			@JoinColumn(name = "id_round", referencedColumnName = "round_id_round", insertable = false,
-					updatable = false) })
-	private UserRound contestant;
+	@JoinColumn(name = "id_contestant", insertable = false, updatable = false)
+	private DiscordUser contestant;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumns({
-			@JoinColumn(name = "id_judge", referencedColumnName = "discord_user_id_user", insertable = false,
-					updatable = false),
-			@JoinColumn(name = "id_round", referencedColumnName = "round_id_round", insertable = false,
-					updatable = false) })
-	private UserRound judge;
+	@JoinColumn(name = "id_judge", insertable = false, updatable = false)
+	private DiscordUser judge;
 
 }

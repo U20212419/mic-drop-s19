@@ -3,6 +3,7 @@ package com.twokb.micdrop.service;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,7 +53,7 @@ public class UserRoundService {
 	@Transactional
 	@EventListener
 	public void handleContestantRegistered(ContestantRegisteredEvent event) {
-		assignContestantToRound(event.getUserId(), 1, true);
+		assignContestantToRound(event.getUserId(), 1, true, 1);
 	}
 
 	@Transactional
@@ -62,9 +63,9 @@ public class UserRoundService {
 	}
 
 	@Transactional
-	public void assignContestantToRound(Integer userId, Integer roundNumber) {
+	public void assignContestantToRound(Integer userId, Integer roundNumber, Integer groupNumber) {
 		if (discordUserService.isUserActive(userId)) {
-			assignUserToRound(userId, roundNumber, UserRoleType.CONTESTANT, false);
+			assignUserToRound(userId, roundNumber, UserRoleType.CONTESTANT, false, groupNumber);
 		}
 		else {
 			throw new IllegalArgumentException("User with ID " + userId
@@ -73,9 +74,10 @@ public class UserRoundService {
 	}
 
 	@Transactional
-	public void assignContestantToRound(Integer userId, Integer roundNumber, boolean isRegistering) {
+	public void assignContestantToRound(Integer userId, Integer roundNumber, boolean isRegistering,
+			Integer groupNumber) {
 		if (discordUserService.isUserActive(userId)) {
-			assignUserToRound(userId, roundNumber, UserRoleType.CONTESTANT, isRegistering);
+			assignUserToRound(userId, roundNumber, UserRoleType.CONTESTANT, isRegistering, groupNumber);
 		}
 		else {
 			throw new IllegalArgumentException("User with ID " + userId
@@ -84,7 +86,7 @@ public class UserRoundService {
 	}
 
 	@Transactional
-	public void assignJudgeToRound(Integer userId, Integer roundNumber) {
+	public void assignJudgeToRound(Integer userId, Integer roundNumber, Integer groupNumber) {
 		if (discordUserService.isUserActive(userId)) {
 			throw new IllegalArgumentException("User with ID " + userId
 					+ " is an active contestant and cannot be assigned as a judge to round " + roundNumber + ".");
@@ -96,7 +98,7 @@ public class UserRoundService {
 					+ ".");
 		}
 
-		assignUserToRound(userId, roundNumber, UserRoleType.JUDGE, false);
+		assignUserToRound(userId, roundNumber, UserRoleType.JUDGE, false, groupNumber);
 	}
 
 	@Transactional
@@ -135,29 +137,25 @@ public class UserRoundService {
 	}
 
 	@Transactional
-	private void assignUserToRound(Integer userId, Integer roundNumber, UserRoleType userRole, boolean isRegistering) {
+	private void assignUserToRound(Integer userId, Integer roundNumber, UserRoleType userRole, boolean isRegistering,
+			Integer groupNumber) {
+		if (groupNumber == null) {
+			groupNumber = 1; // Default to group 1 if not provided
+		}
 		var round = roundService.getRoundByNumber(roundNumber);
-		var id = new UserRoundId(userId, round.getIdRound());
+		var id = new UserRoundId(userId, round.getIdRound(), groupNumber);
 
 		var existingUserRound = userRoundRepository.findById(id);
 
 		if (existingUserRound.isPresent()) {
 			if (isRegistering) {
-				UserRound ur = existingUserRound.get();
-				// If the user is already assigned to the round but has no group number,
-				// set it to 1
-				if (ur.getGroupNumber() == null || ur.getGroupNumber() == 0) {
-					ur.setGroupNumber(1);
-					userRoundRepository.saveAndFlush(ur);
-					log.info(
-							"User with ID {} was already assigned to round {} but had no group number. Set group number to 1.",
-							userId, roundNumber);
-				}
+				log.info("User with ID {} is already assigned to round {} in group {}. Ignoring registration attempt.",
+						userId, roundNumber, groupNumber);
 				return; // If the user already registered before, do nothing as they are
 						// trying to register again
 			}
-			throw new IllegalArgumentException(
-					"User with ID " + userId + " is already assigned to round " + roundNumber + ".");
+			throw new IllegalArgumentException("User with ID " + userId + " is already assigned to round " + roundNumber
+					+ " in group " + groupNumber + ".");
 		}
 
 		var user = discordUserService.getUserById(userId);
@@ -167,14 +165,11 @@ public class UserRoundService {
 		userRound.setUser(user);
 		userRound.setRound(round);
 		userRound.setUserRole(userRole);
-		if (isRegistering) {
-			userRound.setGroupNumber(1); // Default group number for registering users in
-											// round 1
-		}
-		log.info("Assigning user with ID {} to round {} as {}. Registering: {}", userId, roundNumber, userRole,
-				isRegistering);
+		log.info("Assigning user with ID {} to round {} in group {} as {}. Registering: {}", userId, roundNumber,
+				groupNumber, userRole, isRegistering);
 		userRoundRepository.save(userRound);
-		log.info("User with ID {} assigned to round {} as {} successfully.", userId, roundNumber, userRole);
+		log.info("User with ID {} assigned to round {} in group {} as {} successfully.", userId, roundNumber,
+				groupNumber, userRole);
 	}
 
 	@Transactional
@@ -184,24 +179,19 @@ public class UserRoundService {
 		List<Integer> userIds = assignments.stream().map(UserAssignmentDTO::idUser).toList();
 		var users = discordUserService.getAllUsersById(userIds);
 
-		Set<Integer> foundUserIds = users.stream().map(DiscordUser::getIdUser).collect(Collectors.toSet());
-		List<Integer> notFoundIds = userIds.stream().filter(id -> !foundUserIds.contains(id)).toList();
+		Map<Integer, DiscordUser> userMap = users.stream().collect(Collectors.toMap(DiscordUser::getIdUser, u -> u));
+
+		List<Integer> notFoundIds = userIds.stream().filter(id -> !userMap.containsKey(id)).toList();
 		if (!notFoundIds.isEmpty()) {
 			throw new IllegalArgumentException("Users not found with IDs: " + notFoundIds + ".");
 		}
 
-		Map<Integer, Integer> groupMap = assignments.stream()
-			.collect(Collectors.toMap(UserAssignmentDTO::idUser, UserAssignmentDTO::groupNumber));
-
-		Set<Integer> assignedIds = userRoundRepository.findUserIdsByRound_RoundNumber(roundNumber);
-
-		var userRounds = users.stream().filter(user -> !assignedIds.contains(user.getIdUser())).map(user -> {
+		var userRounds = assignments.stream().map(dto -> {
 			var userRound = new UserRound();
-			userRound.setId(new UserRoundId(user.getIdUser(), round.getIdRound()));
-			userRound.setUser(user);
+			userRound.setId(new UserRoundId(dto.idUser(), round.getIdRound(), dto.groupNumber()));
+			userRound.setUser(userMap.get(dto.idUser()));
 			userRound.setRound(round);
 			userRound.setUserRole(userRole);
-			userRound.setGroupNumber(groupMap.get(user.getIdUser()));
 			return userRound;
 		}).toList();
 
@@ -211,13 +201,21 @@ public class UserRoundService {
 	@Transactional
 	public void removeUserFromRound(Integer userId, Integer roundNumber) {
 		var round = roundService.getRoundByNumber(roundNumber);
-		var id = new UserRoundId(userId, round.getIdRound());
 
-		if (!userRoundRepository.existsById(id)) {
+		List<UserRound> assignments = userRoundRepository.findById_RoundIdAndId_UserId(round.getIdRound(), userId);
+
+		if (assignments.isEmpty()) {
 			throw new IllegalArgumentException(
 					"User with ID " + userId + " is not assigned to round " + roundNumber + ".");
 		}
 
+		userRoundRepository.deleteAll(assignments);
+	}
+
+	@Transactional
+	public void removeUserFromRoundGroup(Integer userId, Integer roundNumber, Integer groupNumber) {
+		var round = roundService.getRoundByNumber(roundNumber);
+		var id = new UserRoundId(userId, round.getIdRound(), groupNumber);
 		userRoundRepository.deleteById(id);
 	}
 
@@ -261,44 +259,28 @@ public class UserRoundService {
 			UserRoleType userRole) {
 		List<UserAssignmentDTO> targetAssignments = targetAssignmentsList != null ? targetAssignmentsList : List.of();
 
-		Map<Integer, Integer> targetMap = targetAssignments.stream()
-			.collect(Collectors.toMap(UserAssignmentDTO::idUser, UserAssignmentDTO::groupNumber));
-
 		String userRoleStr = userRole.name().toLowerCase();
 
 		// Get current assignments for the role in the round
 		List<UserRound> currentAssignments = userRoundRepository.findByRoundIdAndRole(idRound, userRoleStr);
 
-		// Identify users to delete in database
-		List<UserRound> toDelete = currentAssignments.stream()
-			.filter(ur -> !targetMap.containsKey(ur.getUser().getIdUser()))
-			.toList();
-
-		// Identify users to update in both database and target list
-		List<UserRound> toUpdate = currentAssignments.stream()
-			.filter(ur -> targetMap.containsKey(ur.getUser().getIdUser())
-					&& !ur.getGroupNumber().equals(targetMap.get(ur.getUser().getIdUser())))
-			.toList();
-
-		// Identify users to add in target list
-		Set<Integer> currentIds = currentAssignments.stream()
-			.map(ur -> ur.getUser().getIdUser())
+		Set<UserRoundId> targetKeys = targetAssignments.stream()
+			.map(dto -> new UserRoundId(dto.idUser(), idRound, dto.groupNumber()))
 			.collect(Collectors.toSet());
+
+		Set<UserRoundId> currentKeys = currentAssignments.stream().map(UserRound::getId).collect(Collectors.toSet());
+
+		// Identify users to delete in database
+		List<UserRound> toDelete = currentAssignments.stream().filter(ur -> !targetKeys.contains(ur.getId())).toList();
+
+		// Identify users to add in both database and target list
 		List<UserAssignmentDTO> toAdd = targetAssignments.stream()
-			.filter(ta -> !currentIds.contains(ta.idUser()))
+			.filter(dto -> !currentKeys.contains(new UserRoundId(dto.idUser(), idRound, dto.groupNumber())))
 			.toList();
 
 		// Perform deletions
 		toDelete.forEach(ur -> {
-			removeUserFromRound(ur.getUser().getIdUser(), roundNumber);
-			updateDiscordGroupRole(ur.getUser(), null); // Remove Discord role for the
-														// user
-		});
-
-		// Perform updates
-		toUpdate.forEach(ur -> {
-			ur.setGroupNumber(targetMap.get(ur.getUser().getIdUser()));
-			updateDiscordGroupRole(ur.getUser(), targetMap.get(ur.getUser().getIdUser()));
+			removeUserFromRoundGroup(ur.getUser().getIdUser(), roundNumber, ur.getId().getGroupNumber());
 		});
 
 		// Perform additions
@@ -309,12 +291,29 @@ public class UserRoundService {
 			else if (userRole == UserRoleType.JUDGE) {
 				assignJudgesToRound(toAdd, roundNumber);
 			}
+		}
 
-			// Sync roles for new additions
-			List<Integer> addedUserIds = toAdd.stream().map(UserAssignmentDTO::idUser).toList();
-			List<DiscordUser> addedUsers = discordUserService.getAllUsersById(addedUserIds);
-			for (DiscordUser addedUser : addedUsers) {
-				updateDiscordGroupRole(addedUser, targetMap.get(addedUser.getIdUser()));
+		// Synchronize Discord group roles for contestants
+		if (userRole == UserRoleType.CONTESTANT) {
+			Set<DiscordUser> usersToSyncRoles = new HashSet<>();
+			toDelete.forEach(ur -> usersToSyncRoles.add(ur.getUser()));
+
+			if (!toAdd.isEmpty()) {
+				List<Integer> addIds = toAdd.stream().map(UserAssignmentDTO::idUser).distinct().toList();
+				usersToSyncRoles.addAll(discordUserService.getAllUsersById(addIds));
+			}
+
+			for (DiscordUser user : usersToSyncRoles) {
+				List<UserRound> activeUrs = userRoundRepository.findById_RoundIdAndId_UserId(idRound, user.getIdUser())
+					.stream()
+					.filter(ur -> ur.getUserRole() == UserRoleType.CONTESTANT)
+					.toList();
+
+				// If the user is no longer a contestant in this round, the targetGroup
+				// will be null
+				Integer targetGroup = activeUrs.isEmpty() ? null : activeUrs.get(0).getId().getGroupNumber();
+
+				updateDiscordGroupRole(user, targetGroup);
 			}
 		}
 
@@ -327,7 +326,9 @@ public class UserRoundService {
 			for (List<UserAssignmentDTO> groupJudges : judgesByGroup.values()) {
 				for (int i = 0; i < groupJudges.size(); i++) {
 					UserAssignmentDTO dto = groupJudges.get(i);
-					UserRound ur = userRoundRepository.findById(new UserRoundId(dto.idUser(), idRound)).orElse(null);
+					UserRound ur = userRoundRepository
+						.findById(new UserRoundId(dto.idUser(), idRound, dto.groupNumber()))
+						.orElse(null);
 					if (ur != null) {
 						ur.setSortOrder(i);
 						userRoundRepository.save(ur);
@@ -340,7 +341,7 @@ public class UserRoundService {
 	@Transactional(readOnly = true)
 	public Integer getGroupNumberForUserInRound(Integer userId, Integer roundNumber) {
 		return userRoundRepository.findById_UserIdAndRound_RoundNumber(userId, roundNumber)
-			.map(UserRound::getGroupNumber)
+			.map(ur -> ur.getId().getGroupNumber())
 			.orElse(1); // Default to group 1 if not assigned to any group
 	}
 
@@ -371,7 +372,7 @@ public class UserRoundService {
 		// Map them to the current round
 		List<RoundAssignmentDTO> newContestantDTOs = previousAssignments.stream()
 			.map(prev -> new RoundAssignmentDTO(prev.getUser().getIdUser(), prev.getUser().getUsername(),
-					prev.getGroupNumber(), null))
+					prev.getId().getGroupNumber(), null))
 			.toList();
 
 		// Fetch current judges to preserve them in the frontend preview
@@ -510,14 +511,14 @@ public class UserRoundService {
 
 		List<RoundAssignmentDTO> contestantDTOs = allAssignments.stream()
 			.filter(ur -> ur.getUserRole() == UserRoleType.CONTESTANT)
-			.map(ur -> new RoundAssignmentDTO(ur.getUser().getIdUser(), ur.getUser().getUsername(), ur.getGroupNumber(),
-					null))
+			.map(ur -> new RoundAssignmentDTO(ur.getUser().getIdUser(), ur.getUser().getUsername(),
+					ur.getId().getGroupNumber(), null))
 			.toList();
 
 		List<RoundAssignmentDTO> judgeDTOs = allAssignments.stream()
 			.filter(ur -> ur.getUserRole() == UserRoleType.JUDGE)
-			.map(ur -> new RoundAssignmentDTO(ur.getUser().getIdUser(), ur.getUser().getUsername(), ur.getGroupNumber(),
-					ur.getSortOrder()))
+			.map(ur -> new RoundAssignmentDTO(ur.getUser().getIdUser(), ur.getUser().getUsername(),
+					ur.getId().getGroupNumber(), ur.getSortOrder()))
 			.toList();
 
 		return new RoundAssignmentsResponse(contestantDTOs, judgeDTOs);
@@ -544,26 +545,29 @@ public class UserRoundService {
 	}
 
 	@Transactional(readOnly = true)
-	public UserRound getUserRoundByRoundIdAndDiscordId(Integer idRound, String discordId) {
-		return userRoundRepository.findById_RoundIdAndUser_DiscordId(idRound, discordId)
-			.orElseThrow(() -> new IllegalArgumentException(
-					"User with Discord ID " + discordId + " is not part of round with ID " + idRound + "."));
+	public List<UserRound> getUserRoundsByRoundIdAndDiscordId(Integer idRound, String discordId) {
+		List<UserRound> userRounds = userRoundRepository.findById_RoundIdAndUser_DiscordId(idRound, discordId);
+		if (userRounds.isEmpty()) {
+			throw new IllegalArgumentException(
+					"User with Discord ID " + discordId + " is not part of round with ID " + idRound + ".");
+		}
+		return userRounds;
 	}
 
 	@Transactional(readOnly = true)
-	public Optional<UserRound> findUserRoundByRoundIdAndDiscordId(Integer idRound, String discordId) {
+	public List<UserRound> findUserRoundsByRoundIdAndDiscordId(Integer idRound, String discordId) {
 		return userRoundRepository.findById_RoundIdAndUser_DiscordId(idRound, discordId);
 	}
 
 	@Transactional(readOnly = true)
 	public List<UserRound> getUsersByRoundIdAndRoleAndGroupNumber(Integer idRound, Integer groupNumber,
 			String userRole) {
-		return userRoundRepository.findById_RoundIdAndGroupNumberAndUserRole(idRound, groupNumber, userRole);
+		return userRoundRepository.findById_RoundIdAndId_GroupNumberAndUserRole(idRound, groupNumber, userRole);
 	}
 
 	@Transactional(readOnly = true)
 	public List<UserRound> getUsersByRoundIdAndGroupNumber(Integer idRound, Integer groupNumber) {
-		return userRoundRepository.findById_RoundIdAndGroupNumber(idRound, groupNumber);
+		return userRoundRepository.findById_RoundIdAndId_GroupNumber(idRound, groupNumber);
 	}
 
 	@Transactional(readOnly = true)

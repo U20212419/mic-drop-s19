@@ -17,7 +17,7 @@ public interface SubmissionRepository extends JpaRepository<Submission, Integer>
 
 	List<Submission> findByIdJudgeAndIdRound(Integer idJudge, Integer idRound);
 
-	boolean existsByContestant_User_DiscordId(String discordId);
+	boolean existsByContestant_DiscordId(String discordId);
 
 	Optional<Submission> findByIdRoundAndIdContestantAndIdJudge(Integer idRound, Integer idContestant, Integer idJudge);
 

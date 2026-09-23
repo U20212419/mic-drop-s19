@@ -61,19 +61,25 @@ public class PublicStatsService {
 
 		// Precompute judge sort orders for each round to avoid repeated calculations
 		List<UserRound> allJudgeAssignments = userRoundService.getAllJudgeAssignments();
-		Map<Integer, Map<Integer, Integer>> judgeSortOrdersByRound = allJudgeAssignments.stream()
-			.collect(Collectors.groupingBy(ur -> ur.getRound().getIdRound(), Collectors
-				.toMap(ur -> ur.getUser().getIdUser(), ur -> ur.getSortOrder() != null ? ur.getSortOrder() : 999)));
+		Map<String, Integer> judgeSortOrdersByRoundGroup = allJudgeAssignments.stream()
+			.collect(Collectors.toMap(
+					ur -> ur.getRound().getIdRound() + "-" + ur.getId().getGroupNumber() + "-"
+							+ ur.getUser().getIdUser(),
+					ur -> ur.getSortOrder() != null ? ur.getSortOrder() : 999, (existing, replacement) -> existing));
+
+		// Precompute judge assignments by round and group to handle missing submissions
+		// and maintain the correct order
+		Map<String, List<UserRound>> judgesByRoundAndGroup = allJudgeAssignments.stream()
+			.collect(Collectors.groupingBy(ur -> ur.getRound().getIdRound() + "-" + ur.getId().getGroupNumber(),
+					Collectors.collectingAndThen(Collectors.toList(), list -> {
+						list.sort(Comparator.comparing(ur -> ur.getSortOrder() != null ? ur.getSortOrder() : 999));
+						return list;
+					})));
 
 		// Precompute contestant assignments by user
 		List<UserRound> allAssignments = userRoundService.getAllContestantAssignments();
 		Map<Integer, List<UserRound>> assignmentsByUser = allAssignments.stream()
 			.collect(Collectors.groupingBy(ur -> ur.getUser().getIdUser()));
-
-		// Precompute judge count for each round and group to handle missing scores
-		Map<Integer, Map<Integer, Long>> judgeCountByRoundAndGroup = allJudgeAssignments.stream()
-			.collect(Collectors.groupingBy(ja -> ja.getRound().getIdRound(), Collectors
-				.groupingBy(ja -> ja.getGroupNumber() != null ? ja.getGroupNumber() : 1, Collectors.counting())));
 
 		Set<Integer> processedRoundNumbers = new HashSet<>();
 		List<ContestantGlobalStatDTO> contestantStats = new ArrayList<>();
@@ -87,7 +93,7 @@ public class PublicStatsService {
 			for (UserRound ur : userRounds) {
 				Integer roundId = ur.getRound().getIdRound();
 				Integer roundNumber = ur.getRound().getRoundNumber();
-				Integer groupNum = ur.getGroupNumber() != null ? ur.getGroupNumber() : 1;
+				Integer groupNum = ur.getId().getGroupNumber() != null ? ur.getId().getGroupNumber() : 1;
 
 				processedRoundNumbers.add(roundNumber);
 
@@ -110,24 +116,21 @@ public class PublicStatsService {
 								Collections.emptyList(), false, true, null, null));
 					}
 					else {
-						// Sort the round individual scores by judge sort order
-						Map<Integer, Integer> currentRoundJudges = judgeSortOrdersByRound.getOrDefault(roundId,
-								Collections.emptyMap());
+						String groupKey = roundId + "-" + groupNum;
+						List<UserRound> groupJudges = judgesByRoundAndGroup.getOrDefault(groupKey,
+								Collections.emptyList());
 
-						// See how many judges are in the current user's group
-						int judgeCount = judgeCountByRoundAndGroup.getOrDefault(roundId, Collections.emptyMap())
-							.getOrDefault(groupNum, 0L)
-							.intValue();
+						Map<Integer, Submission> subsByJudgeId = subs.stream()
+							.collect(Collectors.toMap(Submission::getIdJudge, s -> s, (e, r) -> e));
 
 						// Build the display array (padded with nulls for missing
-						// submissions)
+						// submissions) using the precomputed judge sort order for this
+						// round and group
 						List<BigDecimal> displayScores = new ArrayList<>();
-						subs.stream()
-							.sorted(Comparator.comparing(s -> currentRoundJudges.getOrDefault(s.getIdJudge(), 999)))
-							.forEach(s -> displayScores.add(s.getScore()));
-
-						while (displayScores.size() < judgeCount) {
-							displayScores.add(null);
+						for (UserRound judgeUr : groupJudges) {
+							Integer judgeId = judgeUr.getUser().getIdUser();
+							Submission submission = subsByJudgeId.get(judgeId);
+							displayScores.add(submission != null ? submission.getScore() : null);
 						}
 
 						// Build the strict math array (nulls converted to 0.0 for

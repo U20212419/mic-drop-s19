@@ -46,7 +46,7 @@ public class SubmissionService {
 
 	@Transactional(readOnly = true)
 	public boolean hasSubmissions(String discordId) {
-		return submissionRepository.existsByContestant_User_DiscordId(discordId);
+		return submissionRepository.existsByContestant_DiscordId(discordId);
 	}
 
 	@Transactional(readOnly = true)

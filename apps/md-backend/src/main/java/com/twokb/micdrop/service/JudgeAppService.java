@@ -1,5 +1,6 @@
 package com.twokb.micdrop.service;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
@@ -52,10 +53,10 @@ public class JudgeAppService {
 			Optional<Round> activeRoundOpt = roundService.findActiveRound();
 
 			if (activeRoundOpt.isPresent()) {
-				Optional<UserRound> userRoundOpt = userRoundService
-					.findUserRoundByRoundIdAndDiscordId(activeRoundOpt.get().getIdRound(), discordId);
+				List<UserRound> userRounds = userRoundService
+					.findUserRoundsByRoundIdAndDiscordId(activeRoundOpt.get().getIdRound(), discordId);
 
-				if (userRoundOpt.isPresent() && userRoundOpt.get().getUserRole() == UserRoleType.JUDGE) {
+				if (userRounds.stream().anyMatch(ur -> ur.getUserRole() == UserRoleType.JUDGE)) {
 					throw new IllegalStateException(
 							"Cannot update judge application while assigned as a judge to the current active round.");
 				}

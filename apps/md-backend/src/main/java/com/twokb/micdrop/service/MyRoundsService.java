@@ -56,13 +56,16 @@ public class MyRoundsService {
 			.stream()
 			.map(ur -> new MyRoundDTO(ur.getRound().getIdRound(), ur.getRound().getRoundNumber(),
 					ur.getRound().getActive(), ur.getRound().getSubmissionsOpen(), ur.getUserRole().name(),
-					ur.getGroupNumber(), ur.getRound().getSpecialRound()))
+					ur.getId().getGroupNumber(), ur.getRound().getSpecialRound()))
 			.collect(Collectors.toList());
 	}
 
 	@Transactional(readOnly = true)
 	public ContestantRoundDetailDTO getContestantDetail(Integer idRound, String discordId) {
-		UserRound myUr = userRoundService.getUserRoundByRoundIdAndDiscordId(idRound, discordId);
+		List<UserRound> myUrs = userRoundService.getUserRoundsByRoundIdAndDiscordId(idRound, discordId);
+		// Contestants are assigned to a single group per round, so we can safely take the
+		// first one
+		UserRound myUr = myUrs.get(0);
 
 		Round round = myUr.getRound();
 		if (!round.getActive()) {
@@ -70,7 +73,7 @@ public class MyRoundsService {
 		}
 
 		List<UserRound> judgeUrs = userRoundService.getUsersByRoundIdAndRoleAndGroupNumber(idRound,
-				myUr.getGroupNumber(), UserRoleType.JUDGE.name().toLowerCase());
+				myUr.getId().getGroupNumber(), UserRoleType.JUDGE.name().toLowerCase());
 
 		List<JudgeDetailDTO> judges = judgeUrs.stream().map(jur -> {
 			DiscordUser judgeUser = jur.getUser();
@@ -91,22 +94,36 @@ public class MyRoundsService {
 					sub != null ? sub.getSubLink() : "", sub != null ? sub.getIdSubmission() : null, sortOrder);
 		}).toList();
 
-		return new ContestantRoundDetailDTO(idRound, myUr.getRound().getRoundNumber(), myUr.getGroupNumber(),
+		return new ContestantRoundDetailDTO(idRound, myUr.getRound().getRoundNumber(), myUr.getId().getGroupNumber(),
 				myUr.getRound().getSubmissionsOpen(), myUr.getRound().getSpecialRound(), judges);
 	}
 
 	@Transactional(readOnly = true)
-	public JudgeRoundDetailDTO getJudgeDetail(Integer idRound, String discordId) {
+	public JudgeRoundDetailDTO getJudgeDetail(Integer idRound, String discordId, Integer groupNumber) {
 		DiscordUser judgeUser = discordUserService.getUserByDiscordId(discordId);
 
-		UserRound myUr = userRoundService.getUserRoundByRoundIdAndDiscordId(idRound, discordId);
+		UserRound myUr = userRoundService.findUserRoundsByRoundIdAndDiscordId(idRound, discordId)
+			.stream()
+			.filter(ur -> ur.getId().getGroupNumber().equals(groupNumber))
+			.findFirst()
+			.orElseThrow(
+					() -> new IllegalArgumentException("Judge is not assigned to the specified group for this round."));
 
 		Round round = myUr.getRound();
 		if (!round.getActive()) {
 			throw new IllegalStateException("This round is not currently active.");
 		}
 
-		List<Submission> subs = submissionService.getJudgeSubmissionsOrderedAsc(idRound, judgeUser.getIdUser());
+		List<Integer> groupContestantIds = userRoundService
+			.getUsersByRoundIdAndRoleAndGroupNumber(idRound, groupNumber, UserRoleType.CONTESTANT.name().toLowerCase())
+			.stream()
+			.map(ur -> ur.getUser().getIdUser())
+			.toList();
+
+		List<Submission> subs = submissionService.getJudgeSubmissionsOrderedAsc(idRound, judgeUser.getIdUser())
+			.stream()
+			.filter(s -> groupContestantIds.contains(s.getIdContestant()))
+			.toList();
 
 		List<SubmissionJudgeDTO> subDtos = subs.stream()
 			.map(s -> new SubmissionJudgeDTO(s.getIdSubmission(), s.getSubLink(), s.getScore(), s.getReview(),
@@ -116,8 +133,8 @@ public class MyRoundsService {
 		JudgeApp app = judgeUser.getJudgeApp();
 		Boolean givingBonus = (app == null) ? false : app.getGivingBonus();
 
-		return new JudgeRoundDetailDTO(idRound, round.getRoundNumber(), myUr.getGroupNumber(),
-				round.getSubmissionsOpen(), round.getSpecialRound(), givingBonus, subDtos);
+		return new JudgeRoundDetailDTO(idRound, round.getRoundNumber(), groupNumber, round.getSubmissionsOpen(),
+				round.getSpecialRound(), givingBonus, subDtos);
 	}
 
 	@Transactional
@@ -132,10 +149,16 @@ public class MyRoundsService {
 		}
 
 		DiscordUser contestant = discordUserService.getUserByDiscordId(contestantDiscordId);
+
+		// Get the contestant's group number for the round
+		List<UserRound> contestantUrs = userRoundService.getUserRoundsByRoundIdAndDiscordId(request.idRound(),
+				contestantDiscordId);
+		// Contestants are assigned to a single group per round, so we can safely take the
+		// first one
+		Integer contestantGroup = contestantUrs.get(0).getId().getGroupNumber();
+
 		List<UserRound> judges = userRoundService.getUsersByRoundIdAndRoleAndGroupNumber(request.idRound(),
-				userRoundService.getUserRoundByRoundIdAndDiscordId(request.idRound(), contestantDiscordId)
-					.getGroupNumber(),
-				UserRoleType.JUDGE.name().toLowerCase());
+				contestantGroup, UserRoleType.JUDGE.name().toLowerCase());
 
 		// Validate that all submitted judges are actually assigned to the contestant's
 		// group
@@ -323,7 +346,10 @@ public class MyRoundsService {
 	@Transactional
 	public void claimFirstPlaceBonus(Integer idRound, String discordId, String subLink) {
 		DiscordUser contestant = discordUserService.getUserByDiscordId(discordId);
-		UserRound ur = userRoundService.getUserRoundByRoundIdAndDiscordId(idRound, discordId);
+		List<UserRound> userRounds = userRoundService.getUserRoundsByRoundIdAndDiscordId(idRound, discordId);
+		// Contestants are assigned to a single group per round, so we can safely take the
+		// first one
+		UserRound ur = userRounds.get(0);
 
 		if (!ur.getPlacedFirst()) {
 			throw new IllegalStateException(
@@ -403,8 +429,10 @@ public class MyRoundsService {
 
 	@Transactional(readOnly = true)
 	public List<ClaimableSongDTO> getClaimableSongs(Integer idRound, String discordId) {
-		UserRound ur = userRoundService.getUserRoundByRoundIdAndDiscordId(idRound, discordId);
-		Integer groupNumber = ur.getGroupNumber();
+		List<UserRound> ur = userRoundService.getUserRoundsByRoundIdAndDiscordId(idRound, discordId);
+		// Contestants are assigned to a single group per round, so we can safely take the
+		// first one
+		Integer groupNumber = ur.get(0).getId().getGroupNumber();
 
 		List<Integer> groupContestantIds = userRoundService
 			.getUsersByRoundIdAndRoleAndGroupNumber(idRound, groupNumber, "contestant")
@@ -417,11 +445,10 @@ public class MyRoundsService {
 
 		// Exclude the songs that the contestant submitted themselves
 		return groupSubmissions.stream()
-			.filter(sub -> !sub.getContestant().getUser().getDiscordId().equals(discordId))
+			.filter(sub -> !sub.getContestant().getDiscordId().equals(discordId))
 			.map(sub -> new ClaimableSongDTO(sub.getSubLink(),
 					sub.getTitle() != null ? sub.getTitle() : "Unknown Title",
-					sub.getArtist() != null ? sub.getArtist() : "Unknown Artist",
-					sub.getContestant().getUser().getUsername()))
+					sub.getArtist() != null ? sub.getArtist() : "Unknown Artist", sub.getContestant().getUsername()))
 			.toList();
 	}
 

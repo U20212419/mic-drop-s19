@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS user_round (
 	bonus_claimed BOOLEAN NOT NULL DEFAULT FALSE,
 	sort_order INTEGER NULL,
 	statuses_applied BOOLEAN NOT NULL DEFAULT FALSE,
-	PRIMARY KEY (discord_user_id_user, round_id_round),
+	PRIMARY KEY (discord_user_id_user, round_id_round, group_number),
 	CONSTRAINT fk_user_round_discord_user
 		FOREIGN KEY (discord_user_id_user)
 		REFERENCES discord_user (id_user)
@@ -141,14 +141,19 @@ CREATE TABLE IF NOT EXISTS submission (
 	submitted_at TIMESTAMPTZ NOT NULL,
 	CONSTRAINT check_score_valid
 		CHECK (score >=0 AND score <= 10 AND score % 0.25 = 0),
-	CONSTRAINT fk_user_round_id_contestant
-		FOREIGN KEY (id_contestant, id_round)
-		REFERENCES user_round (discord_user_id_user, round_id_round)
+	CONSTRAINT fk_submission_contestant
+		FOREIGN KEY (id_contestant)
+		REFERENCES discord_user (id_user)
 		ON DELETE NO ACTION
 		ON UPDATE NO ACTION,
-	CONSTRAINT fk_user_round_id_judge
-		FOREIGN KEY (id_judge, id_round)
-		REFERENCES user_round (discord_user_id_user, round_id_round)
+	CONSTRAINT fk_submission_judge
+		FOREIGN KEY (id_judge)
+		REFERENCES discord_user (id_user)
+		ON DELETE NO ACTION
+		ON UPDATE NO ACTION,
+	CONSTRAINT fk_submission_round
+		FOREIGN KEY (id_round)
+		REFERENCES round (id_round)
 		ON DELETE NO ACTION
 		ON UPDATE NO ACTION
 );

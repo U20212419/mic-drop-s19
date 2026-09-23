@@ -25,6 +25,7 @@ import com.twokb.micdrop.model.Round;
 import com.twokb.micdrop.model.SystemSetting;
 import com.twokb.micdrop.model.UserRoleType;
 import com.twokb.micdrop.model.UserRound;
+import com.twokb.micdrop.model.UserRoundId;
 
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -119,9 +120,11 @@ class DiscordSubmissionReminderServiceTests {
 
 	private UserRound assignment(DiscordUser user, UserRoleType role, Integer groupNumber) {
 		UserRound assignment = new UserRound();
+		UserRoundId id = new UserRoundId();
+		id.setGroupNumber(groupNumber);
+		assignment.setId(id);
 		assignment.setUser(user);
 		assignment.setUserRole(role);
-		assignment.setGroupNumber(groupNumber);
 		return assignment;
 	}
 

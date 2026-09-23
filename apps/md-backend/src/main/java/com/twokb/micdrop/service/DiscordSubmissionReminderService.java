@@ -275,12 +275,12 @@ public class DiscordSubmissionReminderService {
 	private List<PendingContestant> getPendingContestants(Round activeRound, List<UserRound> allAssignments) {
 		Map<Integer, Long> judgeCountByGroup = allAssignments.stream()
 			.filter(assignment -> assignment.getUserRole() == UserRoleType.JUDGE)
-			.collect(Collectors.groupingBy(UserRound::getGroupNumber, Collectors.counting()));
+			.collect(Collectors.groupingBy(ur -> ur.getId().getGroupNumber(), Collectors.counting()));
 
 		return allAssignments.stream()
 			.filter(assignment -> assignment.getUserRole() == UserRoleType.CONTESTANT)
 			.map(assignment -> {
-				long requiredSongs = judgeCountByGroup.getOrDefault(assignment.getGroupNumber(), 0L);
+				long requiredSongs = judgeCountByGroup.getOrDefault(assignment.getId().getGroupNumber(), 0L);
 				long submittedSongs = submissionService.countSubmittedSongs(activeRound.getIdRound(),
 						assignment.getUser().getIdUser());
 				return new PendingContestant(assignment.getUser(), Math.max(0, requiredSongs - submittedSongs));
