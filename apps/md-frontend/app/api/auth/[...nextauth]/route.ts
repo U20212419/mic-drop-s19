@@ -2,6 +2,8 @@ import axios from "axios";
 import NextAuth, { NextAuthOptions } from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
 
+const pendingTokenRefreshes = new Map<string, Promise<any>>();
+
 export const authOptions: NextAuthOptions = {
   providers: [
     // Provider for the main app
@@ -23,7 +25,6 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
     maxAge: 7 * 24 * 60 * 60, // 7 days
-    updateAge: 0, // Disable automatic session updates to let the backend handle token expiration and refresh logic
   },
   pages: {
     signIn: "/",
@@ -110,18 +111,42 @@ export const authOptions: NextAuthOptions = {
         return { ...token, error: "NoRefreshTokenError" };
       }
 
+      const oldRefreshToken = token.refreshToken as string;
+
       // Token has expired, attempt to refresh it
       try {
-        const res = await axios.post(`${process.env.API_BASE_URL}/api/auth/refresh`, {
-          refreshToken: token.refreshToken,
-        });
+        // If there isn't already a refresh in progress, start one
+        if (!pendingTokenRefreshes.has(oldRefreshToken)) {
+          const refreshPromise = axios
+            .post(`${process.env.API_BASE_URL}/api/auth/refresh`, {
+              refreshToken: oldRefreshToken,
+            })
+            .then((res) => res.data)
+            .catch((error) => {
+              // If the refresh fails, remove the pending promise to allow future attempts
+              pendingTokenRefreshes.delete(oldRefreshToken);
+              throw error;
+            });
 
-        console.log("Token refreshed successfully:", res.data);
+          pendingTokenRefreshes.set(oldRefreshToken, refreshPromise);
+
+          // If the refresh is successful, remove the pending promise after a short delay to allow any simultaneous requests to use the same promise
+          refreshPromise.then(() => {
+            setTimeout(() => {
+              pendingTokenRefreshes.delete(oldRefreshToken);
+            }, 10000);
+          });
+        }
+
+        // All the simultaneous/delayed requests of the same user will wait for the same refresh promise to resolve
+        const refreshData = await pendingTokenRefreshes.get(oldRefreshToken);
+
+        console.log("Token refreshed successfully for all concurrent requests.");
 
         return {
           ...token,
-          accessToken: res.data.token,
-          refreshToken: res.data.refreshToken,
+          accessToken: refreshData.token,
+          refreshToken: refreshData.refreshToken,
           accessTokenExpires: Date.now() + 25 * 60 * 1000, // Extend access token expiry
           error: undefined, // Clear any previous errors
         };
