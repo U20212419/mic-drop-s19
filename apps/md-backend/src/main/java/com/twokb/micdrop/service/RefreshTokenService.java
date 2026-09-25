@@ -88,19 +88,12 @@ public class RefreshTokenService {
 			throw new InvalidTokenException("Refresh token has expired due to inactivity. Please log in again.");
 		}
 
-		// Generate a new raw token for rotation
-		String newRawToken = UUID.randomUUID().toString();
-		String newHashedToken = hashToken(newRawToken);
+		// Slide expiration window 7 days from now
+		token.setExpiryDate(Instant.now().plus(7, ChronoUnit.DAYS));
 
-		// Update hash and slide expiration window
-		token.setTokenHash(newHashedToken);
-		token.setExpiryDate(Instant.now().plus(7, ChronoUnit.DAYS)); // Slide the
-																		// expiration
-																		// window by 7
-																		// days from now
 		refreshTokenRepository.save(token);
 
-		return new RefreshTokenRotationResult(token.getDiscordId(), newRawToken);
+		return new RefreshTokenRotationResult(token.getDiscordId(), rawToken);
 	}
 
 	@Transactional
