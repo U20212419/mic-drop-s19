@@ -10,7 +10,6 @@ import com.twokb.micdrop.service.DiscordUserService;
 import com.twokb.micdrop.service.RefreshTokenService;
 import com.twokb.micdrop.service.SystemSettingService;
 
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 import java.time.Instant;
@@ -113,17 +112,6 @@ public class AuthController {
 		String newAccessToken = generateJwtToken(user);
 
 		return ResponseEntity.ok(Map.of("token", newAccessToken, "refreshToken", result.newRawRefreshToken()));
-	}
-
-	@PostMapping("/signout")
-	public ResponseEntity<Map<String, String>> signout(@RequestBody Map<String, String> requestBody,
-			HttpServletResponse response) {
-		String discordId = requestBody.get("discordId");
-		if (discordId != null) {
-			refreshTokenService.deleteByDiscordId(discordId);
-		}
-
-		return ResponseEntity.ok(Map.of("message", "Successfully signed out."));
 	}
 
 	private String generateJwtToken(DiscordUser user) {
