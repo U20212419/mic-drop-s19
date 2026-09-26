@@ -46,6 +46,7 @@ jobs:
           ###### End of Repository/Build Configurations ######
         env:
           API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
           # Inject App Insights environment variables into the Next.js build
           NEXT_PUBLIC_APPINSIGHTS_CONNECTION_STRING: ${{ secrets.NEXT_PUBLIC_APPINSIGHTS_CONNECTION_STRING }}
           NEXT_PUBLIC_APPINSIGHTS_INGEST_URL: ${{ secrets.NEXT_PUBLIC_APPINSIGHTS_INGEST_URL }}
