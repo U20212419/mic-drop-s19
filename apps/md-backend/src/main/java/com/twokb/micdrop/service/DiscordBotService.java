@@ -2,7 +2,8 @@ package com.twokb.micdrop.service;
 
 import java.time.Instant;
 import java.util.Comparator;
-import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
@@ -74,7 +75,7 @@ public class DiscordBotService {
 		}
 
 		Round activeRound = roundService.getActiveRound();
-		List<PendingJudge> pendingJudges = userRoundService.getUserRoundsByRoundId(activeRound.getIdRound())
+		Set<PendingJudge> pendingJudges = userRoundService.getUserRoundsByRoundId(activeRound.getIdRound())
 			.stream()
 			.filter(userRound -> userRound.getUserRole() == UserRoleType.JUDGE)
 			.map(userRound -> new PendingJudge(userRound.getUser(),
@@ -82,7 +83,7 @@ public class DiscordBotService {
 							userRound.getUser().getIdUser())))
 			.filter(judge -> judge.songCount() > 0)
 			.sorted(Comparator.comparing(judge -> judge.user().getUsername(), String.CASE_INSENSITIVE_ORDER))
-			.toList();
+			.collect(Collectors.toSet());
 
 		if (pendingJudges.isEmpty()) {
 			throw new IllegalStateException("There are no judges with pending songs in the active round.");
