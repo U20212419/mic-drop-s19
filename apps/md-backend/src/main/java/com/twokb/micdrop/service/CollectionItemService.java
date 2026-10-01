@@ -107,17 +107,51 @@ public class CollectionItemService {
 	@Transactional
 	public void syncCollectionItemData(DiscordUser contestant, String originalLink, String subLink, String title,
 			String artist) {
-		String rawOriginalLink = originalLink != null ? originalLink : "";
+		// Scenario 1: The original link is null or blank, but the new link is not
+		if (originalLink == null || originalLink.isBlank()) {
+			if (subLink != null && !subLink.isBlank()) {
+				addToCollection(contestant, subLink, title, artist);
+			}
+			return;
+		}
 
 		// Get all collection items that match the original link
 		List<CollectionItem> copiesToUpdate = collectionItemRepository
-			.findByContestantIdUserAndSubLink(contestant.getIdUser(), rawOriginalLink);
+			.findByContestantIdUserAndSubLink(contestant.getIdUser(), originalLink);
 
-		// Update the subLink, title, and artist for all matching collection items
-		for (CollectionItem item : copiesToUpdate) {
-			item.setSubLink(subLink);
-			item.setTitle(title);
-			item.setArtist(artist);
+		if (copiesToUpdate.isEmpty()) {
+			return;
+		}
+
+		// Scenario 2: A staff member removed the link from a submission
+		if (subLink == null || subLink.isBlank()) {
+			// Only delete one copy to avoid removing copies from previous submissions of
+			// the same song
+			collectionItemRepository.delete(copiesToUpdate.get(0));
+			return;
+		}
+
+		// Scenario 3: A staff member updated the link, title, or artist of a submission
+		if (!originalLink.equals(subLink)) {
+			// The link has changed, so we update only one copy in the user's inventory.
+			// If we update all copies that share the old link, and the new link happens
+			// to belong to a completely
+			// different song that they already own, those two distinct songs will
+			// permanently merge into one identity in the database.
+			// By updating just one, we safely change this specific submission's copy
+			// without affecting the rest of their collection.
+			CollectionItem itemToUpdate = copiesToUpdate.get(0);
+			itemToUpdate.setSubLink(subLink);
+			itemToUpdate.setTitle(title);
+			itemToUpdate.setArtist(artist);
+		}
+		else {
+			// The link is exactly the same, so we can safely update all copies that share
+			// this link with the new title and artist.
+			for (CollectionItem item : copiesToUpdate) {
+				item.setTitle(title);
+				item.setArtist(artist);
+			}
 		}
 	}
 
