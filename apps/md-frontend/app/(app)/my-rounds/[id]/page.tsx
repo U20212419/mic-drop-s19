@@ -179,19 +179,41 @@ export default function RoundDetailPage() {
 
               initialJudgeSubmissions = initialJudgeSubmissions.map((sub: any) => {
                 const draftSub = parsedDraft.find((d: any) => d.idSubmission === sub.idSubmission);
-                if (
-                  draftSub &&
-                  (draftSub.score !== sub.score ||
-                    draftSub.review !== sub.review ||
-                    draftSub.hasBonus !== sub.hasBonus)
-                ) {
-                  recoveredSomething = true;
-                  return {
-                    ...sub,
-                    score: draftSub.score,
-                    review: draftSub.review,
-                    hasBonus: draftSub.hasBonus,
-                  };
+
+                if (draftSub) {
+                  // If the draft is from an older version, it won't have the baseScore/baseReview properties
+                  // In that case, we consider it a legacy draft and allow recovery without comparison
+                  const isLegacyDraft = !("baseScore" in draftSub) && !("baseReview" in draftSub);
+
+                  // Check if the draft differs from the persisted submission to avoid unnecessary overwrites
+                  const dbDidNotChange =
+                    isLegacyDraft ||
+                    (draftSub.baseScore === sub.score &&
+                      draftSub.baseReview === sub.review &&
+                      draftSub.baseBonus === sub.hasBonus);
+
+                  // If the database has not changed from a different device, it's safe to recover the draft
+                  if (dbDidNotChange) {
+                    if (
+                      draftSub.score !== sub.score ||
+                      draftSub.review !== sub.review ||
+                      draftSub.hasBonus !== sub.hasBonus
+                    ) {
+                      recoveredSomething = true;
+                      return {
+                        ...sub,
+                        score: draftSub.score,
+                        review: draftSub.review,
+                        hasBonus: draftSub.hasBonus,
+                      };
+                    }
+                  } else {
+                    // If the database has changed, we discard the draft to prevent overwriting newer data
+                    // This draft will be discarded thanks to the auto-save useEffect
+                    console.log(
+                      `Draft for submission ${sub.idSubmission} discarded due to newer DB data.`,
+                    );
+                  }
                 }
                 return sub;
               });
@@ -252,27 +274,53 @@ export default function RoundDetailPage() {
   useEffect(() => {
     // Only save if the user is a contestant, data exists, and hasn't finally submitted
     if (role === "CONTESTANT" && contestantData?.judges && !hasSubmitted) {
-      const draft = {
-        judges: contestantData.judges.map((j: any) => ({
+      // Only save links that are not empty to prevent overwriting API data with empty strings
+      const draftJudges = contestantData.judges
+        .filter((j: any) => j.subLink && j.subLink.trim() !== "")
+        .map((j: any) => ({
           discordId: j.discordId,
           subLink: j.subLink,
-        })),
-        selectedForCollection,
-      };
-      localStorage.setItem(`micdrop-round-${id}-draft`, JSON.stringify(draft));
+        }));
+
+      if (draftJudges.length > 0 && selectedForCollection.length > 0) {
+        const draft = { judges: draftJudges, selectedForCollection };
+        localStorage.setItem(`micdrop-round-${id}-draft`, JSON.stringify(draft));
+      } else {
+        // If there are no valid links or selections, remove the draft from localStorage
+        localStorage.removeItem(`micdrop-round-${id}-draft`);
+      }
     }
   }, [contestantData, selectedForCollection, role, hasSubmitted, id]);
 
   // Auto save to cache for judges
   useEffect(() => {
-    if (role === "JUDGE" && judgeData?.submissions) {
-      const draft = judgeData.submissions.map((s: any) => ({
-        idSubmission: s.idSubmission,
-        score: s.score,
-        review: s.review,
-        hasBonus: s.hasBonus,
-      }));
-      localStorage.setItem(`micdrop-round-${id}-judge-draft`, JSON.stringify(draft));
+    if (role === "JUDGE" && judgeData?.submissions && persistedSubmissions) {
+      // Only save submissions that have unsaved changes
+      const dirtySubmissions = judgeData.submissions.filter((s: any) =>
+        dirtySubmissionIds.has(s.idSubmission),
+      );
+
+      if (dirtySubmissions.length > 0) {
+        const draft = dirtySubmissions.map((s: any) => {
+          // Include the original score and review for comparison when recovering drafts
+          const original = persistedSubmissions.find((p: any) => p.idSubmission === s.idSubmission);
+
+          return {
+            idSubmission: s.idSubmission,
+            score: s.score,
+            review: s.review,
+            hasBonus: s.hasBonus,
+            // Historical context
+            baseScore: original?.score,
+            baseReview: original?.review,
+            baseBonus: original?.hasBonus,
+          };
+        });
+        localStorage.setItem(`micdrop-round-${id}-judge-draft`, JSON.stringify(draft));
+      } else {
+        // If there are no dirty submissions, remove the draft from localStorage
+        localStorage.removeItem(`micdrop-round-${id}-judge-draft`);
+      }
     }
   }, [judgeData?.submissions, role, id]);
 
