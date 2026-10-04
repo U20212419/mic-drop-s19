@@ -53,22 +53,14 @@ public class PublicStatsService {
 		log.info("Building public stats cache...");
 
 		List<DiscordUser> allContestants = discordUserService.getAllCurrentOrExContestants();
-		List<Submission> allSubmissions = submissionService.getAllScoredSubmissions();
+		List<Submission> allSubmissions = submissionService.getAllSubmissions();
 
 		Map<Integer, Map<Integer, List<Submission>>> subsByUserAndRound = allSubmissions.stream()
-			.filter(s -> s.getScore() != null)
 			.collect(Collectors.groupingBy(Submission::getIdContestant, Collectors.groupingBy(Submission::getIdRound)));
-
-		// Precompute judge sort orders for each round to avoid repeated calculations
-		List<UserRound> allJudgeAssignments = userRoundService.getAllJudgeAssignments();
-		Map<String, Integer> judgeSortOrdersByRoundGroup = allJudgeAssignments.stream()
-			.collect(Collectors.toMap(
-					ur -> ur.getRound().getIdRound() + "-" + ur.getId().getGroupNumber() + "-"
-							+ ur.getUser().getIdUser(),
-					ur -> ur.getSortOrder() != null ? ur.getSortOrder() : 999, (existing, replacement) -> existing));
 
 		// Precompute judge assignments by round and group to handle missing submissions
 		// and maintain the correct order
+		List<UserRound> allJudgeAssignments = userRoundService.getAllJudgeAssignments();
 		Map<String, List<UserRound>> judgesByRoundAndGroup = allJudgeAssignments.stream()
 			.collect(Collectors.groupingBy(ur -> ur.getRound().getIdRound() + "-" + ur.getId().getGroupNumber(),
 					Collectors.collectingAndThen(Collectors.toList(), list -> {
@@ -110,7 +102,10 @@ public class PublicStatsService {
 					List<Submission> subs = subsByUserAndRound.getOrDefault(user.getIdUser(), Collections.emptyMap())
 						.get(roundId);
 
-					if (subs == null || subs.isEmpty()) {
+					boolean hasAnyValidLink = subs != null
+							&& subs.stream().anyMatch(s -> s.getSubLink() != null && !s.getSubLink().isBlank());
+
+					if (!hasAnyValidLink) {
 						// DNS: Group is applied, but user has no valid submissions
 						roundPerformances.put(roundNumber, new RoundPerformanceDTO(roundNumber, groupNum, null, null,
 								Collections.emptyList(), false, true, null, null));
@@ -119,7 +114,6 @@ public class PublicStatsService {
 						String groupKey = roundId + "-" + groupNum;
 						List<UserRound> groupJudges = judgesByRoundAndGroup.getOrDefault(groupKey,
 								Collections.emptyList());
-
 						Map<Integer, Submission> subsByJudgeId = subs.stream()
 							.collect(Collectors.toMap(Submission::getIdJudge, s -> s, (e, r) -> e));
 
@@ -127,34 +121,67 @@ public class PublicStatsService {
 						// submissions) using the precomputed judge sort order for this
 						// round and group
 						List<BigDecimal> displayScores = new ArrayList<>();
+						List<BigDecimal> pureScoresForAvg = new ArrayList<>();
+
 						for (UserRound judgeUr : groupJudges) {
 							Integer judgeId = judgeUr.getUser().getIdUser();
 							Submission submission = subsByJudgeId.get(judgeId);
-							displayScores.add(submission != null ? submission.getScore() : null);
+
+							boolean hasLink = submission != null && submission.getSubLink() != null
+									&& !submission.getSubLink().isBlank();
+
+							if (!hasLink) {
+								// Partial DNS: We send -1 to tell the frontend to display
+								// "DNS"
+								displayScores.add(BigDecimal.valueOf(-1));
+							}
+							else if (submission.getScore() == null) {
+								// Imputed: Judge didn't score. We send null to display
+								// "N/A"
+								displayScores.add(null);
+							}
+							else {
+								// Normal
+								displayScores.add(submission.getScore());
+								pureScoresForAvg.add(submission.getScore());
+							}
 						}
 
-						// Build the strict math array (nulls converted to 0.0 for
-						// penalties)
-						List<BigDecimal> mathScores = displayScores.stream()
-							.map(s -> s == null ? BigDecimal.ZERO : s)
-							.toList();
+						Double pureAvg = calculateAverage(pureScoresForAvg);
 
-						// Calculate average and standard deviation for this round
-						// considering missing scores as 0
-						Double roundAvg = calculateAverage(mathScores);
-						Double roundStdDev = calculateStdDev(mathScores, roundAvg);
+						// Build math scores for variance and global stats
+						// If a score is missing, we impute it with the contestant's own
+						// round average
+						List<BigDecimal> mathScores = new ArrayList<>();
+						for (BigDecimal ds : displayScores) {
+							if (ds == null) {
+								// Imputed
+								mathScores.add(BigDecimal.valueOf(pureAvg));
+							}
+							else if (ds.compareTo(BigDecimal.ZERO) < 0) {
+								// Partial DNS (-1) becomes 0.0
+								mathScores.add(BigDecimal.ZERO);
+							}
+							else {
+								// Normal
+								mathScores.add(ds);
+							}
+						}
 
+						Double finalAvg = calculateAverage(mathScores);
+						Double roundStdDev = calculateStdDev(mathScores, finalAvg);
 						allScoresGlobal.addAll(mathScores);
 
 						// Get the latest submission time for this contestant in this
 						// round to use as a tie-breaker
 						Instant latestSubmissionTime = subs.stream()
+							.filter(s -> s.getSubLink() != null && !s.getSubLink().isBlank())
 							.map(Submission::getSubmittedAt)
 							.filter(Objects::nonNull)
 							.max(Instant::compareTo)
 							.orElse(null);
 
-						roundPerformances.put(roundNumber, new RoundPerformanceDTO(roundNumber, groupNum, roundAvg,
+						roundPerformances.put(roundNumber, new RoundPerformanceDTO(roundNumber, groupNum, finalAvg,
 								roundStdDev, displayScores, false, false, latestSubmissionTime, null));
 					}
 				}

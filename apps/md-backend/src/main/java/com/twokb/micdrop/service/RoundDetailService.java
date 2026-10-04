@@ -216,65 +216,69 @@ public class RoundDetailService {
 			.collect(Collectors.toMap(c -> c, c -> submissionService.getByRoundIdAndContestantIdAndJudgeIds(idRound,
 					c.getIdUser(), allJudgeIds)));
 
-		// Identify disqualified judges (those who left a null score on any valid
-		// submission)
-		Set<Integer> disqualifiedJudgeIds = submissionsByContestant.values()
-			.stream()
-			.flatMap(List::stream)
-			.filter(s -> s.getSubLink() != null && !s.getSubLink().isBlank())
-			.filter(s -> s.getScore() == null)
-			.map(Submission::getIdJudge)
-			.collect(Collectors.toSet());
-
-		expectedSubmissionsPerContestant -= disqualifiedJudgeIds.size();
-
-		// Early return if no valid judges remain
-		if (expectedSubmissionsPerContestant <= 0) {
-			throw new IllegalStateException("All judges have been disqualified. Cannot calculate statuses.");
-		}
-
 		List<ContestantStat> activeStats = new ArrayList<>();
 
 		for (DiscordUser contestant : contestants) {
 			List<Submission> allContestantSubs = submissionsByContestant.get(contestant);
 
-			List<Submission> subs = allContestantSubs.stream()
-				.filter(s -> !disqualifiedJudgeIds.contains(s.getIdJudge()))
-				.toList();
+			// Verify if the contestant submitted at least one link
+			boolean hasAnyValidLink = allContestantSubs.stream()
+				.anyMatch(s -> s.getSubLink() != null && !s.getSubLink().isBlank());
 
-			long submittedCount = subs.stream()
-				.filter(s -> s.getSubLink() != null && !s.getSubLink().isBlank())
-				.count();
-
-			// Skip if the contestant did not submit any song
-			// The songs that were submitted will be considered for the average score
-			// calculation, and the ones that were not submitted will have a score of 0
-			if (submittedCount == 0) {
+			// Global DNS (didn't submit anything at all)
+			if (!hasAnyValidLink) {
 				continue;
 			}
 
-			// Calculate average score
-			double avgScore = subs.stream()
-				.mapToDouble(s -> s.getScore() != null ? s.getScore().doubleValue() : 0.0)
-				.average()
-				.orElse(0.0);
+			// Calculate 'pure' average score using only the actual grades given by judges
+			double sumValidScores = 0.0;
+			int validScoresCount = 0;
 
-			// Calculate standard deviation (first tie-breaking criteria)
-			double variance = subs.stream().mapToDouble(s -> {
-				double score = s.getScore() != null ? s.getScore().doubleValue() : 0.0;
-				return Math.pow(score - avgScore, 2);
-			}).average().orElse(0.0);
+			for (Submission s : allContestantSubs) {
+				if (s.getSubLink() != null && !s.getSubLink().isBlank() && s.getScore() != null) {
+					sumValidScores += s.getScore().doubleValue();
+					validScoresCount++;
+				}
+			}
+			double pureAvg = validScoresCount > 0 ? sumValidScores / validScoresCount : 0.0;
 
-			double stdDev = Math.sqrt(variance);
+			// Build effective scores for the final math
+			List<Double> effectiveScores = new ArrayList<>();
+			Instant maxSubmittedAt = Instant.EPOCH;
 
-			// Get the latest submission time (second tie-breaking criteria)
-			Instant maxSubmittedAt = subs.stream()
-				.map(Submission::getSubmittedAt)
-				.filter(Objects::nonNull)
-				.max(Instant::compareTo)
-				.orElse(Instant.EPOCH);
+			for (Submission s : allContestantSubs) {
+				if (s.getSubLink() == null || s.getSubLink().isBlank()) {
+					// Penalize: Partial DNS becomes 0.0
+					effectiveScores.add(0.0);
+				}
+				else {
+					if (s.getScore() == null) {
+						// Impute: Judge didn't score
+						effectiveScores.add(pureAvg);
+					}
+					else {
+						// Normal: Judge scored the submission
+						effectiveScores.add(s.getScore().doubleValue());
+					}
 
-			activeStats.add(new ContestantStat(contestant, avgScore, stdDev, maxSubmittedAt));
+					// Track submission time only for valid links
+					if (s.getSubmittedAt() != null && s.getSubmittedAt().compareTo(maxSubmittedAt) > 0) {
+						maxSubmittedAt = s.getSubmittedAt();
+					}
+				}
+			}
+
+			// Calculate final average and standard deviation including
+			// penalties/imputations
+			double finalAvg = effectiveScores.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+
+			double varianceSum = 0.0;
+			for (Double score : effectiveScores) {
+				varianceSum += Math.pow(score - finalAvg, 2);
+			}
+			double stdDev = Math.sqrt(varianceSum / effectiveScores.size());
+
+			activeStats.add(new ContestantStat(contestant, finalAvg, stdDev, maxSubmittedAt));
 		}
 
 		// Sort by average score ascending, then std dev descending, then max submission

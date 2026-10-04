@@ -71,6 +71,8 @@ public class SlideGeneratorService {
 
 	private static final Color COLOR_WHITE = Color.WHITE;
 
+	private static final Color COLOR_IMPUTED = new Color(255, 179, 71);
+
 	private final Map<String, SlideJobStatus> jobStore = new ConcurrentHashMap<>();
 
 	@Async
@@ -260,8 +262,18 @@ public class SlideGeneratorService {
 				String artist = sub.getArtist() != null ? sub.getArtist() : "Unknown";
 				String title = sub.getTitle() != null ? sub.getTitle() : "Unknown";
 				rep.put("{song" + jIndex + "}", artist + " - " + title);
-				rep.put("{score" + jIndex + "}", sub.getScore() != null ? sub.getScore().toString() : "N/A");
-				rep.put("{review" + jIndex + "}", sub.getReview() != null ? sub.getReview() : "");
+
+				if (sub.getScore() != null) {
+					// Normal graded score
+					rep.put("{score" + jIndex + "}", sub.getScore().toString());
+					rep.put("{review" + jIndex + "}", sub.getReview() != null ? sub.getReview() : "");
+				}
+				else {
+					// Imputed score logic
+					rep.put("{score" + jIndex + "}", "IMPUTED_SCORE:N/A");
+					rep.put("{review" + jIndex + "}",
+							"IMPUTED_REV:Did not judge. Average calculated from other judges.");
+				}
 			}
 			else {
 				rep.put("{song" + jIndex + "}", "DID NOT SUBMIT");
@@ -307,8 +319,21 @@ public class SlideGeneratorService {
 					textShape.setWordWrap(true);
 
 					Color specialColor = null;
+					boolean applyItalic = false;
+
 					if (isScoreField) {
-						specialColor = getScoreColor(text);
+						if (text.contains("IMPUTED_SCORE:")) {
+							specialColor = COLOR_IMPUTED;
+							text = text.replace("IMPUTED_SCORE:", "");
+						}
+						else {
+							specialColor = getScoreColor(text);
+						}
+					}
+
+					if (text.contains("IMPUTED_REV:")) {
+						applyItalic = true;
+						text = text.replace("IMPUTED_REV:", "");
 					}
 
 					// Clear existing text runs and set the new text
@@ -322,6 +347,11 @@ public class SlideGeneratorService {
 								// Apply color
 								if (specialColor != null) {
 									r.setFontColor(specialColor);
+								}
+
+								// Apply italic
+								if (applyItalic) {
+									r.setItalic(true);
 								}
 
 								// Adjust font size to fit within the shape's bounding box
