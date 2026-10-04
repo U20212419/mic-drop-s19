@@ -338,7 +338,13 @@ export default function PublicStatsPage() {
     const roundsWithMetrics = validRounds.map((r) => {
       const getMedian = (arr: (number | null)[]) => {
         if (!arr || arr.length === 0) return 0;
-        const numericArray = arr.map((score) => (score === null ? 0 : score));
+        const numericArray = arr.map((score) => {
+          // Partial DNS are 0
+          if (score === -1) return 0;
+          // Null scores are imputed with the average
+          if (score === null) return r.average;
+          return score;
+        });
         const s = [...numericArray].sort((x, y) => x - y);
         const m = Math.floor(s.length / 2);
         return s.length % 2 !== 0 ? s[m] : (s[m - 1] + s[m]) / 2;
@@ -891,20 +897,30 @@ export default function PublicStatsPage() {
                                     {/* Colored Individual Scores */}
                                     <div className="mt-2 flex flex-wrap justify-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity duration-300">
                                       {rData.scores.map((score, i) => {
-                                        const isPartialDns = score === null;
-                                        const colorClass = isPartialDns
-                                          ? getScoreColorClass(0)
-                                          : getScoreColorClass(score);
+                                        const isPartialDns = score === -1;
+                                        const isImputed = score === null;
+
+                                        let colorClass = getScoreColorClass(score ?? 0);
+                                        if (isPartialDns)
+                                          colorClass =
+                                            "text-[#FF6961] bg-[#FF6961]/10 border-[#FF6961]/30"; // Red
+                                        if (isImputed)
+                                          colorClass =
+                                            "text-[#FFB347] bg-[#FFB347]/10 border-[#FFB347]/30"; // Orange
 
                                         return (
                                           <span
                                             key={i}
                                             title={
-                                              isPartialDns ? "Did Not Submit" : `Score: ${score}`
+                                              isPartialDns
+                                                ? "Did Not Submit (0.0)"
+                                                : isImputed
+                                                  ? "Judge did not score (N/A)"
+                                                  : `Score: ${score}`
                                             }
                                             className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border shadow-sm ${colorClass}`}
                                           >
-                                            {isPartialDns ? "DNS" : score}
+                                            {isPartialDns ? "DNS" : isImputed ? "N/A" : score}
                                           </span>
                                         );
                                       })}

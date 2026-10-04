@@ -114,4 +114,9 @@ public class SubmissionService {
 		return submissionRepository.existsByIdJudgeAndSubLink(idJudge, subLink);
 	}
 
+	@Transactional(readOnly = true)
+	public List<Submission> getAllSubmissions() {
+		return submissionRepository.findAll();
+	}
+
 }
