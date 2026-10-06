@@ -5,12 +5,19 @@ import DiscordProvider from "next-auth/providers/discord";
 const pendingTokenRefreshes = new Map<string, Promise<any>>();
 
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
+  logger: {
+    error(code, metadata) {
+      console.error(`[NEXTAUTH_CRITICAL] Code: ${code} | Details: ${JSON.stringify(metadata)}`);
+    },
+  },
   providers: [
     // Provider for the main app
     DiscordProvider({
       id: "discord",
       clientId: process.env.DISCORD_CLIENT_ID as string,
       clientSecret: process.env.DISCORD_CLIENT_SECRET as string,
+      issuer: "https://discord.com",
       authorization: { params: { scope: "identify" } },
     }),
     // Provider for the judge app
@@ -19,6 +26,7 @@ export const authOptions: NextAuthOptions = {
       name: "Discord (Judge App)",
       clientId: process.env.DISCORD_CLIENT_ID as string,
       clientSecret: process.env.DISCORD_CLIENT_SECRET as string,
+      issuer: "https://discord.com",
       authorization: { params: { scope: "identify" } },
     }),
   ],
