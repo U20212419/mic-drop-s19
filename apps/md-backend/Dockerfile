@@ -26,5 +26,5 @@ COPY --from=build /app/target/*.jar app.jar
 # Expose port 8080 (Azure App Service routes traffic to this port by default)
 EXPOSE 8080
 
-# Run the Spring Boot application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Run the Spring Boot application (using sh -c to evaluate environment variables)
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
