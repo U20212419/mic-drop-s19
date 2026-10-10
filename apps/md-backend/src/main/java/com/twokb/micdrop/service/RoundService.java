@@ -41,6 +41,7 @@ public class RoundService {
 		round.setSubmissionsOpen(false);
 		round.setEliminationAmount(eliminationAmount);
 		round.setSpecialRound(specialRound);
+		round.setRequireReasoning(false);
 		return roundRepository.save(round);
 	}
 
@@ -85,7 +86,7 @@ public class RoundService {
 
 	@Transactional
 	public Round updateRound(Integer idRound, Integer roundNumber, Boolean active, Integer groupCount,
-			Boolean submissionsOpen, String eliminationAmount, Boolean specialRound) {
+			Boolean submissionsOpen, String eliminationAmount, Boolean specialRound, Boolean requireReasoning) {
 		Round round = roundRepository.findById(idRound)
 			.orElseThrow(() -> new IllegalArgumentException("Round with ID " + idRound + " not found."));
 
@@ -105,6 +106,7 @@ public class RoundService {
 		round.setSubmissionsOpen(submissionsOpen);
 		round.setEliminationAmount(eliminationAmount);
 		round.setSpecialRound(specialRound);
+		round.setRequireReasoning(requireReasoning);
 
 		return round;
 	}

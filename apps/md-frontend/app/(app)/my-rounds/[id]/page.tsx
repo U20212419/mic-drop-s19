@@ -119,7 +119,13 @@ export default function RoundDetailPage() {
                     const cachedJudge = parsedDraft.judges?.find(
                       (cj: any) => cj.discordId === j.discordId,
                     );
-                    return cachedJudge ? { ...j, subLink: cachedJudge.subLink || "" } : j;
+                    return cachedJudge
+                      ? {
+                          ...j,
+                          subLink: cachedJudge.subLink || "",
+                          reasoning: cachedJudge.reasoning || "",
+                        }
+                      : j;
                   });
 
                   // Restore selectedForCollection from cache if available
@@ -274,12 +280,16 @@ export default function RoundDetailPage() {
   useEffect(() => {
     // Only save if the user is a contestant, data exists, and hasn't finally submitted
     if (role === "CONTESTANT" && contestantData?.judges && !hasSubmitted) {
-      // Only save links that are not empty to prevent overwriting API data with empty strings
+      // Only save items that have at least some data
       const draftJudges = contestantData.judges
-        .filter((j: any) => j.subLink && j.subLink.trim() !== "")
+        .filter(
+          (j: any) =>
+            (j.subLink && j.subLink.trim() !== "") || (j.reasoning && j.reasoning.trim() !== ""),
+        )
         .map((j: any) => ({
           discordId: j.discordId,
           subLink: j.subLink,
+          reasoning: j.reasoning,
         }));
 
       if (draftJudges.length > 0 && selectedForCollection.length > 0) {
@@ -341,6 +351,19 @@ export default function RoundDetailPage() {
     });
   };
 
+  const handleReasoningChange = (discordId: string, val: string) => {
+    if (hasSubmitted) return;
+
+    const newJudges = contestantData.judges.map((j: any) =>
+      j.discordId === discordId ? { ...j, reasoning: val } : j,
+    );
+
+    setContestantData({
+      ...contestantData,
+      judges: newJudges,
+    });
+  };
+
   const handleCollectionToggle = (discordId: string) => {
     setSelectedForCollection((prev) => {
       if (prev.includes(discordId)) return prev.filter((id) => id !== discordId);
@@ -356,7 +379,12 @@ export default function RoundDetailPage() {
 
   const allLinksFilled =
     contestantData?.judges?.length > 0 &&
-    contestantData.judges.every((j: any) => j.subLink && j.subLink.trim() !== "");
+    contestantData.judges.every((j: any) => {
+      const hasLink = j.subLink && j.subLink.trim() !== "";
+      const hasReasoning =
+        !contestantData.requireReasoning || (j.reasoning && j.reasoning.trim() !== "");
+      return hasLink && hasReasoning;
+    });
 
   const handleScoreChange = (sub: any, e: any) => {
     if (!sub) return;
@@ -469,7 +497,10 @@ export default function RoundDetailPage() {
 
   const submitContestantLinks = async () => {
     if (!allLinksFilled) {
-      toast.error("Please provide a track link for all judges before submitting.", {
+      let errorText = contestantData.requireReasoning
+        ? "Please provide all required fields (links and reasoning) before submitting."
+        : "Please provide a track link for all judges before submitting.";
+      toast.error(errorText, {
         closeButton: true,
       });
       return;
@@ -510,6 +541,7 @@ export default function RoundDetailPage() {
           judgeDiscordId: j.discordId,
           subLink: formatExternalUrl(j.subLink),
           addToCollection: selectedForCollection.includes(j.discordId),
+          reasoning: contestantData.requireReasoning ? j.reasoning : null,
         })),
       };
       await api.post("/my-rounds/batch-submit", payload);
@@ -769,37 +801,71 @@ export default function RoundDetailPage() {
 
                     {/* If the contestant has already submitted or submissions are closed, show the link. Otherwise, show the input field. */}
                     {hasSubmitted || !contestantData.submissionsOpen ? (
-                      <div className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md px-4 py-3 flex items-center justify-between">
-                        {judge.subLink ? (
-                          <span className="truncate text-sm pr-4 opacity-70">{judge.subLink}</span>
-                        ) : judge.idSubmission ? (
-                          // Record exists but no link was provided means that a resubmission is required
-                          <span className="text-yellow-500/90 text-sm font-medium italic flex items-center gap-2">
-                            <AlertCircle className="w-4 h-4 shrink-0" /> Pending resubmission (send
-                            to your Head Judge via Discord DM)
-                          </span>
-                        ) : (
-                          // Record doesn't exist means that the contestant never submitted before
-                          <span className="text-[#80848E] text-sm italic">No link provided</span>
+                      <div className="space-y-3">
+                        <div className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md px-4 py-3 flex items-center justify-between">
+                          {judge.subLink ? (
+                            <span className="truncate text-sm pr-4 opacity-70">
+                              {judge.subLink}
+                            </span>
+                          ) : judge.idSubmission ? (
+                            // Record exists but no link was provided means that a resubmission is required
+                            <span className="text-yellow-500/90 text-sm font-medium italic flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4 shrink-0" /> Pending resubmission
+                              (send to your Head Judge via Discord DM)
+                            </span>
+                          ) : (
+                            // Record doesn't exist means that the contestant never submitted before
+                            <span className="text-[#80848E] text-sm italic">No link provided</span>
+                          )}
+                          {judge.subLink ? (
+                            <a
+                              href={formatExternalUrl(judge.subLink)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#5865F2] hover:underline text-xs font-bold flex items-center shrink-0"
+                            >
+                              <span>View Submitted Track</span>
+                            </a>
+                          ) : null}
+                        </div>
+                        {contestantData.requireReasoning && (
+                          <div className="bg-[#111214] border border-[#35373C] p-3 rounded-md">
+                            <span className="text-[10px] font-bold text-[#80848E] uppercase block mb-1">
+                              Your Reasoning:
+                            </span>
+                            <p
+                              className={`text-sm text-[#DBDEE1] whitespace-pre-wrap overflow-wrap wrap-break-word leading-tight ${judge.reasoning ? "" : "italic"}`}
+                            >
+                              {judge.reasoning || "No reasoning provided."}
+                            </p>
+                          </div>
                         )}
-                        {judge.subLink ? (
-                          <a
-                            href={formatExternalUrl(judge.subLink)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[#5865F2] hover:underline text-xs font-bold flex items-center shrink-0"
-                          >
-                            <span>View Submitted Track</span>
-                          </a>
-                        ) : null}
                       </div>
                     ) : contestantData.specialRound ? (
                       // Special round combobox for selecting from collection
-                      <SpecialRoundCombobox
-                        judge={judge}
-                        collection={collection}
-                        onSelectLink={handleLinkChange}
-                      />
+                      <div className="space-y-3">
+                        <SpecialRoundCombobox
+                          judge={judge}
+                          collection={collection}
+                          onSelectLink={handleLinkChange}
+                        />
+                        {contestantData.requireReasoning && (
+                          <div className="mt-3">
+                            <FormTextarea
+                              name={`reasoning-${judge.discordId}`}
+                              label="Theme Reasoning"
+                              sublabel="Briefly explain why this track fits the round's theme."
+                              maxLength={500}
+                              value={judge.reasoning || ""}
+                              onChange={(e) =>
+                                handleReasoningChange(judge.discordId, e.target.value)
+                              }
+                              placeholder="Write your reasoning here..."
+                              required={true}
+                            />
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       // Normal round input
                       <div className="space-y-3">
@@ -810,6 +876,22 @@ export default function RoundDetailPage() {
                           onChange={(e) => handleLinkChange(judge.discordId, e.target.value)}
                           className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md px-4 py-3 outline-none focus:border-[#5865F2] focus:bg-[#111214] transition-all"
                         />
+                        {contestantData.requireReasoning && (
+                          <div className="mt-3">
+                            <FormTextarea
+                              name={`reasoning-${judge.discordId}`}
+                              label="Theme Reasoning"
+                              sublabel="Briefly explain why this track fits the round's theme."
+                              maxLength={500}
+                              value={judge.reasoning || ""}
+                              onChange={(e) =>
+                                handleReasoningChange(judge.discordId, e.target.value)
+                              }
+                              placeholder="Write your reasoning here..."
+                              required={true}
+                            />
+                          </div>
+                        )}
                         {/* Collection Checkbox */}
                         {contestantData.judges.length > 3 && (
                           <label className="flex items-center gap-2 cursor-pointer w-fit group">

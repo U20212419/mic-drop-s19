@@ -38,4 +38,7 @@ public class Round {
 	@Column(name = "special_round", nullable = false)
 	private Boolean specialRound = false;
 
+	@Column(name = "require_reasoning", nullable = false)
+	private Boolean requireReasoning = false;
+
 }

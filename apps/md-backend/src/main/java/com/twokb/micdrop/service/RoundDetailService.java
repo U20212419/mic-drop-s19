@@ -2,10 +2,8 @@ package com.twokb.micdrop.service;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -81,7 +79,7 @@ public class RoundDetailService {
 
 			return new AdminSubmissionDTO(s.getIdSubmission(), s.getSubLink(), s.getScore(), s.getReview(),
 					s.getTitle(), s.getArtist(), judge.getDiscordId(), judge.getUsername(), contestant.getDiscordId(),
-					contestant.getUsername(), group, s.getSubmittedAt(), sortOrder);
+					contestant.getUsername(), group, s.getSubmittedAt(), sortOrder, s.getReasoning());
 		}).toList();
 	}
 
@@ -112,7 +110,7 @@ public class RoundDetailService {
 
 			return new AdminSubmissionDTO(s.getIdSubmission(), s.getSubLink(), s.getScore(), s.getReview(),
 					s.getTitle(), s.getArtist(), judge.getDiscordId(), judge.getUsername(), contestant.getDiscordId(),
-					contestant.getUsername(), group, s.getSubmittedAt(), sortOrder);
+					contestant.getUsername(), group, s.getSubmittedAt(), sortOrder, s.getReasoning());
 		}).toList();
 	}
 
@@ -131,7 +129,7 @@ public class RoundDetailService {
 
 			// Update submission table
 			submissionService.adminUpdateSubmission(update.idSubmission(), update.subLink(), update.title(),
-					update.artist());
+					update.artist(), update.reasoning());
 		}
 
 		Set<Integer> updatedIds = request.updates()

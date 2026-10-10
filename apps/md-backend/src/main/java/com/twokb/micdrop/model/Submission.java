@@ -10,7 +10,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinColumns;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Data;
@@ -41,6 +40,9 @@ public class Submission {
 
 	@Column(name = "artist", nullable = true)
 	private String artist;
+
+	@Column(name = "reasoning", nullable = true, length = 500)
+	private String reasoning;
 
 	@Column(name = "submitted_at", nullable = false)
 	private Instant submittedAt;
