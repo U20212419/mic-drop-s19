@@ -42,6 +42,7 @@ interface Round {
   groupCount: number;
   eliminationAmount?: string;
   specialRound?: boolean;
+  requireReasoning?: boolean;
 }
 
 export default function RoundDetailPage() {
@@ -327,7 +328,7 @@ export default function RoundDetailPage() {
   const handleSpecialRoundToggle = () => {
     if (!round || !isAdmin) return;
 
-    // Prevent changing roundd type if submissions are open
+    // Prevent changing round type if submissions are open
     if (round.submissionsOpen) {
       toast.error("Cannot change round type while submissions are open.", {
         description: "Please close submissions before changing the round type.",
@@ -339,6 +340,24 @@ export default function RoundDetailPage() {
     setRound({
       ...round,
       specialRound: !round.specialRound,
+    });
+  };
+
+  const handleRequireReasoningToggle = () => {
+    if (!round || !isAdmin) return;
+
+    // Prevent changing round config if submissions are open
+    if (round.submissionsOpen) {
+      toast.error("Cannot change round settings while submissions are open.", {
+        description: "Please close submissions before changing this setting.",
+        closeButton: true,
+      });
+      return;
+    }
+
+    setRound({
+      ...round,
+      requireReasoning: !round.requireReasoning,
     });
   };
 
@@ -677,6 +696,30 @@ export default function RoundDetailPage() {
                 >
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${round.specialRound ? "translate-x-6" : "translate-x-1"}`}
+                  />
+                </button>
+              </div>
+
+              {/* Require Reasoning Toggle */}
+              <div
+                className={`flex items-start sm:items-center justify-between gap-4 p-4 bg-[#1E1F22] rounded-lg border border-[#35373C] transition-opacity ${round.submissionsOpen ? "opacity-50" : ""}`}
+              >
+                <div className="flex-1">
+                  <p className="text-white font-medium flex items-center gap-2">
+                    Require Theme Reasoning <FileText className="w-4 h-4 text-[#5865F2] shrink-0" />
+                  </p>
+                  <p className="text-[#80848E] text-xs sm:text-sm mt-1 sm:mt-0 leading-snug">
+                    Forces contestants to provide a short explanation (max. 500 chars) on why their
+                    track fits the theme.
+                  </p>
+                </div>
+                <button
+                  onClick={handleRequireReasoningToggle}
+                  disabled={!isAdmin || round.submissionsOpen}
+                  className={`shrink-0 mt-1 sm:mt-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${!isAdmin || round.submissionsOpen ? "cursor-not-allowed opacity-50" : ""} ${round.requireReasoning ? "bg-[#5865F2]" : "bg-[#4E5058]"}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${round.requireReasoning ? "translate-x-6" : "translate-x-1"}`}
                   />
                 </button>
               </div>

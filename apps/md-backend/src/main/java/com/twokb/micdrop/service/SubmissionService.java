@@ -77,12 +77,14 @@ public class SubmissionService {
 	}
 
 	@Transactional
-	public Submission adminUpdateSubmission(Integer idSubmission, String subLink, String title, String artist) {
+	public Submission adminUpdateSubmission(Integer idSubmission, String subLink, String title, String artist,
+			String reasoning) {
 		Submission sub = getById(idSubmission);
 
 		sub.setSubLink(subLink);
 		sub.setTitle(title);
 		sub.setArtist(artist);
+		sub.setReasoning(reasoning);
 
 		// If the staff removes the link from a submission, the score and review should be
 		// cleared as well

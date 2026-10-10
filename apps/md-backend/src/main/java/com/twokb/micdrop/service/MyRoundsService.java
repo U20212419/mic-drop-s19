@@ -91,11 +91,13 @@ public class MyRoundsService {
 			Integer sortOrder = (jur.getSortOrder() == null) ? 999 : jur.getSortOrder();
 
 			return new JudgeDetailDTO(judgeUser.getDiscordId(), judgeUser.getUsername(), appDto,
-					sub != null ? sub.getSubLink() : "", sub != null ? sub.getIdSubmission() : null, sortOrder);
+					sub != null ? sub.getSubLink() : "", sub != null ? sub.getIdSubmission() : null, sortOrder,
+					sub != null ? sub.getReasoning() : null);
 		}).toList();
 
 		return new ContestantRoundDetailDTO(idRound, myUr.getRound().getRoundNumber(), myUr.getId().getGroupNumber(),
-				myUr.getRound().getSubmissionsOpen(), myUr.getRound().getSpecialRound(), judges);
+				myUr.getRound().getSubmissionsOpen(), myUr.getRound().getSpecialRound(),
+				myUr.getRound().getRequireReasoning(), judges);
 	}
 
 	@Transactional(readOnly = true)
@@ -269,6 +271,7 @@ public class MyRoundsService {
 			sub.setIdJudge(judge.getIdUser());
 			sub.setSubLink(slr.subLink());
 			sub.setSubmittedAt(Instant.now());
+			sub.setReasoning(slr.reasoning());
 
 			if (isSpecialRound && slr.subLink() != null && !slr.subLink().isBlank()) {
 				String[] metadata = metadataMap.get(slr.subLink());

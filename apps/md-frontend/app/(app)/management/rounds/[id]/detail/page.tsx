@@ -27,6 +27,7 @@ interface AdminSubmission {
   review: string | null;
   title: string | null;
   artist: string | null;
+  reasoning?: string | null; // Added reasoning field
   judgeUsername: string;
   contestantUsername: string;
   groupNumber: number;
@@ -89,8 +90,9 @@ export default function RoundAdminDetailPage() {
   };
 
   const handleInputChange = (idSubmission: number, field: keyof AdminSubmission, value: string) => {
+    const processedValue = field === "reasoning" && value.trim() === "" ? null : value;
     setSubmissions((prev) =>
-      prev.map((s) => (s.idSubmission === idSubmission ? { ...s, [field]: value } : s)),
+      prev.map((s) => (s.idSubmission === idSubmission ? { ...s, [field]: processedValue } : s)),
     );
 
     // Compare against original state
@@ -105,16 +107,28 @@ export default function RoundAdminDetailPage() {
       const nextTitle = field === "title" ? value : currentSub.title;
       const nextArtist = field === "artist" ? value : currentSub.artist;
       const nextLink = field === "subLink" ? value : currentSub.subLink;
+      const nextReasoning =
+        field === "reasoning"
+          ? round.requireReasoning
+            ? processedValue
+            : null
+          : currentSub.reasoning;
 
       // Check if the current values differ from the original
       const isDifferent =
         (nextTitle || "") !== (original.title || "") ||
         (nextArtist || "") !== (original.artist || "") ||
-        (nextLink || "") !== (original.subLink || "");
+        (nextLink || "") !== (original.subLink || "") ||
+        (nextReasoning || null) !== (original.reasoning || null);
 
       if (isDifferent) {
         // If any value is different from original, add/update in editedSubs
-        updatedPrev[idSubmission] = { title: nextTitle, artist: nextArtist, subLink: nextLink };
+        updatedPrev[idSubmission] = {
+          title: nextTitle,
+          artist: nextArtist,
+          subLink: nextLink,
+          reasoning: nextReasoning,
+        };
       } else {
         // If values are back to original, remove from editedSubs
         delete updatedPrev[idSubmission];
@@ -133,6 +147,7 @@ export default function RoundAdminDetailPage() {
         subLink: sub.subLink,
         title: sub.title,
         artist: sub.artist,
+        reasoning: sub.reasoning,
       };
     });
 
@@ -637,6 +652,29 @@ export default function RoundAdminDetailPage() {
                               placeholder="Not submitted yet"
                             />
                           </div>
+
+                          {/* Contestant Reasoning */}
+                          {round.requireReasoning && (
+                            <div>
+                              <label className="block text-xs text-[#80848E] font-bold uppercase mb-1">
+                                Contestant Reasoning
+                              </label>
+                              <input
+                                type="text"
+                                value={sub.reasoning || ""}
+                                onChange={(e) =>
+                                  handleInputChange(sub.idSubmission, "reasoning", e.target.value)
+                                }
+                                className="w-full bg-[#2B2D31] border border-[#35373C] text-white rounded px-3 py-1.5 text-sm outline-none focus:border-[#5865F2]"
+                                placeholder="Not submitted yet"
+                              />
+                              {/*<div className="bg-[#2B2D31] border border-[#35373C] rounded px-3 py-1.5 outline-none">
+                                <p className="text-[#DBDEE1] text-sm whitespace-pre-wrap">
+                                  {sub.reasoning}
+                                </p>
+                              </div>*/}
+                            </div>
+                          )}
                         </div>
 
                         {/* Right: Read-Only Judge Data */}
