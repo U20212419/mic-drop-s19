@@ -49,7 +49,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={cn("font-sans", geist.variable)}>
-      <body className={inter.className}>
+      <body className={cn(inter.className, "bg-[#313338] text-[#DBDEE1]")}>
         {/* The Providers wrapper gives session access to ALL pages and layouts */}
         <Providers>
           {/* The AppInsightsTracker component is responsible for tagging telemetry with the user's Discord ID */}
