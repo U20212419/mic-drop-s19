@@ -659,20 +659,19 @@ export default function RoundAdminDetailPage() {
                               <label className="block text-xs text-[#80848E] font-bold uppercase mb-1">
                                 Contestant Reasoning
                               </label>
-                              <input
-                                type="text"
+                              <textarea
                                 value={sub.reasoning || ""}
                                 onChange={(e) =>
                                   handleInputChange(sub.idSubmission, "reasoning", e.target.value)
                                 }
-                                className="w-full bg-[#2B2D31] border border-[#35373C] text-white rounded px-3 py-1.5 text-sm outline-none focus:border-[#5865F2]"
+                                maxLength={500}
+                                rows={3}
+                                className="w-full bg-[#2B2D31] border border-[#35373C] text-[#DBDEE1] rounded px-3 py-2 text-sm outline-none focus:border-[#5865F2] resize-y min-h-20 max-h-62.5 custom-scrollbar"
                                 placeholder="Not submitted yet"
                               />
-                              {/*<div className="bg-[#2B2D31] border border-[#35373C] rounded px-3 py-1.5 outline-none">
-                                <p className="text-[#DBDEE1] text-sm whitespace-pre-wrap">
-                                  {sub.reasoning}
-                                </p>
-                              </div>*/}
+                              <p className="text-right text-[10px] text-[#4E5058] mt-1">
+                                {(sub.reasoning || "").length}/500
+                              </p>
                             </div>
                           )}
                         </div>
@@ -687,17 +686,17 @@ export default function RoundAdminDetailPage() {
                               {sub.score !== null ? sub.score : "--"}
                             </span>
                           </div>
-                          <div className="flex-1">
+                          <div className="flex-1 flex flex-col">
                             <span className="text-xs font-bold text-[#80848E] uppercase block mb-1">
                               Judge Review
                             </span>
-                            <div className="text-sm text-[#DBDEE1] bg-[#1E1F22] p-2 rounded border border-[#35373C] min-h-15 max-h-25 overflow-y-auto custom-scrollbar opacity-70">
-                              {sub.review || (
-                                <span className="italic text-[#4E5058]">
-                                  No review provided yet.
-                                </span>
-                              )}
-                            </div>
+                            <textarea
+                              readOnly
+                              value={sub.review || "No review provided yet."}
+                              className={`w-full text-sm bg-[#1E1F22] p-2 rounded border border-[#35373C] outline-none resize-y min-h-20 max-h-62.5 custom-scrollbar ${
+                                !sub.review ? "italic text-[#4E5058]" : "text-[#DBDEE1] opacity-70"
+                              }`}
+                            />
                           </div>
                         </div>
                       </div>
