@@ -255,7 +255,10 @@ export default function RoundAdminDetailPage() {
       const url = window.URL.createObjectURL(new Blob([downloadResponse.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `Round_${id}_Group_${selectedGroup}_Slides.pptx`);
+
+      const extension = round?.requireReasoning ? "zip" : "pptx";
+      link.setAttribute("download", `Round_${id}_Group_${selectedGroup}_Slides.${extension}`);
+
       document.body.appendChild(link);
       link.click();
 
