@@ -80,8 +80,31 @@ public class SlideGeneratorService {
 
 	private final Map<String, SlideJobStatus> jobStore = new ConcurrentHashMap<>();
 
+	// Map to control jobs lifetime in memory
+	private final Map<String, Long> jobTimestamps = new ConcurrentHashMap<>();
+
+	// 10 minutes of maximum lifetime
+	private static final long JOB_TIMEOUT_MS = 10 * 60 * 1000;
+
+	// This method is called periodically to clean up stale jobs from memory
+	private void cleanupStaleJobs() {
+		long now = System.currentTimeMillis();
+		jobTimestamps.entrySet().removeIf(entry -> {
+			if (now - entry.getValue() > JOB_TIMEOUT_MS) {
+				jobStore.remove(entry.getKey());
+				log.warn("Cleaning up stale slide job from memory: {}", entry.getKey());
+				// Return true to remove the entry from jobTimestamps
+				return true;
+			}
+			return false;
+		});
+	}
+
 	@Async
 	public void generateSlidesAsync(String jobId, Integer idRound, Integer groupNumber) {
+		cleanupStaleJobs();
+		jobTimestamps.put(jobId, System.currentTimeMillis());
+
 		log.info("Starting asynchronous slide generation for jobId: {}, roundId: {}, groupNumber: {}", jobId, idRound,
 				groupNumber);
 		jobStore.put(jobId, new SlideJobStatus("PROCESSING", null));
@@ -135,8 +158,10 @@ public class SlideGeneratorService {
 	}
 
 	public void removeJob(String jobId) {
-		// Remove the job from the store to free up memory after it's completed or failed
+		// Remove the job from the store and timestamps map to free up memory after it's
+		// completed or failed
 		jobStore.remove(jobId);
+		jobTimestamps.remove(jobId);
 	}
 
 	public byte[] generateRoundSlidesPptx(Integer idRound, Integer groupNumber) {
