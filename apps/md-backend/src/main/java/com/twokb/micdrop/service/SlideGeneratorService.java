@@ -24,6 +24,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import javax.imageio.ImageIO;
 
@@ -44,6 +46,7 @@ import org.springframework.stereotype.Service;
 import com.twokb.micdrop.dto.SlideJobStatus;
 import com.twokb.micdrop.model.ContestantStatus;
 import com.twokb.micdrop.model.DiscordUser;
+import com.twokb.micdrop.model.Round;
 import com.twokb.micdrop.model.Submission;
 import com.twokb.micdrop.model.UserRoleType;
 import com.twokb.micdrop.model.UserRound;
@@ -63,6 +66,8 @@ public class SlideGeneratorService {
 
 	private final SubmissionService submissionService;
 
+	private final RoundService roundService;
+
 	private static final Color COLOR_GOLD = new Color(255, 223, 102);
 
 	private static final Color COLOR_GREEN = new Color(119, 221, 119);
@@ -75,17 +80,68 @@ public class SlideGeneratorService {
 
 	private final Map<String, SlideJobStatus> jobStore = new ConcurrentHashMap<>();
 
+	// Map to control jobs lifetime in memory
+	private final Map<String, Long> jobTimestamps = new ConcurrentHashMap<>();
+
+	// 10 minutes of maximum lifetime
+	private static final long JOB_TIMEOUT_MS = 10 * 60 * 1000;
+
+	// This method is called periodically to clean up stale jobs from memory
+	private void cleanupStaleJobs() {
+		long now = System.currentTimeMillis();
+		jobTimestamps.entrySet().removeIf(entry -> {
+			if (now - entry.getValue() > JOB_TIMEOUT_MS) {
+				jobStore.remove(entry.getKey());
+				log.warn("Cleaning up stale slide job from memory: {}", entry.getKey());
+				// Return true to remove the entry from jobTimestamps
+				return true;
+			}
+			return false;
+		});
+	}
+
 	@Async
 	public void generateSlidesAsync(String jobId, Integer idRound, Integer groupNumber) {
+		cleanupStaleJobs();
+		jobTimestamps.put(jobId, System.currentTimeMillis());
+
 		log.info("Starting asynchronous slide generation for jobId: {}, roundId: {}, groupNumber: {}", jobId, idRound,
 				groupNumber);
 		jobStore.put(jobId, new SlideJobStatus("PROCESSING", null));
 
 		try {
-			// Generate the slides and store the result in the jobStore
-			byte[] pptxBytes = generateRoundSlidesPptx(idRound, groupNumber);
+			Round round = roundService.getRound(idRound);
+			byte[] fileBytes;
 
-			jobStore.put(jobId, new SlideJobStatus("COMPLETED", pptxBytes));
+			// If the round requires reasoning, generate both PPTX and compress them into
+			// a ZIP file
+			if (Boolean.TRUE.equals(round.getRequireReasoning())) {
+				byte[] mainSlides = generateRoundSlidesPptx(idRound, groupNumber);
+				byte[] reasoningSlides = generateReasoningSlidesPptx(idRound, groupNumber);
+
+				ByteArrayOutputStream baos = new ByteArrayOutputStream();
+				try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+					// File 1: Main Slides
+					ZipEntry mainEntry = new ZipEntry("Round_" + idRound + "_Group_" + groupNumber + "_Slides.pptx");
+					zos.putNextEntry(mainEntry);
+					zos.write(mainSlides);
+					zos.closeEntry();
+
+					// File 2: Reasoning Slides
+					ZipEntry reasoningEntry = new ZipEntry(
+							"Round_" + idRound + "_Group_" + groupNumber + "_Reasonings.pptx");
+					zos.putNextEntry(reasoningEntry);
+					zos.write(reasoningSlides);
+					zos.closeEntry();
+				}
+				fileBytes = baos.toByteArray();
+			}
+			else {
+				// If reasoning is not required, generate only the main slides
+				fileBytes = generateRoundSlidesPptx(idRound, groupNumber);
+			}
+
+			jobStore.put(jobId, new SlideJobStatus("COMPLETED", fileBytes));
 			log.info("Completed asynchronous slide generation for jobId: {}, roundId: {}, groupNumber: {}", jobId,
 					idRound, groupNumber);
 
@@ -102,8 +158,10 @@ public class SlideGeneratorService {
 	}
 
 	public void removeJob(String jobId) {
-		// Remove the job from the store to free up memory after it's completed or failed
+		// Remove the job from the store and timestamps map to free up memory after it's
+		// completed or failed
 		jobStore.remove(jobId);
+		jobTimestamps.remove(jobId);
 	}
 
 	public byte[] generateRoundSlidesPptx(Integer idRound, Integer groupNumber) {
@@ -236,7 +294,7 @@ public class SlideGeneratorService {
 			throw e; // Rethrow to be handled by the GlobalExceptionHandler
 		}
 		catch (Exception e) {
-			throw new RuntimeException("Error generating slides ZIP for round " + idRound + ".", e);
+			throw new RuntimeException("Error generating slides for round " + idRound + ".", e);
 		}
 	}
 
@@ -574,6 +632,189 @@ public class SlideGeneratorService {
 		}
 		catch (NumberFormatException e) {
 			return COLOR_WHITE; // Default color for unrecognized score formats
+		}
+	}
+
+	private byte[] generateReasoningSlidesPptx(Integer idRound, Integer groupNumber) {
+		try {
+			List<DiscordUser> contestants = userRoundService
+				.getUsersByRoundIdAndRoleAndGroupNumber(idRound, groupNumber,
+						UserRoleType.CONTESTANT.name().toLowerCase())
+				.stream()
+				.map(UserRound::getUser)
+				.toList();
+
+			if (contestants.stream().anyMatch(c -> c.getPreliminaryStatus() == null)) {
+				throw new IllegalStateException("Statuses must be calculated before generating reasoning slides.");
+			}
+
+			List<DiscordUser> sortedJudges = userRoundService
+				.getUsersByRoundIdAndRoleAndGroupNumber(idRound, groupNumber, UserRoleType.JUDGE.name().toLowerCase())
+				.stream()
+				.sorted(Comparator.comparing(ur -> ur.getSortOrder() == null ? 999 : ur.getSortOrder()))
+				.map(UserRound::getUser)
+				.toList();
+
+			List<ContestantStat> stats = roundDetailService.getGroupStats(idRound, contestants, sortedJudges);
+			Collections.reverse(stats);
+
+			List<ContestantStat> didNotSubmitStats = contestants.stream()
+				.filter(c -> c.getPreliminaryStatus() == ContestantStatus.DID_NOT_SUBMIT)
+				.map(c -> new ContestantStat(c, 0.0, 0, Instant.MAX))
+				.collect(Collectors.toList());
+
+			stats.addAll(didNotSubmitStats);
+
+			List<Integer> contestantIds = contestants.stream().map(DiscordUser::getIdUser).toList();
+			List<Submission> allGroupSubmissions = submissionService.getSubmissionsByRoundIdAndContestantIds(idRound,
+					contestantIds);
+
+			Map<Integer, List<Submission>> subsByContestant = allGroupSubmissions.stream()
+				.collect(Collectors.groupingBy(s -> s.getContestant().getIdUser()));
+
+			ByteArrayOutputStream pptBaos = new ByteArrayOutputStream();
+
+			String suffix = sortedJudges.size() == 4 ? "_4j.pptx" : "_3j.pptx";
+			String masterTemplateName = "reasoning_templates" + suffix;
+
+			System.setProperty("org.apache.poi.sl.draw.font.fallback", "SansSerif");
+
+			try (InputStream is = new ClassPathResource("templates/" + masterTemplateName).getInputStream();
+					XMLSlideShow combinedPpt = new XMLSlideShow(is)) {
+				int baseTemplateCount = combinedPpt.getSlides().size();
+
+				for (int i = 0; i < stats.size(); i++) {
+					var stat = stats.get(i);
+					String rank = stat.contestant().getPreliminaryStatus() == ContestantStatus.DID_NOT_SUBMIT ? "DNS"
+							: String.valueOf(i + 1);
+
+					List<Integer> judgeIds = sortedJudges.stream().map(DiscordUser::getIdUser).toList();
+					List<Submission> subs = subsByContestant
+						.getOrDefault(stat.contestant().getIdUser(), Collections.emptyList())
+						.stream()
+						.filter(s -> judgeIds.contains(s.getIdJudge()))
+						.toList();
+
+					String safeUsername = stat.contestant().getUsername().replaceAll("[^a-zA-Z0-9.-]", "_");
+					String filePrefix = rank.equals("DNS") ? String.format("Reasoning_DNS_%s", safeUsername)
+							: String.format("Reasoning_Rank_%02d_%s", Integer.parseInt(rank), safeUsername);
+
+					int templateIndex = getTemplateSlideIndex(rank, stat.contestant().getPreliminaryStatus());
+					if (templateIndex >= combinedPpt.getSlides().size()) {
+						templateIndex = 0; // Fallback to the first template if the index
+											// is out of bounds
+					}
+
+					XSLFSlide templateSlide = combinedPpt.getSlides().get(templateIndex);
+					XSLFSlide newSlide = combinedPpt.createSlide(templateSlide.getSlideLayout());
+					newSlide.importContent(templateSlide);
+
+					newSlide.getXmlObject().getCSld().setName(filePrefix);
+
+					replaceReasoningPlaceholders(newSlide, stat, sortedJudges, subs);
+				}
+
+				for (int i = baseTemplateCount - 1; i >= 0; i--) {
+					combinedPpt.removeSlide(i);
+				}
+
+				combinedPpt.write(pptBaos);
+			}
+			return pptBaos.toByteArray();
+		}
+		catch (Exception e) {
+			throw new RuntimeException("Error generating reasoning slides for round " + idRound + ".", e);
+		}
+	}
+
+	private void replaceReasoningPlaceholders(XSLFSlide slide, ContestantStat stat, List<DiscordUser> judges,
+			List<Submission> subs) {
+		Map<String, String> rep = new HashMap<>();
+		rep.put("{name}", stat.contestant().getUsername());
+
+		Map<Integer, Submission> subMap = subs.stream()
+			.collect(Collectors.toMap(Submission::getIdJudge, Function.identity()));
+
+		for (int i = 0; i < judges.size(); i++) {
+			DiscordUser judge = judges.get(i);
+			int jIndex = i + 1;
+			Submission sub = subMap.get(judge.getIdUser());
+
+			if (sub != null && sub.getSubLink() != null && !sub.getSubLink().isBlank()) {
+				String artist = sub.getArtist() != null ? sub.getArtist() : "Unknown";
+				String title = sub.getTitle() != null ? sub.getTitle() : "Unknown";
+				rep.put("{song" + jIndex + "}", artist + " - " + title);
+				rep.put("{reasoning" + jIndex + "}", sub.getReasoning() != null && !sub.getReasoning().isBlank()
+						? sub.getReasoning() : "No reasoning provided.");
+			}
+			else {
+				rep.put("{song" + jIndex + "}", "DID NOT SUBMIT");
+				rep.put("{reasoning" + jIndex + "}", "");
+			}
+		}
+
+		// Replace placeholders in the slide
+		for (XSLFShape shape : slide.getShapes()) {
+			if (shape instanceof XSLFTextShape textShape) {
+				String text = textShape.getText();
+				boolean changed = false;
+
+				for (Map.Entry<String, String> entry : rep.entrySet()) {
+					if (text.contains(entry.getKey())) {
+						text = text.replace(entry.getKey(), entry.getValue());
+						changed = true;
+					}
+				}
+
+				if (changed) {
+					textShape.setTextAutofit(TextAutofit.NORMAL);
+					textShape.setWordWrap(true);
+
+					// Clear existing text runs and set the new text
+					boolean isFirstRun = true;
+					for (XSLFTextParagraph p : textShape.getTextParagraphs()) {
+						for (XSLFTextRun r : p.getTextRuns()) {
+							if (isFirstRun) {
+								r.setText(text);
+
+								// Adjust font size to fit within the shape's bounding box
+								// (same logic used for reviews)
+								Double fontSize = r.getFontSize();
+								if (fontSize == null)
+									fontSize = 16.0;
+
+								// Calculate the bounding box of the text shape and adjust
+								// font size accordingly
+								Rectangle2D anchor = textShape.getAnchor();
+								double boxWidth = anchor.getWidth() * 0.85;
+								double boxHeight = anchor.getHeight() * 0.85;
+
+								double newFontSize = fontSize;
+
+								double shapeArea = boxWidth * boxHeight;
+								double charArea = (newFontSize * 0.55) * (newFontSize * 1.2);
+								int estimatedCapacity = (int) (shapeArea / charArea);
+
+								// If the text length exceeds the estimated capacity,
+								// reduce the font size further based on area
+								if (text.length() > estimatedCapacity && estimatedCapacity > 0) {
+									double areaBasedFontSize = Math.sqrt(shapeArea / (text.length() * 0.66));
+									newFontSize = Math.min(newFontSize, areaBasedFontSize);
+								}
+
+								// Ensure the new font size is within reasonable bounds
+								newFontSize = Math.max(7.5, Math.min(newFontSize, fontSize));
+								r.setFontSize(newFontSize);
+
+								isFirstRun = false;
+							}
+							else {
+								r.setText("");
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 

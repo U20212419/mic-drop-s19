@@ -228,18 +228,32 @@ export default function RoundAdminDetailPage() {
 
       // Poll for job status until it's completed or failed
       let isCompleted = false;
+      let attempts = 0;
+      const MAX_ATTEMPTS = 40; // Max 40 attempts (2 minutes if polling every 3 seconds)
       while (!isCompleted) {
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-
-        const statusResponse = await api.get(`/rounds/${id}/slides/status/${jobId}`);
-        const status = statusResponse.data.status;
-
-        if (status === "FAILED") {
-          throw new Error("Slide generation failed. Please try again later.");
+        if (attempts >= MAX_ATTEMPTS) {
+          throw new Error("Slide generation timed out. Please try again.");
         }
 
-        if (status === "COMPLETED") {
-          isCompleted = true;
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        attempts++;
+
+        try {
+          const statusResponse = await api.get(`/rounds/${id}/slides/status/${jobId}`);
+          const status = statusResponse.data.status;
+
+          if (status === "FAILED") {
+            throw new Error("Slide generation failed. Please try again later.");
+          }
+
+          if (status === "COMPLETED") {
+            isCompleted = true;
+          }
+        } catch (pollError: any) {
+          // If the backend restarted or the job was garbage-collected (404), break the infinite loop
+          if (pollError.response && pollError.response.status === 404) {
+            throw new Error("The generation process was interrupted or lost. Please retry.");
+          }
         }
       }
 
@@ -255,7 +269,10 @@ export default function RoundAdminDetailPage() {
       const url = window.URL.createObjectURL(new Blob([downloadResponse.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `Round_${id}_Group_${selectedGroup}_Slides.pptx`);
+
+      const extension = round?.requireReasoning ? "zip" : "pptx";
+      link.setAttribute("download", `Round_${id}_Group_${selectedGroup}_Slides.${extension}`);
+
       document.body.appendChild(link);
       link.click();
 

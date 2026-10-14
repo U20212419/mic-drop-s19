@@ -182,19 +182,29 @@ public class RoundController {
 			return ResponseEntity.badRequest().build();
 		}
 
-		byte[] pptxBytes = job.fileData();
+		Round round = roundService.getRound(idRound);
+		boolean isZip = Boolean.TRUE.equals(round.getRequireReasoning());
+
+		byte[] fileBytes = job.fileData();
 		Integer groupNumber = request.groupNumber();
 
 		HttpHeaders headers = new HttpHeaders();
-		headers.setContentType(
-				MediaType.valueOf("application/vnd.openxmlformats-officedocument.presentationml.presentation"));
-		headers.setContentDispositionFormData("attachment",
-				"Round_" + idRound + "_Group_" + groupNumber + "_Slides.pptx");
+		if (isZip) {
+			headers.setContentType(MediaType.valueOf("application/zip"));
+			headers.setContentDispositionFormData("attachment",
+					"Round_" + idRound + "_Group_" + groupNumber + "_Slides.zip");
+		}
+		else {
+			headers.setContentType(
+					MediaType.valueOf("application/vnd.openxmlformats-officedocument.presentationml.presentation"));
+			headers.setContentDispositionFormData("attachment",
+					"Round_" + idRound + "_Group_" + groupNumber + "_Slides.pptx");
+		}
 
 		// Free up memory
 		slideGeneratorService.removeJob(jobId);
 
-		return new ResponseEntity<>(pptxBytes, headers, HttpStatus.OK);
+		return new ResponseEntity<>(fileBytes, headers, HttpStatus.OK);
 	}
 
 }
