@@ -135,14 +135,17 @@ export default function CollectionPage() {
     }
   };
 
-  const filteredClaimableSongs = claimableSongs.filter((song) => {
-    const term = claimSearchTerm.toLowerCase();
-    return (
-      song.title.toLowerCase().includes(term) ||
-      song.artist.toLowerCase().includes(term) ||
-      song.contestantUsername.toLowerCase().includes(term)
-    );
-  });
+  const filteredClaimableSongs = claimableSongs
+    .filter((song) => song.subLink && song.subLink.trim() !== "")
+    .filter((song, index, self) => index === self.findIndex((s) => s.subLink === song.subLink))
+    .filter((song) => {
+      const term = claimSearchTerm.toLowerCase();
+      return (
+        song.title.toLowerCase().includes(term) ||
+        song.artist.toLowerCase().includes(term) ||
+        song.contestantUsername.toLowerCase().includes(term)
+      );
+    });
 
   const totalClaimPages = Math.ceil(filteredClaimableSongs.length / CLAIM_ITEMS_PER_PAGE);
   const paginatedSongs = filteredClaimableSongs.slice(

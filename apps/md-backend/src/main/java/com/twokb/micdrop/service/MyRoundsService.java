@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -461,9 +462,13 @@ public class MyRoundsService {
 		List<Submission> groupSubmissions = submissionService.getSubmissionsByRoundIdAndContestantIds(idRound,
 				groupContestantIds);
 
-		// Exclude the songs that the contestant submitted themselves
+		Set<String> seenLinks = ConcurrentHashMap.newKeySet();
+
 		return groupSubmissions.stream()
+			// Exclude the songs that the contestant submitted themselves
 			.filter(sub -> !sub.getContestant().getDiscordId().equals(discordId))
+			// Exclude duplicates based on subLink, keeping the first occurrence
+			.filter(sub -> sub.getSubLink() != null && !sub.getSubLink().isBlank() && seenLinks.add(sub.getSubLink()))
 			.map(sub -> new ClaimableSongDTO(sub.getSubLink(),
 					sub.getTitle() != null ? sub.getTitle() : "Unknown Title",
 					sub.getArtist() != null ? sub.getArtist() : "Unknown Artist", sub.getContestant().getUsername()))
