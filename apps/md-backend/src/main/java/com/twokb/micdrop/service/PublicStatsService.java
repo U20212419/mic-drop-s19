@@ -38,7 +38,7 @@ public class PublicStatsService {
 	private final DiscordUserService discordUserService;
 
 	// Thread-safe in-memory cache to serve public requests instantly
-	private final AtomicReference<PublicStatResponseDTO> cachedStats = new AtomicReference<>(null);
+	private AtomicReference<PublicStatResponseDTO> cachedStats = new AtomicReference<>(null);
 
 	// Retrieves the stats. If cache is empty, it builds it
 	public PublicStatResponseDTO getPublicStats() {
