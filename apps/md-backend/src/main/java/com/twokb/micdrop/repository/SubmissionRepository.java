@@ -26,7 +26,14 @@ public interface SubmissionRepository extends JpaRepository<Submission, Integer>
 
 	List<Submission> findByIdRoundAndIdJudgeOrderByIdSubmissionAsc(Integer idRound, Integer idJudge);
 
-	long countByIdRoundAndIdJudgeAndScoreIsNull(Integer idRound, Integer idJudge);
+	@Query("""
+			SELECT COUNT(s) FROM Submission s
+			WHERE s.idRound = :idRound
+			AND s.idJudge = :idJudge
+			AND s.score IS NULL
+			AND (s.subLink IS NOT NULL AND TRIM(s.subLink) <> '')
+			""")
+	long countPendingJudgeSubmissions(Integer idRound, Integer idJudge);
 
 	@Query("""
 			SELECT COUNT(s) FROM Submission s

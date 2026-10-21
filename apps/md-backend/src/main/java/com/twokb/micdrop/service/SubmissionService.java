@@ -68,7 +68,7 @@ public class SubmissionService {
 
 	@Transactional(readOnly = true)
 	public long countPendingJudgeSubmissions(Integer idRound, Integer idJudge) {
-		return submissionRepository.countByIdRoundAndIdJudgeAndScoreIsNull(idRound, idJudge);
+		return submissionRepository.countPendingJudgeSubmissions(idRound, idJudge);
 	}
 
 	@Transactional(readOnly = true)
