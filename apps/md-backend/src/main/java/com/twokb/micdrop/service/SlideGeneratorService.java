@@ -78,10 +78,10 @@ public class SlideGeneratorService {
 
 	private static final Color COLOR_IMPUTED = new Color(255, 179, 71);
 
-	private final Map<String, SlideJobStatus> jobStore = new ConcurrentHashMap<>();
+	private Map<String, SlideJobStatus> jobStore = new ConcurrentHashMap<>();
 
 	// Map to control jobs lifetime in memory
-	private final Map<String, Long> jobTimestamps = new ConcurrentHashMap<>();
+	private Map<String, Long> jobTimestamps = new ConcurrentHashMap<>();
 
 	// 10 minutes of maximum lifetime
 	private static final long JOB_TIMEOUT_MS = 10 * 60 * 1000;

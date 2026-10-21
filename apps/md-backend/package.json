@@ -2,7 +2,7 @@
   "name": "md-backend",
   "scripts": {
     "build": "mvnw clean package -DskipTests",
-    "dev": "mvnw spring-boot:run -Dspring-boot.run.profiles=dev",
+    "dev": "mvnw clean spring-boot:run -Dspring-boot.run.profiles=dev",
     "lint": "mvnw spotbugs:check -q",
     "format": "mvnw spring-javaformat:apply"
   }
