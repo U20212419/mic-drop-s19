@@ -25,6 +25,10 @@ WORKDIR /app
 
 # Create user without root privileges
 RUN groupadd -r spring && useradd -r -g spring spring
+
+# Create required directories for Application Insights and assign ownership to the spring user
+RUN mkdir -p /var/log/applicationinsights && chown -R spring:spring /var/log/applicationinsights
+
 USER spring:spring
 
 # Copy the cached layers
