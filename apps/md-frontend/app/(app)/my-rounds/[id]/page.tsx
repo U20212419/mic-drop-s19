@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { FormTextarea } from "@/components/FormTextarea";
 import FormattedText from "@/components/FormattedText";
 import { SpecialRoundCombobox } from "@/components/ui/SpecialRoundCombobox";
+import { DropdownOptionSelector } from "@/components/ui/DropdownOptionSelector";
 
 export default function RoundDetailPage() {
   const { id } = useParams();
@@ -1026,47 +1027,11 @@ export default function RoundDetailPage() {
                           onSelectLink={handleLinkChange}
                         />
 
-                        {contestantData.hasDropdownOptions && (
-                          <div className="mt-3">
-                            <label className="block text-xs text-[#80848E] font-bold uppercase mb-1">
-                              Select Option
-                            </label>
-                            <select
-                              value={judge.selectedOption || ""}
-                              onChange={(e) => handleOptionChange(judge.discordId, e.target.value)}
-                              className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md px-4 py-3 outline-none focus:border-[#5865F2]"
-                            >
-                              <option value="" disabled>
-                                Select an option...
-                              </option>
-                              {contestantData.dropdownOptions?.map((opt: string) => {
-                                const usedInGroup = contestantData.optionUsageCounts?.[opt] || 0;
-                                const localUsage = contestantData.judges.filter(
-                                  (j: any) =>
-                                    j.discordId !== judge.discordId && j.selectedOption === opt,
-                                ).length;
-                                const max = contestantData.maxSelectionsPerOption;
-                                const isExhausted = max && usedInGroup + localUsage >= max;
-
-                                const disabledByRepeat =
-                                  !contestantData.allowDropdownRepeat && localUsage > 0;
-
-                                const disabled = isExhausted || disabledByRepeat;
-
-                                return (
-                                  <option key={opt} value={opt} disabled={disabled}>
-                                    {opt}{" "}
-                                    {isExhausted
-                                      ? "(Group Limit Reached)"
-                                      : disabledByRepeat
-                                        ? "(Already selected by you)"
-                                        : ""}
-                                  </option>
-                                );
-                              })}
-                            </select>
-                          </div>
-                        )}
+                        <DropdownOptionSelector
+                          judge={judge}
+                          contestantData={contestantData}
+                          handleOptionChange={handleOptionChange}
+                        />
 
                         {contestantData.requireReasoning && (
                           <div className="mt-3">
@@ -1096,47 +1061,11 @@ export default function RoundDetailPage() {
                           className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md px-4 py-3 outline-none focus:border-[#5865F2] focus:bg-[#111214] transition-all"
                         />
 
-                        {contestantData.hasDropdownOptions && (
-                          <div className="mt-3">
-                            <label className="block text-xs text-[#80848E] font-bold uppercase mb-1">
-                              Select Option
-                            </label>
-                            <select
-                              value={judge.selectedOption || ""}
-                              onChange={(e) => handleOptionChange(judge.discordId, e.target.value)}
-                              className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md px-4 py-3 outline-none focus:border-[#5865F2]"
-                            >
-                              <option value="" disabled>
-                                Select an option...
-                              </option>
-                              {contestantData.dropdownOptions?.map((opt: string) => {
-                                const usedInGroup = contestantData.optionUsageCounts?.[opt] || 0;
-                                const localUsage = contestantData.judges.filter(
-                                  (j: any) =>
-                                    j.discordId !== judge.discordId && j.selectedOption === opt,
-                                ).length;
-                                const max = contestantData.maxSelectionsPerOption;
-                                const isExhausted = max && usedInGroup + localUsage >= max;
-
-                                const disabledByRepeat =
-                                  !contestantData.allowDropdownRepeat && localUsage > 0;
-
-                                const disabled = isExhausted || disabledByRepeat;
-
-                                return (
-                                  <option key={opt} value={opt} disabled={disabled}>
-                                    {opt}{" "}
-                                    {isExhausted
-                                      ? "(Group Limit Reached)"
-                                      : disabledByRepeat
-                                        ? "(Already selected by you)"
-                                        : ""}
-                                  </option>
-                                );
-                              })}
-                            </select>
-                          </div>
-                        )}
+                        <DropdownOptionSelector
+                          judge={judge}
+                          contestantData={contestantData}
+                          handleOptionChange={handleOptionChange}
+                        />
 
                         {contestantData.requireReasoning && (
                           <div className="mt-3">
