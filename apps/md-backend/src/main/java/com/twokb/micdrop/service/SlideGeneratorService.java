@@ -319,7 +319,8 @@ public class SlideGeneratorService {
 			if (sub != null && sub.getSubLink() != null && !sub.getSubLink().isBlank()) {
 				String artist = sub.getArtist() != null ? sub.getArtist() : "Unknown";
 				String title = sub.getTitle() != null ? sub.getTitle() : "Unknown";
-				rep.put("{song" + jIndex + "}", artist + " - " + title);
+				String selectedOption = sub.getSelectedOption() != null ? "[" + sub.getSelectedOption() + "] " : "";
+				rep.put("{song" + jIndex + "}", selectedOption + artist + " - " + title);
 
 				if (sub.getScore() != null) {
 					// Normal graded score
@@ -743,7 +744,8 @@ public class SlideGeneratorService {
 			if (sub != null && sub.getSubLink() != null && !sub.getSubLink().isBlank()) {
 				String artist = sub.getArtist() != null ? sub.getArtist() : "Unknown";
 				String title = sub.getTitle() != null ? sub.getTitle() : "Unknown";
-				rep.put("{song" + jIndex + "}", artist + " - " + title);
+				String selectedOption = sub.getSelectedOption() != null ? "[" + sub.getSelectedOption() + "] " : "";
+				rep.put("{song" + jIndex + "}", selectedOption + artist + " - " + title);
 				rep.put("{reasoning" + jIndex + "}", sub.getReasoning() != null && !sub.getReasoning().isBlank()
 						? sub.getReasoning() : "No reasoning provided.");
 			}
