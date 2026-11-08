@@ -106,7 +106,9 @@ public class RoundController {
 	public ResponseEntity<Round> updateRound(@PathVariable Integer idRound, @RequestBody UpdateRoundRequest request) {
 		Round updatedRound = roundService.updateRound(idRound, request.roundNumber(), request.active(),
 				request.groupCount(), request.submissionsOpen(), request.eliminationAmount(), request.specialRound(),
-				request.requireReasoning());
+				request.requireReasoning(), request.showReasoningToJudges(), request.hasDropdownOptions(),
+				request.dropdownOptions(), request.allowDropdownRepeat(), request.maxSelectionsPerOption(),
+				request.splitScore(), request.maxSongScore(), request.maxReasoningScore());
 
 		return ResponseEntity.status(HttpStatus.OK).body(updatedRound);
 	}

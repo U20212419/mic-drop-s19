@@ -3,5 +3,5 @@ package com.twokb.micdrop.dto.myRounds;
 import java.math.BigDecimal;
 
 public record SubmissionJudgeDTO(Integer idSubmission, String subLink, BigDecimal score, String review, String artist,
-		String title) {
+		String title, String selectedOption, String reasoning) {
 }

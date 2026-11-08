@@ -92,6 +92,14 @@ CREATE TABLE IF NOT EXISTS round (
 	elimination_amount VARCHAR(30) NULL,
 	special_round BOOLEAN NOT NULL DEFAULT FALSE,
 	require_reasoning BOOLEAN NOT NULL DEFAULT FALSE,
+	show_reasoning_to_judges BOOLEAN NOT NULL DEFAULT FALSE,
+	has_dropdown_options BOOLEAN NOT NULL DEFAULT FALSE,
+	dropdown_options VARCHAR(1000) NULL,
+	allow_dropdown_repeat BOOLEAN NOT NULL DEFAULT FALSE,
+	max_selections_per_option INTEGER NULL,
+	split_score BOOLEAN NOT NULL DEFAULT FALSE,
+	max_song_score INTEGER NULL,
+	max_reasoning_score INTEGER NULL
 );
 
 CREATE INDEX idx_round_active ON round (active);
@@ -141,6 +149,7 @@ CREATE TABLE IF NOT EXISTS submission (
 	artist VARCHAR(200) NULL,
 	submitted_at TIMESTAMPTZ NOT NULL,
 	reasoning VARCHAR(500) NULL,
+	selected_option VARCHAR(100) NULL,
 	CONSTRAINT check_score_valid
 		CHECK (score >=0 AND score <= 10 AND score % 0.25 = 0),
 	CONSTRAINT fk_submission_contestant

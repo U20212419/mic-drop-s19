@@ -42,6 +42,15 @@ public class RoundService {
 		round.setEliminationAmount(eliminationAmount);
 		round.setSpecialRound(specialRound);
 		round.setRequireReasoning(false);
+		round.setShowReasoningToJudges(false);
+		round.setHasDropdownOptions(false);
+		round.setDropdownOptions(null);
+		round.setAllowDropdownRepeat(false);
+		round.setMaxSelectionsPerOption(null);
+		round.setSplitScore(false);
+		round.setMaxSongScore(null);
+		round.setMaxReasoningScore(null);
+
 		return roundRepository.save(round);
 	}
 
@@ -86,12 +95,24 @@ public class RoundService {
 
 	@Transactional
 	public Round updateRound(Integer idRound, Integer roundNumber, Boolean active, Integer groupCount,
-			Boolean submissionsOpen, String eliminationAmount, Boolean specialRound, Boolean requireReasoning) {
+			Boolean submissionsOpen, String eliminationAmount, Boolean specialRound, Boolean requireReasoning,
+			Boolean showReasoningToJudges, Boolean hasDropdownOptions, String dropdownOptions,
+			Boolean allowDropdownRepeat, Integer maxSelectionsPerOption, Boolean splitScore, Integer maxSongScore,
+			Integer maxReasoningScore) {
+
 		Round round = roundRepository.findById(idRound)
 			.orElseThrow(() -> new IllegalArgumentException("Round with ID " + idRound + " not found."));
 
 		if (!round.getRoundNumber().equals(roundNumber) && roundRepository.existsByRoundNumber(roundNumber)) {
 			throw new IllegalArgumentException("Round number " + roundNumber + " already exists.");
+		}
+
+		// Validate split score logic
+		if (Boolean.TRUE.equals(splitScore)) {
+			if (maxSongScore == null || maxReasoningScore == null || (maxSongScore + maxReasoningScore != 10)) {
+				throw new IllegalArgumentException(
+						"If split score is enabled, song and reasoning maximum scores must sum exactly 10.");
+			}
 		}
 
 		round.setRoundNumber(roundNumber);
@@ -107,6 +128,32 @@ public class RoundService {
 		round.setEliminationAmount(eliminationAmount);
 		round.setSpecialRound(specialRound);
 		round.setRequireReasoning(requireReasoning);
+		round.setShowReasoningToJudges(showReasoningToJudges != null ? showReasoningToJudges : false);
+		round.setHasDropdownOptions(hasDropdownOptions != null ? hasDropdownOptions : false);
+
+		// Reset dropdown configuration if the feature is disabled
+		if (!round.getHasDropdownOptions()) {
+			round.setDropdownOptions(null);
+			round.setAllowDropdownRepeat(false);
+			round.setMaxSelectionsPerOption(null);
+		}
+		else {
+			round.setDropdownOptions(dropdownOptions);
+			round.setAllowDropdownRepeat(allowDropdownRepeat != null ? allowDropdownRepeat : false);
+			round.setMaxSelectionsPerOption(maxSelectionsPerOption);
+		}
+
+		round.setSplitScore(splitScore != null ? splitScore : false);
+
+		// Reset split score configuration if the feature is disabled
+		if (!round.getSplitScore()) {
+			round.setMaxSongScore(null);
+			round.setMaxReasoningScore(null);
+		}
+		else {
+			round.setMaxSongScore(maxSongScore);
+			round.setMaxReasoningScore(maxReasoningScore);
+		}
 
 		return round;
 	}

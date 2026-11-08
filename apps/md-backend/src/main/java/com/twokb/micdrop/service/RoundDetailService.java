@@ -79,7 +79,8 @@ public class RoundDetailService {
 
 			return new AdminSubmissionDTO(s.getIdSubmission(), s.getSubLink(), s.getScore(), s.getReview(),
 					s.getTitle(), s.getArtist(), judge.getDiscordId(), judge.getUsername(), contestant.getDiscordId(),
-					contestant.getUsername(), group, s.getSubmittedAt(), sortOrder, s.getReasoning());
+					contestant.getUsername(), group, s.getSubmittedAt(), sortOrder, s.getReasoning(),
+					s.getSelectedOption());
 		}).toList();
 	}
 
@@ -110,7 +111,8 @@ public class RoundDetailService {
 
 			return new AdminSubmissionDTO(s.getIdSubmission(), s.getSubLink(), s.getScore(), s.getReview(),
 					s.getTitle(), s.getArtist(), judge.getDiscordId(), judge.getUsername(), contestant.getDiscordId(),
-					contestant.getUsername(), group, s.getSubmittedAt(), sortOrder, s.getReasoning());
+					contestant.getUsername(), group, s.getSubmittedAt(), sortOrder, s.getReasoning(),
+					s.getSelectedOption());
 		}).toList();
 	}
 
