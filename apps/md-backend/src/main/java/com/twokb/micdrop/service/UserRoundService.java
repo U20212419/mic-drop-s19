@@ -222,6 +222,10 @@ public class UserRoundService {
 	@Transactional
 	public RoundAssignmentsResponse syncRoundAssignments(Integer idRound, List<UserAssignmentDTO> targetContestants,
 			List<UserAssignmentDTO> targetJudges) {
+		if (jda.getStatus() != JDA.Status.CONNECTED) {
+			throw new IllegalStateException("Discord bot is not yet ready. Try again later.");
+		}
+
 		var round = roundService.getRound(idRound);
 		Integer roundNumber = round.getRoundNumber();
 
@@ -424,6 +428,10 @@ public class UserRoundService {
 		Guild guild = guildId.isEmpty() ? null : jda.getGuildById(guildId);
 
 		if (guild == null) {
+			if (jda.getStatus() != JDA.Status.CONNECTED) {
+				throw new IllegalStateException("Discord bot is not yet ready. Try again later.");
+			}
+
 			throw new IllegalStateException("Guild with ID " + guildId + " not found.");
 		}
 

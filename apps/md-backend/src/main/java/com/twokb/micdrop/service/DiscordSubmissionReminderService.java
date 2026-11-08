@@ -62,6 +62,10 @@ public class DiscordSubmissionReminderService {
 
 	public DiscordSubmissionReminderConfig configure(String channelId, Instant deadline, List<Double> reminderHours,
 			String requesterDiscordId) {
+		if (jda.getStatus() != JDA.Status.CONNECTED) {
+			throw new IllegalStateException("Discord bot is not yet ready. Try again later.");
+		}
+
 		if (deadline == null || !deadline.isAfter(Instant.now())) {
 			throw new IllegalArgumentException("Submission deadline must be in the future.");
 		}
@@ -125,6 +129,13 @@ public class DiscordSubmissionReminderService {
 	}
 
 	void sendDueReminder(Instant now) {
+		if (jda.getStatus() != JDA.Status.CONNECTED) {
+			log.warn("Discord bot is not connected. Skipping submission reminder check.");
+			// If the bot is not connected, we cannot send reminders, so we skip this
+			// check
+			return;
+		}
+
 		DiscordSubmissionReminderConfig config = getConfig();
 		if (!config.enabled() || config.deadline() == null) {
 			return;

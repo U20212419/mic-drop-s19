@@ -300,6 +300,10 @@ public class RoundDetailService {
 
 	@Transactional
 	public void applyStatuses(Integer idRound, Integer groupNumber) {
+		if (jda.getStatus() != JDA.Status.CONNECTED) {
+			throw new IllegalStateException("Discord bot is not yet ready. Try again later.");
+		}
+
 		List<UserRound> groupUsers = userRoundService.getUsersByRoundIdAndGroupNumber(idRound, groupNumber);
 
 		List<UserRound> contestantUserRounds = groupUsers.stream()

@@ -21,25 +21,17 @@ public class DiscordBotConfig {
 
 	@Bean
 	public JDA jda(DiscordEventListener eventListener) {
-		try {
-			// Build the JDA instance with the provided bot token
-			return JDABuilder.createDefault(botToken)
-				.enableIntents(GatewayIntent.GUILD_MESSAGE_REACTIONS, GatewayIntent.GUILD_MEMBERS)
-				// Force JDA to store all members in the RAM permanently
-				.setMemberCachePolicy(MemberCachePolicy.ALL)
-				// Force the bot to download all members of the guilds it is in
-				.setChunkingFilter(ChunkingFilter.ALL)
-				.addEventListeners(eventListener) // Register event listeners
-				.build()
-				.awaitReady(); // Wait until JDA is fully loaded
-		}
-		catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			throw new RuntimeException("Discord bot initialization was interrupted.", e);
-		}
-		catch (Exception e) {
-			throw new RuntimeException("Failed to initialize Discord bot.", e);
-		}
+		// Build the JDA instance with the provided bot token.
+		// build() starts the login in the background and return immediately,
+		// so it does not block the Spring startup (and Azure's startup probe).
+		return JDABuilder.createDefault(botToken)
+			.enableIntents(GatewayIntent.GUILD_MESSAGE_REACTIONS, GatewayIntent.GUILD_MEMBERS)
+			// Force JDA to store all members in the RAM permanently
+			.setMemberCachePolicy(MemberCachePolicy.ALL)
+			// Force the bot to download all members of the guilds it is in
+			.setChunkingFilter(ChunkingFilter.ALL)
+			.addEventListeners(eventListener) // Register event listeners
+			.build();
 	}
 
 }
