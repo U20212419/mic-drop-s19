@@ -47,6 +47,9 @@ public class Submission {
 	@Column(name = "submitted_at", nullable = false)
 	private Instant submittedAt;
 
+	@Column(name = "selected_option", nullable = true)
+	private String selectedOption;
+
 	@Column(name = "id_contestant", nullable = false)
 	private Integer idContestant;
 

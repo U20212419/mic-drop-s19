@@ -41,4 +41,28 @@ public class Round {
 	@Column(name = "require_reasoning", nullable = false)
 	private Boolean requireReasoning = false;
 
+	@Column(name = "show_reasoning_to_judges", nullable = false)
+	private Boolean showReasoningToJudges = false;
+
+	@Column(name = "has_dropdown_options", nullable = false)
+	private Boolean hasDropdownOptions = false;
+
+	@Column(name = "dropdown_options", nullable = true)
+	private String dropdownOptions;
+
+	@Column(name = "allow_dropdown_repeat", nullable = false)
+	private Boolean allowDropdownRepeat = false;
+
+	@Column(name = "max_selections_per_option", nullable = true)
+	private Integer maxSelectionsPerOption;
+
+	@Column(name = "split_score", nullable = false)
+	private Boolean splitScore = false;
+
+	@Column(name = "max_song_score", nullable = true)
+	private Integer maxSongScore;
+
+	@Column(name = "max_reasoning_score", nullable = true)
+	private Integer maxReasoningScore;
+
 }

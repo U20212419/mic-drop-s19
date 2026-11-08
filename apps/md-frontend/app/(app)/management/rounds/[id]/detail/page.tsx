@@ -32,6 +32,7 @@ interface AdminSubmission {
   contestantUsername: string;
   groupNumber: number;
   sortOrder?: number; // Sort order for judges
+  selectedOption?: string | null; // For dropdown options if applicable
 }
 
 export default function RoundAdminDetailPage() {
@@ -669,6 +670,18 @@ export default function RoundAdminDetailPage() {
                               placeholder="Not submitted yet"
                             />
                           </div>
+
+                          {/* Contestant Selected Option (Read-Only) */}
+                          {sub.selectedOption && (
+                            <div>
+                              <span className="block text-xs text-[#80848E] font-bold uppercase mb-1">
+                                Selected Option
+                              </span>
+                              <span className="inline-block bg-[#E67E22]/10 border border-[#E67E22]/20 text-[#E67E22] text-xs font-bold px-3 py-1.5 rounded">
+                                {sub.selectedOption}
+                              </span>
+                            </div>
+                          )}
 
                           {/* Contestant Reasoning */}
                           {round.requireReasoning && (

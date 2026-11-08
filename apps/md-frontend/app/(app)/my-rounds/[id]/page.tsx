@@ -15,6 +15,7 @@ import {
   Lock,
   Info,
   AlertCircle,
+  Hash,
 } from "lucide-react";
 import { toast } from "sonner";
 import { FormTextarea } from "@/components/FormTextarea";
@@ -124,6 +125,7 @@ export default function RoundDetailPage() {
                           ...j,
                           subLink: cachedJudge.subLink || "",
                           reasoning: cachedJudge.reasoning || "",
+                          selectedOption: cachedJudge.selectedOption || "",
                         }
                       : j;
                   });
@@ -151,19 +153,33 @@ export default function RoundDetailPage() {
             setCollection(colRes.data);
           }
         } else {
-          // Parse judge data to extract the bonus state from the DB cleanly
-          // This separates the visual state (base score) from the backend state
+          // Parse judge data extracting standard scores and split scores if enabled
           const parsedSubmissions = detailRes.data.submissions.map((s: any) => {
-            const hasBonus = s.review?.includes("(+0.25)") || false;
+            let hasBonus = s.review?.includes("(+0.25)") || false;
             let displayScore = s.score !== null && s.score !== undefined ? s.score.toString() : "";
             let displayReview = s.review || "";
+            let songScore = "";
+            let reasoningScore = "";
 
             if (hasBonus) {
-              // Strip the bonus from the UI so it doesn't double-stack visually
               if (displayScore !== "") {
                 displayScore = (parseFloat(displayScore) - 0.25).toString();
               }
               displayReview = displayReview.replace(" (+0.25)", "").replace("(+0.25)", "").trim();
+            }
+
+            if (detailRes.data.splitScore) {
+              // Extract split scores from the review text if present
+              const extractRegex = /\(([\d.]+)\/\d+\s*song;\s*([\d.]+)\/\d+\s*reasoning\)\s*$/i;
+              const match = displayReview.match(extractRegex);
+              if (match) {
+                songScore = match[1];
+                reasoningScore = match[2];
+              }
+
+              // Clean up the review text by removing the split score information
+              const cleanupRegex = /\s*\([\d.]+\/\d+\s*song;\s*[\d.]+\/\d+\s*reasoning\)/gi;
+              displayReview = displayReview.replace(cleanupRegex, "").trim();
             }
 
             return {
@@ -171,6 +187,8 @@ export default function RoundDetailPage() {
               score: displayScore,
               review: displayReview,
               hasBonus: hasBonus,
+              songScore: songScore,
+              reasoningScore: reasoningScore,
             };
           });
 
@@ -203,7 +221,9 @@ export default function RoundDetailPage() {
                     if (
                       draftSub.score !== sub.score ||
                       draftSub.review !== sub.review ||
-                      draftSub.hasBonus !== sub.hasBonus
+                      draftSub.hasBonus !== sub.hasBonus ||
+                      draftSub.songScore !== sub.songScore ||
+                      draftSub.reasoningScore !== sub.reasoningScore
                     ) {
                       recoveredSomething = true;
                       return {
@@ -211,6 +231,8 @@ export default function RoundDetailPage() {
                         score: draftSub.score,
                         review: draftSub.review,
                         hasBonus: draftSub.hasBonus,
+                        songScore: draftSub.songScore || "",
+                        reasoningScore: draftSub.reasoningScore || "",
                       };
                     }
                   } else {
@@ -266,7 +288,9 @@ export default function RoundDetailPage() {
       if (
         current.score !== original.score ||
         current.review !== original.review ||
-        current.hasBonus !== original.hasBonus
+        current.hasBonus !== original.hasBonus ||
+        current.songScore !== original.songScore ||
+        current.reasoningScore !== original.reasoningScore
       ) {
         dirtyIds.add(current.idSubmission);
       }
@@ -284,15 +308,18 @@ export default function RoundDetailPage() {
       const draftJudges = contestantData.judges
         .filter(
           (j: any) =>
-            (j.subLink && j.subLink.trim() !== "") || (j.reasoning && j.reasoning.trim() !== ""),
+            (j.subLink && j.subLink.trim() !== "") ||
+            (j.reasoning && j.reasoning.trim() !== "") ||
+            (j.selectedOption && j.selectedOption.trim() !== ""),
         )
         .map((j: any) => ({
           discordId: j.discordId,
           subLink: j.subLink,
           reasoning: j.reasoning,
+          selectedOption: j.selectedOption,
         }));
 
-      if (draftJudges.length > 0 && selectedForCollection.length > 0) {
+      if (draftJudges.length > 0 || selectedForCollection.length > 0) {
         const draft = { judges: draftJudges, selectedForCollection };
         localStorage.setItem(`micdrop-round-${id}-draft`, JSON.stringify(draft));
       } else {
@@ -320,7 +347,8 @@ export default function RoundDetailPage() {
             score: s.score,
             review: s.review,
             hasBonus: s.hasBonus,
-            // Historical context
+            songScore: s.songScore,
+            reasoningScore: s.reasoningScore,
             baseScore: original?.score,
             baseReview: original?.review,
             baseBonus: original?.hasBonus,
@@ -332,7 +360,7 @@ export default function RoundDetailPage() {
         localStorage.removeItem(`micdrop-round-${id}-judge-draft`);
       }
     }
-  }, [judgeData?.submissions, role, id]);
+  }, [judgeData?.submissions, dirtySubmissionIds, persistedSubmissions, role, id]);
 
   const toggleJudge = (discordId: string) => {
     setOpenJudges((prev) => ({ ...prev, [discordId]: !prev[discordId] }));
@@ -364,6 +392,14 @@ export default function RoundDetailPage() {
     });
   };
 
+  const handleOptionChange = (discordId: string, val: string) => {
+    if (hasSubmitted) return;
+    const newJudges = contestantData.judges.map((j: any) =>
+      j.discordId === discordId ? { ...j, selectedOption: val } : j,
+    );
+    setContestantData({ ...contestantData, judges: newJudges });
+  };
+
   const handleCollectionToggle = (discordId: string) => {
     setSelectedForCollection((prev) => {
       if (prev.includes(discordId)) return prev.filter((id) => id !== discordId);
@@ -383,18 +419,18 @@ export default function RoundDetailPage() {
       const hasLink = j.subLink && j.subLink.trim() !== "";
       const hasReasoning =
         !contestantData.requireReasoning || (j.reasoning && j.reasoning.trim() !== "");
-      return hasLink && hasReasoning;
+      const hasOption =
+        !contestantData.hasDropdownOptions || (j.selectedOption && j.selectedOption.trim() !== "");
+      return hasLink && hasReasoning && hasOption;
     });
 
   const handleScoreChange = (sub: any, e: any) => {
     if (!sub) return;
-
     const rawVal = e.target.value;
     const cursor = e.target.selectionStart;
 
     let val = rawVal.replace(",", ".");
 
-    // Block non-numeric input except for one decimal point at most
     if (!/^\d*\.?\d*$/.test(val)) {
       const oldScore =
         judgeData.submissions.find((s: any) => s.idSubmission === sub.idSubmission)?.score ?? "";
@@ -404,12 +440,7 @@ export default function RoundDetailPage() {
     }
 
     if (val === "") {
-      setJudgeData({
-        ...judgeData,
-        submissions: judgeData.submissions.map((s: any) =>
-          s.idSubmission === sub.idSubmission ? { ...s, score: "" } : s,
-        ),
-      });
+      updateTotalScoreState(sub, "");
       return;
     }
 
@@ -448,21 +479,108 @@ export default function RoundDetailPage() {
         e.target.setSelectionRange(newCursor, newCursor);
       }
 
-      // Automatically remove the bonus if the manual score is 9 or above
-      let newHasBonus = sub.hasBonus || false;
-      if (parseFloat(finalVal) >= 9 && newHasBonus) {
-        newHasBonus = false;
-      }
-
-      setJudgeData({
-        ...judgeData,
-        submissions: judgeData.submissions.map((s: any) =>
-          s.idSubmission === sub.idSubmission
-            ? { ...s, score: finalVal, hasBonus: newHasBonus }
-            : s,
-        ),
-      });
+      updateTotalScoreState(sub, finalVal);
     }
+  };
+
+  const updateTotalScoreState = (sub: any, finalVal: string) => {
+    // Automatically remove the bonus if the manual score is 9 or above
+    let newHasBonus = sub.hasBonus || false;
+    if (parseFloat(finalVal) >= 9 && newHasBonus) {
+      newHasBonus = false;
+    }
+    setJudgeData({
+      ...judgeData,
+      submissions: judgeData.submissions.map((s: any) =>
+        s.idSubmission === sub.idSubmission ? { ...s, score: finalVal, hasBonus: newHasBonus } : s,
+      ),
+    });
+  };
+
+  const handleSplitScoreChange = (
+    sub: any,
+    e: any,
+    field: "songScore" | "reasoningScore",
+    max: number,
+  ) => {
+    if (!sub) return;
+    const rawVal = e.target.value;
+    const cursor = e.target.selectionStart;
+
+    let val = rawVal.replace(",", ".");
+
+    if (!/^\d*\.?\d*$/.test(val)) {
+      const oldScore =
+        judgeData.submissions.find((s: any) => s.idSubmission === sub.idSubmission)?.[field] ?? "";
+      e.target.value = oldScore;
+      e.target.setSelectionRange(cursor - 1, cursor - 1);
+      return;
+    }
+
+    if (val === "") {
+      updateSplitScoreState(sub, field, "");
+      return;
+    }
+
+    if (val === ".") val = "0.";
+    let parts = val.split(".");
+    if (parts[0].length > 1 && parts[0].startsWith("0")) {
+      parts[0] = parts[0].replace(/^0+/, "");
+      if (parts[0] === "") parts[0] = "0";
+      val = parts.length > 1 ? `${parts[0]}.${parts[1]}` : parts[0];
+    }
+    if (val.includes(".")) {
+      const newParts = val.split(".");
+      if (newParts[1] && newParts[1].length > 2) {
+        val = `${newParts[0]}.${newParts[1].slice(0, 2)}`;
+      }
+    }
+
+    const numVal = parseFloat(val);
+    if (!isNaN(numVal)) {
+      let finalVal = val;
+      if (numVal > max) finalVal = max.toString();
+      if (numVal < 0) finalVal = "0";
+
+      e.target.value = finalVal;
+      if (rawVal !== finalVal) {
+        const newCursor = rawVal.length > finalVal.length ? cursor - 1 : cursor;
+        e.target.setSelectionRange(newCursor, newCursor);
+      }
+      updateSplitScoreState(sub, field, finalVal);
+    }
+  };
+
+  const updateSplitScoreState = (sub: any, field: "songScore" | "reasoningScore", val: string) => {
+    setJudgeData((prev: any) => {
+      const subs = prev.submissions.map((s: any) => {
+        if (s.idSubmission === sub.idSubmission) {
+          const newSub = { ...s, [field]: val };
+          const sScore = parseFloat(newSub.songScore);
+          const rScore = parseFloat(newSub.reasoningScore);
+
+          if (!isNaN(sScore) && !isNaN(rScore)) {
+            newSub.score = (sScore + rScore).toString();
+            if (newSub.score && parseFloat(newSub.score) >= 9 && newSub.hasBonus) {
+              newSub.hasBonus = false;
+            }
+          } else if (newSub.songScore === "" && newSub.reasoningScore === "") {
+            newSub.score = "";
+          } else {
+            if (newSub.songScore === "") {
+              newSub.score = newSub.reasoningScore;
+            } else if (newSub.reasoningScore === "") {
+              newSub.score = newSub.songScore;
+            } else {
+              newSub.score = "";
+            }
+          }
+          return newSub;
+        }
+        return s;
+      });
+      return { ...prev, submissions: subs };
+    });
   };
 
   const handleReviewChange = (sub: any, e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -542,6 +660,7 @@ export default function RoundDetailPage() {
           subLink: formatExternalUrl(j.subLink),
           addToCollection: selectedForCollection.includes(j.discordId),
           reasoning: contestantData.requireReasoning ? j.reasoning : null,
+          selectedOption: contestantData.hasDropdownOptions ? j.selectedOption : null,
         })),
       };
       await api.post("/my-rounds/batch-submit", payload);
@@ -563,24 +682,70 @@ export default function RoundDetailPage() {
   const submitJudgeScores = async () => {
     try {
       setSubmitting(true);
-      const payload = {
-        idRound: Number(id),
-        scores: judgeData.submissions.map((s: any) => {
-          let finalScore = s.score === "" || s.score === null ? null : Number(s.score);
-          if (finalScore !== null && s.hasBonus) {
-            finalScore += 0.25;
+
+      const parsedScores = [];
+      for (const s of judgeData.submissions) {
+        if (judgeData.splitScore) {
+          const sEmpty = s.songScore === "" || s.songScore === null || s.songScore === undefined;
+          const rEmpty =
+            s.reasoningScore === "" || s.reasoningScore === null || s.reasoningScore === undefined;
+
+          if (sEmpty !== rEmpty) {
+            toast.error("Incomplete Split Score", {
+              description: "You must provide both Song and Reasoning scores, or leave both empty.",
+              closeButton: true,
+            });
+            setSubmitting(false);
+            return;
           }
 
-          let finalReview = s.review || "";
-          if (s.hasBonus) {
-            finalReview = finalReview.trim() ? `${finalReview.trim()} (+0.25)` : "(+0.25)";
+          if (!sEmpty && !rEmpty) {
+            const sScore = parseFloat(s.songScore);
+            const rScore = parseFloat(s.reasoningScore);
+            if (isNaN(sScore) || isNaN(rScore) || sScore <= 0 || rScore <= 0) {
+              toast.error("Invalid Score", {
+                description: "Both song and reasoning scores must be strictly greater than 0.",
+                closeButton: true,
+              });
+              setSubmitting(false);
+              return;
+            }
           }
-          return {
-            idSubmission: s.idSubmission,
-            score: finalScore,
-            review: finalReview,
-          };
-        }),
+        }
+
+        let finalScore = s.score === "" || s.score === null ? null : Number(s.score);
+        let finalReview = s.review || "";
+
+        // Clean up the review text by removing any existing split score information before appending new split scores
+        if (judgeData.splitScore) {
+          const cleanupRegex = /\s*\([\d.]+\/\d+\s*song;\s*[\d.]+\/\d+\s*reasoning\)/gi;
+          finalReview = finalReview.replace(cleanupRegex, "").trim();
+
+          const sEmpty = s.songScore === "" || s.songScore === null || s.songScore === undefined;
+          const rEmpty =
+            s.reasoningScore === "" || s.reasoningScore === null || s.reasoningScore === undefined;
+
+          // Only append split score information if both song and reasoning scores are provided
+          if (finalScore !== null && !sEmpty && !rEmpty) {
+            finalReview = `${finalReview} (${s.songScore}/${judgeData.maxSongScore} song; ${s.reasoningScore}/${judgeData.maxReasoningScore} reasoning)`;
+          }
+        }
+
+        if (finalScore !== null && s.hasBonus) {
+          finalScore += 0.25;
+          finalReview = finalReview.trim() ? `${finalReview.trim()} (+0.25)` : "(+0.25)";
+        }
+
+        parsedScores.push({
+          idSubmission: s.idSubmission,
+          score: finalScore,
+          review: finalReview,
+        });
+      }
+
+      const payload = {
+        idRound: Number(id),
+        scores: parsedScores,
       };
       const res = await api.put("/my-rounds/batch-score", payload);
       setPersistedSubmissions(judgeData.submissions); // Update persisted submissions after successful save
@@ -828,6 +993,18 @@ export default function RoundDetailPage() {
                             </a>
                           ) : null}
                         </div>
+
+                        {contestantData.hasDropdownOptions && (
+                          <div className="bg-[#111214] border border-[#35373C] p-3 rounded-md">
+                            <span className="text-[10px] font-bold text-[#80848E] uppercase block mb-1">
+                              Selected Option:
+                            </span>
+                            <span className="inline-block bg-[#E67E22]/10 border border-[#E67E22]/20 text-[#E67E22] text-xs font-bold px-3 py-1 rounded">
+                              {judge.selectedOption || "None selected."}
+                            </span>
+                          </div>
+                        )}
+
                         {contestantData.requireReasoning && (
                           <div className="bg-[#111214] border border-[#35373C] p-3 rounded-md">
                             <span className="text-[10px] font-bold text-[#80848E] uppercase block mb-1">
@@ -842,13 +1019,55 @@ export default function RoundDetailPage() {
                         )}
                       </div>
                     ) : contestantData.specialRound ? (
-                      // Special round combobox for selecting from collection
                       <div className="space-y-3">
                         <SpecialRoundCombobox
                           judge={judge}
                           collection={collection}
                           onSelectLink={handleLinkChange}
                         />
+
+                        {contestantData.hasDropdownOptions && (
+                          <div className="mt-3">
+                            <label className="block text-xs text-[#80848E] font-bold uppercase mb-1">
+                              Select Option
+                            </label>
+                            <select
+                              value={judge.selectedOption || ""}
+                              onChange={(e) => handleOptionChange(judge.discordId, e.target.value)}
+                              className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md px-4 py-3 outline-none focus:border-[#5865F2]"
+                            >
+                              <option value="" disabled>
+                                Select an option...
+                              </option>
+                              {contestantData.dropdownOptions?.map((opt: string) => {
+                                const usedInGroup = contestantData.optionUsageCounts?.[opt] || 0;
+                                const localUsage = contestantData.judges.filter(
+                                  (j: any) =>
+                                    j.discordId !== judge.discordId && j.selectedOption === opt,
+                                ).length;
+                                const max = contestantData.maxSelectionsPerOption;
+                                const isExhausted = max && usedInGroup + localUsage >= max;
+
+                                const disabledByRepeat =
+                                  !contestantData.allowDropdownRepeat && localUsage > 0;
+
+                                const disabled = isExhausted || disabledByRepeat;
+
+                                return (
+                                  <option key={opt} value={opt} disabled={disabled}>
+                                    {opt}{" "}
+                                    {isExhausted
+                                      ? "(Group Limit Reached)"
+                                      : disabledByRepeat
+                                        ? "(Already selected by you)"
+                                        : ""}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                          </div>
+                        )}
+
                         {contestantData.requireReasoning && (
                           <div className="mt-3">
                             <FormTextarea
@@ -876,6 +1095,49 @@ export default function RoundDetailPage() {
                           onChange={(e) => handleLinkChange(judge.discordId, e.target.value)}
                           className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md px-4 py-3 outline-none focus:border-[#5865F2] focus:bg-[#111214] transition-all"
                         />
+
+                        {contestantData.hasDropdownOptions && (
+                          <div className="mt-3">
+                            <label className="block text-xs text-[#80848E] font-bold uppercase mb-1">
+                              Select Option
+                            </label>
+                            <select
+                              value={judge.selectedOption || ""}
+                              onChange={(e) => handleOptionChange(judge.discordId, e.target.value)}
+                              className="w-full bg-[#1E1F22] border border-[#35373C] text-[#DBDEE1] rounded-md px-4 py-3 outline-none focus:border-[#5865F2]"
+                            >
+                              <option value="" disabled>
+                                Select an option...
+                              </option>
+                              {contestantData.dropdownOptions?.map((opt: string) => {
+                                const usedInGroup = contestantData.optionUsageCounts?.[opt] || 0;
+                                const localUsage = contestantData.judges.filter(
+                                  (j: any) =>
+                                    j.discordId !== judge.discordId && j.selectedOption === opt,
+                                ).length;
+                                const max = contestantData.maxSelectionsPerOption;
+                                const isExhausted = max && usedInGroup + localUsage >= max;
+
+                                const disabledByRepeat =
+                                  !contestantData.allowDropdownRepeat && localUsage > 0;
+
+                                const disabled = isExhausted || disabledByRepeat;
+
+                                return (
+                                  <option key={opt} value={opt} disabled={disabled}>
+                                    {opt}{" "}
+                                    {isExhausted
+                                      ? "(Group Limit Reached)"
+                                      : disabledByRepeat
+                                        ? "(Already selected by you)"
+                                        : ""}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                          </div>
+                        )}
+
                         {contestantData.requireReasoning && (
                           <div className="mt-3">
                             <FormTextarea
@@ -994,7 +1256,7 @@ export default function RoundDetailPage() {
             <p className="italic">
               <strong>6.</strong> There will be a{" "}
               <span className="font-semibold">
-                judging deadline of 24 hours after the submission deadline
+                judging deadline of 48 hours after the submission deadline
               </span>
               . Failure of doing so will lead to results being{" "}
               <span className="font-semibold">announced without your scores and reviews</span>.
@@ -1131,37 +1393,103 @@ export default function RoundDetailPage() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col sm:flex-row items-center gap-4 bg-[#1E1F22] p-4 rounded-lg border border-[#35373C] shrink-0">
+                      <div className="flex flex-col items-start gap-4 bg-[#1E1F22] p-4 rounded-lg border border-[#35373C] shrink-0">
                         {/* Score Input Block */}
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-yellow-400/20 flex items-center justify-center">
-                            <Star
-                              className={`w-4 h-4 ${isMissingLink ? "text-[#80848E]" : "text-yellow-400"}`}
-                            />
+                        {judgeData.splitScore ? (
+                          <div className="flex items-center gap-4">
+                            <div className="flex flex-col">
+                              <label className="text-[10px] text-[#80848E] font-bold uppercase mb-1">
+                                Song (0-{judgeData.maxSongScore})
+                              </label>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                disabled={isMissingLink}
+                                value={isMissingLink ? "" : (sub.songScore ?? "")}
+                                onChange={(e) =>
+                                  handleSplitScoreChange(
+                                    sub,
+                                    e,
+                                    "songScore",
+                                    judgeData.maxSongScore,
+                                  )
+                                }
+                                className={`w-20 border text-white rounded px-3 py-2 outline-none font-mono text-center transition-colors ${
+                                  isMissingLink
+                                    ? "bg-[#1E1F22] border-[#35373C] opacity-50 cursor-not-allowed"
+                                    : "bg-[#2B2D31] border-[#4E5058] focus:border-[#5865F2]"
+                                }`}
+                                placeholder="--"
+                              />
+                            </div>
+                            <span className="text-[#80848E] text-lg font-black mt-3">+</span>
+                            <div className="flex flex-col">
+                              <label className="text-[10px] text-[#80848E] font-bold uppercase mb-1">
+                                Reasoning (0-{judgeData.maxReasoningScore})
+                              </label>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                disabled={isMissingLink}
+                                value={isMissingLink ? "" : (sub.reasoningScore ?? "")}
+                                onChange={(e) =>
+                                  handleSplitScoreChange(
+                                    sub,
+                                    e,
+                                    "reasoningScore",
+                                    judgeData.maxReasoningScore,
+                                  )
+                                }
+                                className={`w-20 border text-white rounded px-3 py-2 outline-none font-mono text-center transition-colors ${
+                                  isMissingLink
+                                    ? "bg-[#1E1F22] border-[#35373C] opacity-50 cursor-not-allowed"
+                                    : "bg-[#2B2D31] border-[#4E5058] focus:border-[#5865F2]"
+                                }`}
+                                placeholder="--"
+                              />
+                            </div>
+                            <span className="text-[#80848E] text-lg font-black mt-3">=</span>
+                            <div className="flex flex-col items-center min-w-10">
+                              <label className="text-[10px] text-[#80848E] font-bold uppercase mb-1">
+                                Total
+                              </label>
+                              <span className="text-xl font-bold text-yellow-400 font-mono">
+                                {sub.score ? sub.score : "--"}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex flex-col">
-                            <label className="text-[10px] text-[#80848E] font-bold uppercase mb-1">
-                              Score (0-10)
-                            </label>
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              disabled={isMissingLink}
-                              value={isMissingLink ? "" : (sub.score ?? "")}
-                              onChange={(e) => handleScoreChange(sub, e)}
-                              className={`w-24 border text-white rounded px-3 py-2 outline-none font-mono text-center transition-colors ${
-                                isMissingLink
-                                  ? "bg-[#1E1F22] border-[#35373C] opacity-50 cursor-not-allowed"
-                                  : "bg-[#2B2D31] border-[#4E5058] focus:border-[#5865F2]"
-                              }`}
-                              placeholder="--"
-                            />
+                        ) : (
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-yellow-400/20 flex items-center justify-center">
+                              <Star
+                                className={`w-4 h-4 ${isMissingLink ? "text-[#80848E]" : "text-yellow-400"}`}
+                              />
+                            </div>
+                            <div className="flex flex-col">
+                              <label className="text-[10px] text-[#80848E] font-bold uppercase mb-1">
+                                Score (0-10)
+                              </label>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                disabled={isMissingLink}
+                                value={isMissingLink ? "" : (sub.score ?? "")}
+                                onChange={(e) => handleScoreChange(sub, e)}
+                                className={`w-24 border text-white rounded px-3 py-2 outline-none font-mono text-center transition-colors ${
+                                  isMissingLink
+                                    ? "bg-[#1E1F22] border-[#35373C] opacity-50 cursor-not-allowed"
+                                    : "bg-[#2B2D31] border-[#4E5058] focus:border-[#5865F2]"
+                                }`}
+                                placeholder="--"
+                              />
+                            </div>
                           </div>
-                        </div>
+                        )}
 
-                        {/* Bonus Points Checkbox */}
                         {judgeData.givingBonus && (
-                          <div className="flex items-center sm:border-l border-[#35373C] sm:pl-4">
+                          <div
+                            className={`flex items-center w-full ${judgeData.splitScore ? "border-t border-[#35373C] pt-3" : "border-l border-[#35373C] pl-4"}`}
+                          >
                             <label
                               className={`flex items-center gap-2 text-sm font-medium select-none ${
                                 isMissingLink || (sub.score && parseFloat(sub.score) >= 9)
@@ -1204,6 +1532,28 @@ export default function RoundDetailPage() {
                       </div>
                     </div>
 
+                    {sub.selectedOption && (
+                      <div className="mt-1">
+                        <span className="text-[10px] text-[#80848E] font-bold uppercase mr-2">
+                          Contestant's Selected Option:
+                        </span>
+                        <span className="inline-block bg-[#E67E22]/10 border border-[#E67E22]/20 text-[#E67E22] text-xs font-bold px-3 py-1 rounded">
+                          {sub.selectedOption}
+                        </span>
+                      </div>
+                    )}
+
+                    {judgeData.showReasoningToJudges && sub.reasoning && (
+                      <div className="bg-[#111214] border border-[#35373C] p-4 rounded-md">
+                        <span className="text-[10px] font-bold text-[#80848E] uppercase flex items-center gap-1.5 mb-1.5">
+                          <Hash className="w-3 h-3 text-[#5865F2]" /> Contestant's Reasoning:
+                        </span>
+                        <p className="text-sm text-[#DBDEE1] whitespace-pre-wrap">
+                          {sub.reasoning}
+                        </p>
+                      </div>
+                    )}
+
                     {/* Review textarea */}
                     <div className="border-t border-[#1E1F22] pt-4 mt-2">
                       <FormTextarea
@@ -1230,6 +1580,14 @@ export default function RoundDetailPage() {
                             title="This tag will be automatically appended to your review upon saving."
                           >
                             <Lock className="w-3 h-3" /> (+0.25) appended to review
+                          </span>
+                        </div>
+                      )}
+
+                      {!isMissingLink && judgeData.splitScore && (
+                        <div className="mt-2 flex justify-end">
+                          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#80848E] bg-[#1E1F22] px-2.5 py-1.5 rounded-md border border-[#35373C] select-none cursor-default">
+                            <Lock className="w-3 h-3" /> Score breakdown appended to review
                           </span>
                         </div>
                       )}

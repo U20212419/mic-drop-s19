@@ -20,6 +20,8 @@ import {
   Shuffle,
   Star,
   FileText,
+  ListPlus,
+  SplitSquareHorizontal,
 } from "lucide-react";
 import FormattedText from "@/components/FormattedText";
 
@@ -43,6 +45,14 @@ interface Round {
   eliminationAmount?: string;
   specialRound?: boolean;
   requireReasoning?: boolean;
+  showReasoningToJudges?: boolean;
+  hasDropdownOptions?: boolean;
+  dropdownOptions?: string;
+  allowDropdownRepeat?: boolean;
+  maxSelectionsPerOption?: number | null;
+  splitScore?: boolean;
+  maxSongScore?: number | null;
+  maxReasoningScore?: number | null;
 }
 
 export default function RoundDetailPage() {
@@ -358,11 +368,136 @@ export default function RoundDetailPage() {
     setRound({
       ...round,
       requireReasoning: !round.requireReasoning,
+      showReasoningToJudges: !round.requireReasoning ? round.showReasoningToJudges : false,
+      splitScore: !round.requireReasoning ? round.splitScore : false,
     });
+  };
+
+  const handleShowReasoningToJudgesToggle = () => {
+    if (!round || !isAdmin) return;
+
+    if (round.submissionsOpen) {
+      toast.error("Cannot change round settings while submissions are open.", {
+        description: "Please close submissions before changing this setting.",
+        closeButton: true,
+      });
+      return;
+    }
+
+    setRound({
+      ...round,
+      showReasoningToJudges: !round.showReasoningToJudges,
+      splitScore: !round.showReasoningToJudges ? round.splitScore : false,
+    });
+  };
+
+  const handleSplitScoreToggle = () => {
+    if (!round || !isAdmin) return;
+
+    if (round.submissionsOpen) {
+      toast.error("Cannot change round settings while submissions are open.", {
+        description: "Please close submissions before changing this setting.",
+        closeButton: true,
+      });
+      return;
+    }
+
+    setRound({
+      ...round,
+      splitScore: !round.splitScore,
+      maxSongScore: !round.splitScore ? round.maxSongScore : null,
+      maxReasoningScore: !round.splitScore ? round.maxReasoningScore : null,
+    });
+  };
+
+  const handleHasDropdownOptionsToggle = () => {
+    if (!round || !isAdmin) return;
+
+    if (round.submissionsOpen) {
+      toast.error("Cannot change round settings while submissions are open.", {
+        description: "Please close submissions before changing this setting.",
+        closeButton: true,
+      });
+      return;
+    }
+
+    setRound({
+      ...round,
+      hasDropdownOptions: !round.hasDropdownOptions,
+      // Reset dropdown configuration when disabled
+      dropdownOptions: !round.hasDropdownOptions ? round.dropdownOptions : "",
+      allowDropdownRepeat: !round.hasDropdownOptions ? round.allowDropdownRepeat : false,
+      maxSelectionsPerOption: !round.hasDropdownOptions ? round.maxSelectionsPerOption : null,
+    });
+  };
+
+  const handleAllowDropdownRepeatToggle = () => {
+    if (!round || !isAdmin) return;
+
+    if (round.submissionsOpen) {
+      toast.error("Cannot change round settings while submissions are open.", {
+        description: "Please close submissions before changing this setting.",
+        closeButton: true,
+      });
+      return;
+    }
+
+    setRound({
+      ...round,
+      allowDropdownRepeat: !round.allowDropdownRepeat,
+    });
+  };
+
+  const handleMaxSplitScoreChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!round || !isAdmin) return;
+
+    // Clamp the value between 1 and 9 to ensure the sum can be 10
+    const clampedValue = Math.max(1, Math.min(9, parseInt(e.target.value) || 0));
+    return clampedValue;
   };
 
   const handleSave = async () => {
     if (!isAdmin) return;
+
+    // Validate Split Score
+    if (round?.splitScore) {
+      const songScore = round.maxSongScore || 0;
+      const reasoningScore = round.maxReasoningScore || 0;
+      if (songScore + reasoningScore !== 10) {
+        toast.error("Invalid Split Score", {
+          description: "Song maximum score and Reasoning maximum score must sum exactly 10.",
+          closeButton: true,
+        });
+        return;
+      }
+      if (songScore === 0 || reasoningScore === 0) {
+        toast.error("Invalid Split Score", {
+          description: "Maximum scores cannot be 0.",
+          closeButton: true,
+        });
+        return;
+      }
+    }
+
+    // Validate Dropdown
+    if (round?.hasDropdownOptions) {
+      if (!round.dropdownOptions || round.dropdownOptions.trim() === "") {
+        toast.error("Missing Dropdown Options", {
+          description: "Please define at least one option for the dropdown.",
+          closeButton: true,
+        });
+        return;
+      }
+      const opts = round.dropdownOptions.split(",").filter((o) => o.trim() !== "");
+      if (opts.length > 10) {
+        toast.error("Too many Dropdown Options", {
+          description: "A maximum of 10 options is allowed.",
+          closeButton: true,
+        });
+        return;
+      }
+    }
+
     try {
       setIsSaving(true);
       if (activeTab === "details") {
@@ -422,28 +557,6 @@ export default function RoundDetailPage() {
     } finally {
       setIsLoadingJudgeApp(false);
     }
-  };
-
-  const renderTextWithLinks = (text: string) => {
-    if (!text) return null;
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const parts = text.split(urlRegex);
-    return parts.map((part, i) => {
-      if (part.match(urlRegex)) {
-        return (
-          <a
-            key={i}
-            href={part}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[#5865F2] hover:underline"
-          >
-            {part}
-          </a>
-        );
-      }
-      return part;
-    });
   };
 
   if (isLoading)
@@ -522,7 +635,7 @@ export default function RoundDetailPage() {
       <div className="bg-[#2B2D31] rounded-xl border border-[#1E1F22] p-6">
         {/* Details Tab */}
         {activeTab === "details" && round && (
-          <div className="max-w-xl space-y-6">
+          <div className="max-w-2xl space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-[#80848E] uppercase mb-2">
@@ -636,7 +749,7 @@ export default function RoundDetailPage() {
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4 pt-2">
               {/* Active Toggle */}
               <div className="flex items-start sm:items-center justify-between gap-4 p-4 bg-[#1E1F22] rounded-lg border border-[#35373C]">
                 <div className="flex-1">
@@ -701,27 +814,230 @@ export default function RoundDetailPage() {
               </div>
 
               {/* Require Reasoning Toggle */}
-              <div
-                className={`flex items-start sm:items-center justify-between gap-4 p-4 bg-[#1E1F22] rounded-lg border border-[#35373C] transition-opacity ${round.submissionsOpen ? "opacity-50" : ""}`}
-              >
-                <div className="flex-1">
-                  <p className="text-white font-medium flex items-center gap-2">
-                    Require Theme Reasoning <FileText className="w-4 h-4 text-[#5865F2] shrink-0" />
-                  </p>
-                  <p className="text-[#80848E] text-xs sm:text-sm mt-1 sm:mt-0 leading-snug">
-                    Forces contestants to provide a short explanation (max. 500 chars) on why their
-                    track fits the theme.
-                  </p>
-                </div>
-                <button
-                  onClick={handleRequireReasoningToggle}
-                  disabled={!isAdmin || round.submissionsOpen}
-                  className={`shrink-0 mt-1 sm:mt-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${!isAdmin || round.submissionsOpen ? "cursor-not-allowed opacity-50" : ""} ${round.requireReasoning ? "bg-[#5865F2]" : "bg-[#4E5058]"}`}
+              <div className="bg-[#1E1F22] rounded-lg border border-[#35373C] overflow-hidden">
+                <div
+                  className={`flex items-start sm:items-center justify-between gap-4 p-4 transition-opacity ${round.submissionsOpen ? "opacity-50" : ""}`}
                 >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${round.requireReasoning ? "translate-x-6" : "translate-x-1"}`}
-                  />
-                </button>
+                  <div className="flex-1">
+                    <p className="text-white font-medium flex items-center gap-2">
+                      Require Theme Reasoning{" "}
+                      <FileText className="w-4 h-4 text-[#5865F2] shrink-0" />
+                    </p>
+                    <p className="text-[#80848E] text-xs sm:text-sm mt-1 sm:mt-0 leading-snug">
+                      Forces contestants to provide a short explanation (max. 500 chars) on why
+                      their track fits the theme.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleRequireReasoningToggle}
+                    disabled={!isAdmin || round.submissionsOpen}
+                    className={`shrink-0 mt-1 sm:mt-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${!isAdmin || round.submissionsOpen ? "cursor-not-allowed opacity-50" : ""} ${round.requireReasoning ? "bg-[#5865F2]" : "bg-[#4E5058]"}`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${round.requireReasoning ? "translate-x-6" : "translate-x-1"}`}
+                    />
+                  </button>
+                </div>
+
+                {/* Sub-toggles for Reasoning */}
+                {round.requireReasoning && (
+                  <div className="border-t border-[#35373C] bg-[#2B2D31]/30 p-4 space-y-4">
+                    <div
+                      className={`flex items-start sm:items-center justify-between gap-4 transition-opacity ${round.submissionsOpen ? "opacity-50" : ""}`}
+                    >
+                      <div className="flex-1 pl-2 border-l-2 border-[#5865F2]">
+                        <p className="text-white font-medium text-sm">Show Reasoning to Judges</p>
+                        <p className="text-[#80848E] text-xs mt-0.5 leading-snug">
+                          Judges will be able to read the contestant's reasoning while evaluating.
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleShowReasoningToJudgesToggle}
+                        disabled={!isAdmin || round.submissionsOpen}
+                        className={`shrink-0 relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${!isAdmin || round.submissionsOpen ? "cursor-not-allowed opacity-50" : ""} ${round.showReasoningToJudges ? "bg-[#5865F2]" : "bg-[#4E5058]"}`}
+                      >
+                        <span
+                          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${round.showReasoningToJudges ? "translate-x-5" : "translate-x-0.5"}`}
+                        />
+                      </button>
+                    </div>
+
+                    {round.showReasoningToJudges && (
+                      <div className="space-y-4">
+                        <div
+                          className={`flex items-start sm:items-center justify-between gap-4 transition-opacity ${round.submissionsOpen ? "opacity-50" : ""}`}
+                        >
+                          <div className="flex-1 pl-6 border-l-2 border-[#5865F2]/50">
+                            <p className="text-white font-medium text-sm flex items-center gap-2">
+                              Split Score (Song + Reasoning){" "}
+                              <SplitSquareHorizontal className="w-3.5 h-3.5 text-[#E67E22] shrink-0" />
+                            </p>
+                            <p className="text-[#80848E] text-xs mt-0.5 leading-snug">
+                              Allows judges to grade the track and the reasoning separately.
+                            </p>
+                          </div>
+                          <button
+                            onClick={handleSplitScoreToggle}
+                            disabled={!isAdmin || round.submissionsOpen}
+                            className={`shrink-0 relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${!isAdmin || round.submissionsOpen ? "cursor-not-allowed opacity-50" : ""} ${round.splitScore ? "bg-[#E67E22]" : "bg-[#4E5058]"}`}
+                          >
+                            <span
+                              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${round.splitScore ? "translate-x-5" : "translate-x-0.5"}`}
+                            />
+                          </button>
+                        </div>
+
+                        {round.splitScore && (
+                          <div className="pl-6 ml-0.5 flex gap-4">
+                            <div className="flex-1">
+                              <label className="block text-[10px] font-bold text-[#80848E] uppercase mb-1">
+                                Max Song Score
+                              </label>
+                              <input
+                                type="number"
+                                min="1"
+                                max="9"
+                                disabled={!isAdmin || round.submissionsOpen}
+                                value={round.maxSongScore || ""}
+                                onKeyDown={(e) => {
+                                  // Block decimal points, commas, minus, plus, and 'e' (scientific notation)
+                                  if (["-", "+", "e", "E", ".", ","].includes(e.key)) {
+                                    e.preventDefault();
+                                  }
+                                }}
+                                onChange={(e) =>
+                                  setRound({
+                                    ...round,
+                                    maxSongScore: handleMaxSplitScoreChange(e),
+                                  })
+                                }
+                                className="w-full bg-[#1E1F22] border border-[#35373C] text-white rounded-md px-3 py-1.5 text-sm outline-none focus:border-[#5865F2] disabled:opacity-50"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <label className="block text-[10px] font-bold text-[#80848E] uppercase mb-1">
+                                Max Reasoning Score
+                              </label>
+                              <input
+                                type="number"
+                                min="1"
+                                max="9"
+                                disabled={!isAdmin || round.submissionsOpen}
+                                value={round.maxReasoningScore || ""}
+                                onKeyDown={(e) => {
+                                  // Block decimal points, commas, minus, plus, and 'e' (scientific notation)
+                                  if (["-", "+", "e", "E", ".", ","].includes(e.key)) {
+                                    e.preventDefault();
+                                  }
+                                }}
+                                onChange={(e) =>
+                                  setRound({
+                                    ...round,
+                                    maxReasoningScore: handleMaxSplitScoreChange(e),
+                                  })
+                                }
+                                className="w-full bg-[#1E1F22] border border-[#35373C] text-white rounded-md px-3 py-1.5 text-sm outline-none focus:border-[#5865F2] disabled:opacity-50"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Requirement Section: Configurable Dropdown */}
+              <div className="bg-[#1E1F22] rounded-lg border border-[#35373C] overflow-hidden">
+                <div
+                  className={`flex items-start sm:items-center justify-between gap-4 p-4 transition-opacity ${round.submissionsOpen ? "opacity-50" : ""}`}
+                >
+                  <div className="flex-1">
+                    <p className="text-white font-medium flex items-center gap-2">
+                      Enable Dropdown Options{" "}
+                      <ListPlus className="w-4 h-4 text-[#5865F2] shrink-0" />
+                    </p>
+                    <p className="text-[#80848E] text-xs sm:text-sm mt-1 sm:mt-0 leading-snug">
+                      Contestants must select from a list of configurable options per submission.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleHasDropdownOptionsToggle}
+                    disabled={!isAdmin || round.submissionsOpen}
+                    className={`shrink-0 mt-1 sm:mt-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${!isAdmin || round.submissionsOpen ? "cursor-not-allowed opacity-50" : ""} ${round.hasDropdownOptions ? "bg-[#5865F2]" : "bg-[#4E5058]"}`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${round.hasDropdownOptions ? "translate-x-6" : "translate-x-1"}`}
+                    />
+                  </button>
+                </div>
+
+                {/* Sub-settings for Dropdown */}
+                {round.hasDropdownOptions && (
+                  <div className="border-t border-[#35373C] bg-[#2B2D31]/30 p-4 space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-[#80848E] uppercase mb-1">
+                        Options (Comma separated, max 10)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Option A, Option B, Option C"
+                        disabled={!isAdmin || round.submissionsOpen}
+                        value={round.dropdownOptions || ""}
+                        onChange={(e) => setRound({ ...round, dropdownOptions: e.target.value })}
+                        className="w-full bg-[#1E1F22] border border-[#35373C] text-white rounded-md px-3 py-2 text-sm outline-none focus:border-[#5865F2] disabled:opacity-50"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div
+                        className={`flex items-start sm:items-center justify-between gap-4 transition-opacity ${round.submissionsOpen ? "opacity-50" : ""}`}
+                      >
+                        <div className="flex-1">
+                          <p className="text-white font-medium text-sm">Allow Repeat Selection</p>
+                          <p className="text-[#80848E] text-xs mt-0.5 leading-snug">
+                            Can a contestant select the same option multiple times?
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleAllowDropdownRepeatToggle}
+                          disabled={!isAdmin || round.submissionsOpen}
+                          className={`shrink-0 relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${!isAdmin || round.submissionsOpen ? "cursor-not-allowed opacity-50" : ""} ${round.allowDropdownRepeat ? "bg-[#5865F2]" : "bg-[#4E5058]"}`}
+                        >
+                          <span
+                            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${round.allowDropdownRepeat ? "translate-x-5" : "translate-x-0.5"}`}
+                          />
+                        </button>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-[#80848E] uppercase mb-1">
+                          Max Selections Per Option (Per Group)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="No limit"
+                          disabled={!isAdmin || round.submissionsOpen}
+                          value={round.maxSelectionsPerOption || ""}
+                          onKeyDown={(e) => {
+                            // Block decimal points, commas, minus, plus, and 'e' (scientific notation)
+                            if (["-", "+", "e", "E", ".", ","].includes(e.key)) {
+                              e.preventDefault();
+                            }
+                          }}
+                          onChange={(e) =>
+                            setRound({
+                              ...round,
+                              maxSelectionsPerOption: parseInt(e.target.value) || null,
+                            })
+                          }
+                          className="w-full bg-[#1E1F22] border border-[#35373C] text-white rounded-md px-3 py-1.5 text-sm outline-none focus:border-[#5865F2] disabled:opacity-50"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

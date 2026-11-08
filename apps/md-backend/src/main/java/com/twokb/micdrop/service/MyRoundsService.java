@@ -2,6 +2,7 @@ package com.twokb.micdrop.service;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -96,9 +97,34 @@ public class MyRoundsService {
 					sub != null ? sub.getReasoning() : null);
 		}).toList();
 
-		return new ContestantRoundDetailDTO(idRound, myUr.getRound().getRoundNumber(), myUr.getId().getGroupNumber(),
-				myUr.getRound().getSubmissionsOpen(), myUr.getRound().getSpecialRound(),
-				myUr.getRound().getRequireReasoning(), judges);
+		// Map dropdown options and calculate current group usage quota
+		List<String> options = List.of();
+		Map<String, Long> optionUsageCounts = new HashMap<>();
+
+		if (Boolean.TRUE.equals(round.getHasDropdownOptions())) {
+			if (round.getDropdownOptions() != null && !round.getDropdownOptions().isBlank()) {
+				options = Arrays.asList(round.getDropdownOptions().split(",")).stream().map(String::trim).toList();
+			}
+
+			List<Integer> groupContestantIds = userRoundService
+				.getUsersByRoundIdAndRoleAndGroupNumber(idRound, myUr.getId().getGroupNumber(),
+						UserRoleType.CONTESTANT.name().toLowerCase())
+				.stream()
+				.map(ur -> ur.getUser().getIdUser())
+				.toList();
+
+			List<Submission> groupSubs = submissionService.getSubmissionsByRoundIdAndContestantIds(idRound,
+					groupContestantIds);
+
+			optionUsageCounts = groupSubs.stream()
+				.filter(s -> s.getSelectedOption() != null && !s.getSelectedOption().isBlank())
+				.collect(Collectors.groupingBy(Submission::getSelectedOption, Collectors.counting()));
+		}
+
+		return new ContestantRoundDetailDTO(idRound, round.getRoundNumber(), myUr.getId().getGroupNumber(),
+				round.getSubmissionsOpen(), round.getSpecialRound(), round.getRequireReasoning(), judges,
+				round.getHasDropdownOptions(), options, round.getAllowDropdownRepeat(),
+				round.getMaxSelectionsPerOption(), optionUsageCounts);
 	}
 
 	@Transactional(readOnly = true)
@@ -130,14 +156,16 @@ public class MyRoundsService {
 
 		List<SubmissionJudgeDTO> subDtos = subs.stream()
 			.map(s -> new SubmissionJudgeDTO(s.getIdSubmission(), s.getSubLink(), s.getScore(), s.getReview(),
-					s.getArtist(), s.getTitle()))
+					s.getArtist(), s.getTitle(), s.getSelectedOption(),
+					Boolean.TRUE.equals(round.getShowReasoningToJudges()) ? s.getReasoning() : null))
 			.toList();
 
 		JudgeApp app = judgeUser.getJudgeApp();
 		Boolean givingBonus = (app == null) ? false : app.getGivingBonus();
 
 		return new JudgeRoundDetailDTO(idRound, round.getRoundNumber(), groupNumber, round.getSubmissionsOpen(),
-				round.getSpecialRound(), givingBonus, subDtos);
+				round.getSpecialRound(), givingBonus, subDtos, round.getShowReasoningToJudges(), round.getSplitScore(),
+				round.getMaxSongScore(), round.getMaxReasoningScore());
 	}
 
 	@Transactional
@@ -202,6 +230,55 @@ public class MyRoundsService {
 				if (alreadyReceived) {
 					throw new IllegalArgumentException("The judge " + judge.getUsername()
 							+ " has already received this track in a previous round. Please submit a different track.");
+				}
+			}
+		}
+
+		// Dropdown logic validations
+		if (Boolean.TRUE.equals(round.getHasDropdownOptions())) {
+			if (Boolean.FALSE.equals(round.getAllowDropdownRepeat())) {
+				long uniqueOptions = request.submissions()
+					.stream()
+					.filter(s -> s.selectedOption() != null && !s.selectedOption().isBlank())
+					.map(SubmitLinkRequest::selectedOption)
+					.distinct()
+					.count();
+				long totalOptions = request.submissions()
+					.stream()
+					.filter(s -> s.selectedOption() != null && !s.selectedOption().isBlank())
+					.count();
+
+				if (uniqueOptions < totalOptions) {
+					throw new IllegalArgumentException(
+							"You cannot repeat the same dropdown option for multiple submissions in this round.");
+				}
+			}
+
+			if (round.getMaxSelectionsPerOption() != null) {
+				List<Integer> groupContestantIds = userRoundService
+					.getUsersByRoundIdAndRoleAndGroupNumber(round.getIdRound(), contestantGroup,
+							UserRoleType.CONTESTANT.name().toLowerCase())
+					.stream()
+					.map(ur -> ur.getUser().getIdUser())
+					.toList();
+				List<Submission> groupSubs = submissionService
+					.getSubmissionsByRoundIdAndContestantIds(round.getIdRound(), groupContestantIds);
+
+				Map<String, Long> existingCounts = groupSubs.stream()
+					.filter(s -> s.getSelectedOption() != null && !s.getSelectedOption().isBlank())
+					.collect(Collectors.groupingBy(Submission::getSelectedOption, Collectors.counting()));
+
+				Map<String, Long> newCounts = request.submissions()
+					.stream()
+					.filter(s -> s.selectedOption() != null && !s.selectedOption().isBlank())
+					.collect(Collectors.groupingBy(SubmitLinkRequest::selectedOption, Collectors.counting()));
+
+				for (Map.Entry<String, Long> entry : newCounts.entrySet()) {
+					long existing = existingCounts.getOrDefault(entry.getKey(), 0L);
+					if (existing + entry.getValue() > round.getMaxSelectionsPerOption()) {
+						throw new IllegalArgumentException("The option '" + entry.getKey()
+								+ "' has exceeded the maximum allowed selections for this group.");
+					}
 				}
 			}
 		}
@@ -274,6 +351,10 @@ public class MyRoundsService {
 			sub.setSubmittedAt(Instant.now());
 			sub.setReasoning(slr.reasoning());
 
+			if (Boolean.TRUE.equals(round.getHasDropdownOptions())) {
+				sub.setSelectedOption(slr.selectedOption());
+			}
+
 			if (isSpecialRound && slr.subLink() != null && !slr.subLink().isBlank()) {
 				String[] metadata = metadataMap.get(slr.subLink());
 				if (metadata != null) {
@@ -323,6 +404,7 @@ public class MyRoundsService {
 					throw new IllegalArgumentException("Score must be in increments of 0.25.");
 				}
 			}
+
 			sub.setScore(ssr.score());
 			sub.setReview(ssr.review());
 			submissionService.saveSubmission(sub);

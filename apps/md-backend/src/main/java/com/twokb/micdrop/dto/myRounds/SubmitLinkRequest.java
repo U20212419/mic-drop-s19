@@ -1,4 +1,5 @@
 package com.twokb.micdrop.dto.myRounds;
 
-public record SubmitLinkRequest(String judgeDiscordId, String subLink, Boolean addToCollection, String reasoning) {
+public record SubmitLinkRequest(String judgeDiscordId, String subLink, Boolean addToCollection, String reasoning,
+		String selectedOption) {
 }
