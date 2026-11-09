@@ -156,7 +156,8 @@ public class MyRoundsService {
 
 		List<SubmissionJudgeDTO> subDtos = subs.stream()
 			.map(s -> new SubmissionJudgeDTO(s.getIdSubmission(), s.getSubLink(), s.getScore(), s.getReview(),
-					s.getArtist(), s.getTitle(), s.getSelectedOption(),
+					s.getArtist(), s.getTitle(),
+					Boolean.TRUE.equals(round.getHasDropdownOptions()) ? s.getSelectedOption() : null,
 					Boolean.TRUE.equals(round.getShowReasoningToJudges()) ? s.getReasoning() : null))
 			.toList();
 
