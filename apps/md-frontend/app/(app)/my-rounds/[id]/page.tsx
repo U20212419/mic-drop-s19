@@ -156,22 +156,17 @@ export default function RoundDetailPage() {
         } else {
           // Parse judge data extracting standard scores and split scores if enabled
           const parsedSubmissions = detailRes.data.submissions.map((s: any) => {
-            let hasBonus = s.review?.includes("(+0.25)") || false;
             let displayScore = s.score !== null && s.score !== undefined ? s.score.toString() : "";
             let displayReview = s.review || "";
             let songScore = "";
             let reasoningScore = "";
+            let hasBonus = false;
 
-            if (hasBonus) {
-              if (displayScore !== "") {
-                displayScore = (parseFloat(displayScore) - 0.25).toString();
-              }
-              displayReview = displayReview.replace(" (+0.25)", "").replace("(+0.25)", "").trim();
-            }
-
+            // Extract split score
             if (detailRes.data.splitScore) {
-              // Extract split scores from the review text if present
-              const extractRegex = /\(([\d.]+)\/\d+\s*song;\s*([\d.]+)\/\d+\s*reasoning\)\s*$/i;
+              // Searches for the split score pattern in the review text ignoring bonus points
+              const extractRegex =
+                /\(([\d.]+)\/\d+\s*song;\s*([\d.]+)\/\d+\s*reasoning\)\s*(?:\(\+0\.25\)\u200B)?$/i;
               const match = displayReview.match(extractRegex);
               if (match) {
                 songScore = match[1];
@@ -179,8 +174,23 @@ export default function RoundDetailPage() {
               }
 
               // Clean up the review text by removing the split score information
-              const cleanupRegex = /\s*\([\d.]+\/\d+\s*song;\s*[\d.]+\/\d+\s*reasoning\)/gi;
-              displayReview = displayReview.replace(cleanupRegex, "").trim();
+              const cleanupRegex =
+                /\s*\([\d.]+\/\d+\s*song;\s*[\d.]+\/\d+\s*reasoning\)(?=\s*(?:\(\+0\.25\)\u200B)?$)/gi;
+              displayReview = displayReview.replace(cleanupRegex, "");
+            }
+
+            // Extract bonus only if the judge gives bonuses and it's at the end of the review text
+            // It's only valid if it includes the Zero-Width Space character (\u200B) at the end, which is added when saving the score
+            if (detailRes.data.givingBonus) {
+              const systemBonusRegex = /\s*\(\+0\.25\)\u200B$/;
+              if (systemBonusRegex.test(displayReview)) {
+                hasBonus = true;
+                displayReview = displayReview.replace(systemBonusRegex, "").trim();
+
+                if (displayScore !== "") {
+                  displayScore = (parseFloat(displayScore) - 0.25).toString();
+                }
+              }
             }
 
             return {
@@ -734,7 +744,10 @@ export default function RoundDetailPage() {
 
         if (finalScore !== null && s.hasBonus) {
           finalScore += 0.25;
-          finalReview = finalReview.trim() ? `${finalReview.trim()} (+0.25)` : "(+0.25)";
+          // Add \u200B (Zero-Width Space) at the end
+          finalReview = finalReview.trim()
+            ? `${finalReview.trim()} (+0.25)\u200B`
+            : "(+0.25)\u200B";
         }
 
         parsedScores.push({
