@@ -94,7 +94,7 @@ public class MyRoundsService {
 
 			return new JudgeDetailDTO(judgeUser.getDiscordId(), judgeUser.getUsername(), appDto,
 					sub != null ? sub.getSubLink() : "", sub != null ? sub.getIdSubmission() : null, sortOrder,
-					sub != null ? sub.getReasoning() : null);
+					sub != null ? sub.getReasoning() : null, sub != null ? sub.getSelectedOption() : null);
 		}).toList();
 
 		// Map dropdown options and calculate current group usage quota
